@@ -28,11 +28,12 @@ export function txnRow(item, onOpen) {
     h("span", { class: `row-icon ${tone}`.trim() }, icon(CHANNEL_ICON[t.channel] || "money")),
     h("span", { class: "row-main" },
       h("span", { class: "row-title", text: t.counterparty || "(이름 없음)" }),
-      h("span", { class: "row-sub", text: `${d ? formatTime(d) : ""} · ${CHANNEL_KO[t.channel] || t.channel}` }),
-      tags.length ? h("span", { class: "row-tags" }, tags) : null),
+      h("span", { class: "row-sub", text: `${d ? formatTime(d) : ""} · ${CHANNEL_KO[t.channel] || t.channel}` })),
     h("span", { class: "row-end" },
       h("span", { class: `row-amount${out ? "" : " in"}`, text: `${out ? "-" : "+"}${nf.format(t.amount)}원` }),
       h("span", { class: "row-sub", text: formatWon(t.amount) })),
+    // 표시(등급·이유)는 이름·금액 아래 한 줄을 통째로 쓴다(좁은 화면에서 금액 칸에 밀려 한두 글자씩 끊기지 않게)
+    tags.length ? h("span", { class: "row-tags full" }, tags) : null,
   ];
   const reasons = (item.signals || []).map((code) => signalLabel(item, code));
   const label = [t.counterparty || "이름 없음", d ? formatTime(d) : "", CHANNEL_KO[t.channel] || t.channel,

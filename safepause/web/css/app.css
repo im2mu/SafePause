@@ -529,3 +529,4 @@ details > summary { min-height: 2.4rem; display: flex; align-items: center; curs
 .card { padding-left: min(1.25rem, 5vw); padding-right: min(1.25rem, 5vw); }
 .row-icon svg, .choice-btn .ci svg { width: min(1.3rem, 6vw); height: min(1.3rem, 6vw); }
 .chip { max-width: 100%; }
+.row-tags.full { flex: 1 0 100%; margin-top: 0; padding-left: calc(min(2.4rem, 10vw) + min(.7rem, 3vw)); }
