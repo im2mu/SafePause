@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+eval_out/
+ci-eval/
+# 개인 데이터가 들 수 있는 파일(serve --home, analyze --out, 사용자가 둔 실제 거래내역)
+consent.json
+helpers.json
+transactions.json
+decisions.json
+notices.json
+serve.lock
+.sp-*
+file_eval_*
+*.csv
+!sample_data/*.csv

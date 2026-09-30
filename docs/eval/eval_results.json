@@ -1,0 +1,784 @@
+{
+  "kind": "comparison",
+  "data": "synthetic",
+  "note": "합성 데이터 기준, 실제 피해 데이터 검증 아님",
+  "intensity": "standard",
+  "personas": [
+    "worker",
+    "benefit",
+    "student"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "days": 120,
+  "baseline_days": 90,
+  "eval_days": 30,
+  "start": "2026-03-02",
+  "scenarios": [
+    "night_repeat_transfer",
+    "payee_surge",
+    "micropay_surge",
+    "new_merchant_high_value",
+    "multi_line_telecom"
+  ],
+  "settings": {
+    "night_start_hour": 23,
+    "night_end_hour": 6,
+    "window_short_days": 7,
+    "window_long_days": 30,
+    "baseline_days": 90,
+    "high_repeat_for_counseling": 3
+  },
+  "thresholds": {
+    "fused_escalate_score": 0.9,
+    "anomaly_alone_caution_score": 0.98,
+    "anomaly_mode_caution_score": 0.9,
+    "anomaly_mode_high_score": 0.98
+  },
+  "environment": {
+    "safepause": "0.1.0",
+    "python": "3.12.10",
+    "numpy": "2.5.3",
+    "scikit-learn": "1.9.1"
+  },
+  "mode_order": [
+    "fused",
+    "rules",
+    "anomaly"
+  ],
+  "modes": {
+    "fused": {
+      "kind": "synthetic",
+      "mode": "fused",
+      "data": "synthetic",
+      "note": "합성 데이터 기준, 실제 피해 데이터 검증 아님",
+      "intensity": "standard",
+      "personas": [
+        "worker",
+        "benefit",
+        "student"
+      ],
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "days": 120,
+      "baseline_days": 90,
+      "eval_days": 30,
+      "start": "2026-03-02",
+      "scenarios": [
+        "night_repeat_transfer",
+        "payee_surge",
+        "micropay_surge",
+        "new_merchant_high_value",
+        "multi_line_telecom"
+      ],
+      "settings": {
+        "night_start_hour": 23,
+        "night_end_hour": 6,
+        "window_short_days": 7,
+        "window_long_days": 30,
+        "baseline_days": 90,
+        "high_repeat_for_counseling": 3
+      },
+      "thresholds": {
+        "fused_escalate_score": 0.9,
+        "anomaly_alone_caution_score": 0.98,
+        "anomaly_mode_caution_score": 0.9,
+        "anomaly_mode_high_score": 0.98
+      },
+      "environment": {
+        "safepause": "0.1.0",
+        "python": "3.12.10",
+        "numpy": "2.5.3",
+        "scikit-learn": "1.9.1"
+      },
+      "n_cases": 60,
+      "scenario_recall": {
+        "night_repeat_transfer": {
+          "n": 60,
+          "caution": 60,
+          "high": 60,
+          "matched": 60,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "matched_rate": 1.0,
+          "txns_mean": 5.15,
+          "first_alert_position_mean": 1.0833,
+          "amount_before_first_alert_mean": 16500.0
+        },
+        "payee_surge": {
+          "n": 60,
+          "caution": 60,
+          "high": 60,
+          "matched": 60,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "matched_rate": 1.0,
+          "txns_mean": 5.3833,
+          "first_alert_position_mean": 2.45,
+          "amount_before_first_alert_mean": 163000.0
+        },
+        "micropay_surge": {
+          "n": 60,
+          "caution": 60,
+          "high": 60,
+          "matched": 60,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "matched_rate": 1.0,
+          "txns_mean": 11.5333,
+          "first_alert_position_mean": 3.6333,
+          "amount_before_first_alert_mean": 144783.3333
+        },
+        "new_merchant_high_value": {
+          "n": 60,
+          "caution": 60,
+          "high": 60,
+          "matched": 60,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "matched_rate": 1.0,
+          "txns_mean": 3.0,
+          "first_alert_position_mean": 1.0,
+          "amount_before_first_alert_mean": 0.0
+        },
+        "multi_line_telecom": {
+          "n": 60,
+          "caution": 60,
+          "high": 60,
+          "matched": 60,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "matched_rate": 1.0,
+          "txns_mean": 2.45,
+          "first_alert_position_mean": 1.0167,
+          "amount_before_first_alert_mean": 1593.0
+        }
+      },
+      "overall": {
+        "n": 300,
+        "caution": 300,
+        "high": 300,
+        "matched": 300,
+        "recall_caution": 1.0,
+        "recall_high": 1.0,
+        "matched_rate": 1.0,
+        "txns_mean": 5.5033,
+        "first_alert_position_mean": 1.8367,
+        "amount_before_first_alert_mean": 65175.2667
+      },
+      "normal": {
+        "n_txns": 2715,
+        "alerts": 50,
+        "high": 37,
+        "alert_rate": 0.018416,
+        "high_rate": 0.013628,
+        "monthly_alerts": 0.8333,
+        "monthly_high": 0.6167,
+        "spillover_alerts": 42,
+        "spillover_high": 35
+      },
+      "control": {
+        "n_txns": 2715,
+        "alerts": 11,
+        "high": 2,
+        "alert_rate": 0.004052,
+        "high_rate": 0.000737,
+        "monthly_alerts": 0.1833,
+        "monthly_high": 0.0333
+      },
+      "confusion": {
+        "caution": {
+          "tp": 1380,
+          "fp": 50,
+          "fn": 271,
+          "tn": 2665,
+          "precision": 0.965035,
+          "recall": 0.835857
+        },
+        "high": {
+          "tp": 1306,
+          "fp": 37,
+          "fn": 345,
+          "tn": 2678,
+          "precision": 0.97245,
+          "recall": 0.791036
+        }
+      },
+      "by_persona": {
+        "worker": {
+          "n_cases": 20,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "normal_alert_rate": 0.010091,
+          "normal_high_rate": 0.009082,
+          "monthly_alerts": 0.5,
+          "control_monthly_alerts": 0.0
+        },
+        "benefit": {
+          "n_cases": 20,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "normal_alert_rate": 0.01423,
+          "normal_high_rate": 0.011643,
+          "monthly_alerts": 0.55,
+          "control_monthly_alerts": 0.15
+        },
+        "student": {
+          "n_cases": 20,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "normal_alert_rate": 0.030494,
+          "normal_high_rate": 0.019979,
+          "monthly_alerts": 1.45,
+          "control_monthly_alerts": 0.4
+        }
+      },
+      "model_versions": [
+        "rules-v1+iforest-v1-100",
+        "rules-v1+iforest-v1-101",
+        "rules-v1+iforest-v1-104",
+        "rules-v1+iforest-v1-105",
+        "rules-v1+iforest-v1-106",
+        "rules-v1+iforest-v1-107",
+        "rules-v1+iforest-v1-108",
+        "rules-v1+iforest-v1-109",
+        "rules-v1+iforest-v1-111",
+        "rules-v1+iforest-v1-113",
+        "rules-v1+iforest-v1-114",
+        "rules-v1+iforest-v1-117",
+        "rules-v1+iforest-v1-118",
+        "rules-v1+iforest-v1-120",
+        "rules-v1+iforest-v1-121",
+        "rules-v1+iforest-v1-122",
+        "rules-v1+iforest-v1-123",
+        "rules-v1+iforest-v1-124",
+        "rules-v1+iforest-v1-125",
+        "rules-v1+iforest-v1-126",
+        "rules-v1+iforest-v1-127",
+        "rules-v1+iforest-v1-130",
+        "rules-v1+iforest-v1-131",
+        "rules-v1+iforest-v1-132",
+        "rules-v1+iforest-v1-135",
+        "rules-v1+iforest-v1-137",
+        "rules-v1+iforest-v1-139",
+        "rules-v1+iforest-v1-140",
+        "rules-v1+iforest-v1-142",
+        "rules-v1+iforest-v1-145",
+        "rules-v1+iforest-v1-146",
+        "rules-v1+iforest-v1-76",
+        "rules-v1+iforest-v1-80",
+        "rules-v1+iforest-v1-85",
+        "rules-v1+iforest-v1-87",
+        "rules-v1+iforest-v1-90",
+        "rules-v1+iforest-v1-91",
+        "rules-v1+iforest-v1-92",
+        "rules-v1+iforest-v1-93",
+        "rules-v1+iforest-v1-94",
+        "rules-v1+iforest-v1-97",
+        "rules-v1+iforest-v1-99"
+      ]
+    },
+    "rules": {
+      "kind": "synthetic",
+      "mode": "rules",
+      "data": "synthetic",
+      "note": "합성 데이터 기준, 실제 피해 데이터 검증 아님",
+      "intensity": "standard",
+      "personas": [
+        "worker",
+        "benefit",
+        "student"
+      ],
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "days": 120,
+      "baseline_days": 90,
+      "eval_days": 30,
+      "start": "2026-03-02",
+      "scenarios": [
+        "night_repeat_transfer",
+        "payee_surge",
+        "micropay_surge",
+        "new_merchant_high_value",
+        "multi_line_telecom"
+      ],
+      "settings": {
+        "night_start_hour": 23,
+        "night_end_hour": 6,
+        "window_short_days": 7,
+        "window_long_days": 30,
+        "baseline_days": 90,
+        "high_repeat_for_counseling": 3
+      },
+      "thresholds": {
+        "fused_escalate_score": 0.9,
+        "anomaly_alone_caution_score": 0.98,
+        "anomaly_mode_caution_score": 0.9,
+        "anomaly_mode_high_score": 0.98
+      },
+      "environment": {
+        "safepause": "0.1.0",
+        "python": "3.12.10",
+        "numpy": "2.5.3",
+        "scikit-learn": "1.9.1"
+      },
+      "n_cases": 60,
+      "scenario_recall": {
+        "night_repeat_transfer": {
+          "n": 60,
+          "caution": 60,
+          "high": 60,
+          "matched": 60,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "matched_rate": 1.0,
+          "txns_mean": 5.15,
+          "first_alert_position_mean": 1.4333,
+          "amount_before_first_alert_mean": 80333.3333
+        },
+        "payee_surge": {
+          "n": 60,
+          "caution": 60,
+          "high": 60,
+          "matched": 60,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "matched_rate": 1.0,
+          "txns_mean": 5.3833,
+          "first_alert_position_mean": 2.5833,
+          "amount_before_first_alert_mean": 177166.6667
+        },
+        "micropay_surge": {
+          "n": 60,
+          "caution": 60,
+          "high": 60,
+          "matched": 60,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "matched_rate": 1.0,
+          "txns_mean": 11.5333,
+          "first_alert_position_mean": 4.55,
+          "amount_before_first_alert_mean": 200700.0
+        },
+        "new_merchant_high_value": {
+          "n": 60,
+          "caution": 60,
+          "high": 60,
+          "matched": 60,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "matched_rate": 1.0,
+          "txns_mean": 3.0,
+          "first_alert_position_mean": 1.0,
+          "amount_before_first_alert_mean": 0.0
+        },
+        "multi_line_telecom": {
+          "n": 60,
+          "caution": 60,
+          "high": 60,
+          "matched": 60,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "matched_rate": 1.0,
+          "txns_mean": 2.45,
+          "first_alert_position_mean": 1.0167,
+          "amount_before_first_alert_mean": 1593.0
+        }
+      },
+      "overall": {
+        "n": 300,
+        "caution": 300,
+        "high": 300,
+        "matched": 300,
+        "recall_caution": 1.0,
+        "recall_high": 1.0,
+        "matched_rate": 1.0,
+        "txns_mean": 5.5033,
+        "first_alert_position_mean": 2.1167,
+        "amount_before_first_alert_mean": 91958.6
+      },
+      "normal": {
+        "n_txns": 2715,
+        "alerts": 41,
+        "high": 26,
+        "alert_rate": 0.015101,
+        "high_rate": 0.009576,
+        "monthly_alerts": 0.6833,
+        "monthly_high": 0.4333,
+        "spillover_alerts": 39,
+        "spillover_high": 26
+      },
+      "control": {
+        "n_txns": 2715,
+        "alerts": 2,
+        "high": 0,
+        "alert_rate": 0.000737,
+        "high_rate": 0.0,
+        "monthly_alerts": 0.0333,
+        "monthly_high": 0.0
+      },
+      "confusion": {
+        "caution": {
+          "tp": 1316,
+          "fp": 41,
+          "fn": 335,
+          "tn": 2674,
+          "precision": 0.969786,
+          "recall": 0.797093
+        },
+        "high": {
+          "tp": 918,
+          "fp": 26,
+          "fn": 733,
+          "tn": 2689,
+          "precision": 0.972458,
+          "recall": 0.556027
+        }
+      },
+      "by_persona": {
+        "worker": {
+          "n_cases": 20,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "normal_alert_rate": 0.010091,
+          "normal_high_rate": 0.007064,
+          "monthly_alerts": 0.5,
+          "control_monthly_alerts": 0.0
+        },
+        "benefit": {
+          "n_cases": 20,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "normal_alert_rate": 0.011643,
+          "normal_high_rate": 0.005175,
+          "monthly_alerts": 0.45,
+          "control_monthly_alerts": 0.1
+        },
+        "student": {
+          "n_cases": 20,
+          "recall_caution": 1.0,
+          "recall_high": 1.0,
+          "normal_alert_rate": 0.023134,
+          "normal_high_rate": 0.015773,
+          "monthly_alerts": 1.1,
+          "control_monthly_alerts": 0.0
+        }
+      },
+      "model_versions": [
+        "rules-v1"
+      ]
+    },
+    "anomaly": {
+      "kind": "synthetic",
+      "mode": "anomaly",
+      "data": "synthetic",
+      "note": "합성 데이터 기준, 실제 피해 데이터 검증 아님",
+      "intensity": "standard",
+      "personas": [
+        "worker",
+        "benefit",
+        "student"
+      ],
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "days": 120,
+      "baseline_days": 90,
+      "eval_days": 30,
+      "start": "2026-03-02",
+      "scenarios": [
+        "night_repeat_transfer",
+        "payee_surge",
+        "micropay_surge",
+        "new_merchant_high_value",
+        "multi_line_telecom"
+      ],
+      "settings": {
+        "night_start_hour": 23,
+        "night_end_hour": 6,
+        "window_short_days": 7,
+        "window_long_days": 30,
+        "baseline_days": 90,
+        "high_repeat_for_counseling": 3
+      },
+      "thresholds": {
+        "fused_escalate_score": 0.9,
+        "anomaly_alone_caution_score": 0.98,
+        "anomaly_mode_caution_score": 0.9,
+        "anomaly_mode_high_score": 0.98
+      },
+      "environment": {
+        "safepause": "0.1.0",
+        "python": "3.12.10",
+        "numpy": "2.5.3",
+        "scikit-learn": "1.9.1"
+      },
+      "n_cases": 60,
+      "scenario_recall": {
+        "night_repeat_transfer": {
+          "n": 60,
+          "caution": 60,
+          "high": 57,
+          "matched": 0,
+          "recall_caution": 1.0,
+          "recall_high": 0.95,
+          "matched_rate": 0.0,
+          "txns_mean": 5.15,
+          "first_alert_position_mean": 1.0,
+          "amount_before_first_alert_mean": 0.0
+        },
+        "payee_surge": {
+          "n": 60,
+          "caution": 60,
+          "high": 25,
+          "matched": 0,
+          "recall_caution": 1.0,
+          "recall_high": 0.416667,
+          "matched_rate": 0.0,
+          "txns_mean": 5.3833,
+          "first_alert_position_mean": 1.3167,
+          "amount_before_first_alert_mean": 31833.3333
+        },
+        "micropay_surge": {
+          "n": 60,
+          "caution": 60,
+          "high": 43,
+          "matched": 0,
+          "recall_caution": 1.0,
+          "recall_high": 0.716667,
+          "matched_rate": 0.0,
+          "txns_mean": 11.5333,
+          "first_alert_position_mean": 1.3333,
+          "amount_before_first_alert_mean": 11700.0
+        },
+        "new_merchant_high_value": {
+          "n": 60,
+          "caution": 60,
+          "high": 18,
+          "matched": 0,
+          "recall_caution": 1.0,
+          "recall_high": 0.3,
+          "matched_rate": 0.0,
+          "txns_mean": 3.0,
+          "first_alert_position_mean": 1.0333,
+          "amount_before_first_alert_mean": 4916.6667
+        },
+        "multi_line_telecom": {
+          "n": 60,
+          "caution": 60,
+          "high": 21,
+          "matched": 0,
+          "recall_caution": 1.0,
+          "recall_high": 0.35,
+          "matched_rate": 0.0,
+          "txns_mean": 2.45,
+          "first_alert_position_mean": 1.0833,
+          "amount_before_first_alert_mean": 4183.3333
+        }
+      },
+      "overall": {
+        "n": 300,
+        "caution": 300,
+        "high": 164,
+        "matched": 0,
+        "recall_caution": 1.0,
+        "recall_high": 0.546667,
+        "matched_rate": 0.0,
+        "txns_mean": 5.5033,
+        "first_alert_position_mean": 1.1533,
+        "amount_before_first_alert_mean": 10526.6667
+      },
+      "normal": {
+        "n_txns": 2715,
+        "alerts": 263,
+        "high": 9,
+        "alert_rate": 0.096869,
+        "high_rate": 0.003315,
+        "monthly_alerts": 4.3833,
+        "monthly_high": 0.15,
+        "spillover_alerts": 57,
+        "spillover_high": 3
+      },
+      "control": {
+        "n_txns": 2715,
+        "alerts": 216,
+        "high": 9,
+        "alert_rate": 0.079558,
+        "high_rate": 0.003315,
+        "monthly_alerts": 3.6,
+        "monthly_high": 0.15
+      },
+      "confusion": {
+        "caution": {
+          "tp": 1573,
+          "fp": 263,
+          "fn": 78,
+          "tn": 2452,
+          "precision": 0.856754,
+          "recall": 0.952756
+        },
+        "high": {
+          "tp": 623,
+          "fp": 9,
+          "fn": 1028,
+          "tn": 2706,
+          "precision": 0.985759,
+          "recall": 0.377347
+        }
+      },
+      "by_persona": {
+        "worker": {
+          "n_cases": 20,
+          "recall_caution": 1.0,
+          "recall_high": 0.43,
+          "normal_alert_rate": 0.082745,
+          "normal_high_rate": 0.0,
+          "monthly_alerts": 4.1,
+          "control_monthly_alerts": 3.3
+        },
+        "benefit": {
+          "n_cases": 20,
+          "recall_caution": 1.0,
+          "recall_high": 0.4,
+          "normal_alert_rate": 0.103493,
+          "normal_high_rate": 0.002587,
+          "monthly_alerts": 4.0,
+          "control_monthly_alerts": 3.3
+        },
+        "student": {
+          "n_cases": 20,
+          "recall_caution": 1.0,
+          "recall_high": 0.81,
+          "normal_alert_rate": 0.106204,
+          "normal_high_rate": 0.007361,
+          "monthly_alerts": 5.05,
+          "control_monthly_alerts": 4.2
+        }
+      },
+      "model_versions": [
+        "iforest-v1-100",
+        "iforest-v1-101",
+        "iforest-v1-104",
+        "iforest-v1-105",
+        "iforest-v1-106",
+        "iforest-v1-107",
+        "iforest-v1-108",
+        "iforest-v1-109",
+        "iforest-v1-111",
+        "iforest-v1-113",
+        "iforest-v1-114",
+        "iforest-v1-117",
+        "iforest-v1-118",
+        "iforest-v1-120",
+        "iforest-v1-121",
+        "iforest-v1-122",
+        "iforest-v1-123",
+        "iforest-v1-124",
+        "iforest-v1-125",
+        "iforest-v1-126",
+        "iforest-v1-127",
+        "iforest-v1-130",
+        "iforest-v1-131",
+        "iforest-v1-132",
+        "iforest-v1-135",
+        "iforest-v1-137",
+        "iforest-v1-139",
+        "iforest-v1-140",
+        "iforest-v1-142",
+        "iforest-v1-145",
+        "iforest-v1-146",
+        "iforest-v1-76",
+        "iforest-v1-80",
+        "iforest-v1-85",
+        "iforest-v1-87",
+        "iforest-v1-90",
+        "iforest-v1-91",
+        "iforest-v1-92",
+        "iforest-v1-93",
+        "iforest-v1-94",
+        "iforest-v1-97",
+        "iforest-v1-99"
+      ]
+    }
+  },
+  "command": "python -m safepause eval --seeds 20 --out docs/eval"
+}

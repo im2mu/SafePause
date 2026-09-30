@@ -1,0 +1,58 @@
+# SafePause 테스트: 저장소에 올릴 때마다 pytest와 명령행 점검을 돌린다.
+name: test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    name: pytest (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.12"]
+    env:
+      PYTHONIOENCODING: utf-8
+      SAFEPAUSE_HOME: ${{ github.workspace }}/.ci-home
+    # Windows 러너의 기본 셸(pwsh)은 여러 줄 run에서 마지막 명령의 종료 코드만 본다.
+    # bash(-e)로 돌려 어느 한 줄이라도 실패하면 단계가 실패하게 한다(Windows 러너에도 Git Bash가 있음).
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt "pytest>=8" "httpx>=0.27,<0.28"
+
+      - name: pytest
+        run: python -m pytest -q
+
+      - name: 명령행 점검(demo, 짧은 평가)
+        run: |
+          python -m safepause demo
+          python -m safepause eval --seeds 2 --out ci-eval
+          python -m safepause analyze --file sample_data/bank_export_example.csv
+
+      - name: 평가 보고서 보관
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: ci-eval/

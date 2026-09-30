@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>SafePause 안전 정지</title>
+  <link rel="icon" href="/static/icons/stop.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<!-- spellcheck="false": 브라우저의 온라인 맞춤법 검사가 받는 사람·계좌번호 글을 밖으로 보내지 않게(S35) -->
+<body spellcheck="false">
+  <a class="skip-link" href="#main">본문으로 바로 가기</a>
+
+  <header class="top">
+    <div class="brand">
+      <span class="icon icon-lg" data-icon="stop"></span>
+      <div>
+        <h1>SafePause</h1>
+        <p class="tagline">돈을 보내기 전에 잠깐 멈춰요. 결정은 내가 해요.</p>
+      </div>
+    </div>
+    <p class="practice-banner" role="note">
+      <span class="icon" data-icon="warning"></span>
+      <strong>연습 화면이에요. 실제로 돈이 나가지 않아요.</strong>
+    </p>
+    <p id="status-line" class="status-line" aria-live="polite"></p>
+  </header>
+
+  <nav class="tabs-wrap" aria-label="화면 고르기">
+    <div role="tablist" id="tabs" class="tabs" aria-label="SafePause 화면">
+      <button type="button" role="tab" id="tab-consent" aria-controls="panel-consent" data-panel="consent">
+        <span class="icon" data-icon="person"></span><span>① 동의</span>
+      </button>
+      <button type="button" role="tab" id="tab-txns" aria-controls="panel-txns" data-panel="txns">
+        <span class="icon" data-icon="money"></span><span>② 내 거래</span>
+      </button>
+      <button type="button" role="tab" id="tab-practice" aria-controls="panel-practice" data-panel="practice">
+        <span class="icon" data-icon="stop"></span><span>③ 보내기 연습</span>
+      </button>
+      <button type="button" role="tab" id="tab-cards" aria-controls="panel-cards" data-panel="cards">
+        <span class="icon" data-icon="question"></span><span>④ 알림 카드</span>
+      </button>
+      <button type="button" role="tab" id="tab-helpers" aria-controls="panel-helpers" data-panel="helpers">
+        <span class="icon" data-icon="helper"></span><span>⑤ 조력자</span>
+      </button>
+      <button type="button" role="tab" id="tab-eval" aria-controls="panel-eval" data-panel="eval">
+        <span class="icon" data-icon="check"></span><span>⑥ 성능 확인</span>
+      </button>
+      <button type="button" role="tab" id="tab-wipe" aria-controls="panel-wipe" data-panel="wipe">
+        <span class="icon" data-icon="warning"></span><span>⑦ 내 데이터 지우기</span>
+      </button>
+    </div>
+  </nav>
+
+  <main id="main" tabindex="-1">
+
+    <!-- ① 동의 -->
+    <section role="tabpanel" id="panel-consent" aria-labelledby="tab-consent" tabindex="0" hidden>
+      <h2>① 동의: 내가 정해요</h2>
+      <p class="lead">SafePause가 무엇을 해도 되는지 내가 정해요.</p>
+      <p class="lead">언제든지 끌 수 있어요. 끄면 바로 멈춰요.</p>
+
+      <ul class="consent-list">
+        <li class="consent-item">
+          <span class="icon icon-lg" data-icon="money"></span>
+          <div class="consent-text">
+            <h3 id="c-monitoring-title">거래 살펴보기</h3>
+            <div id="c-monitoring-desc">
+              <p>내가 돈을 쓰고 보내는 것을 살펴봐요.</p>
+              <p>살펴보는 일은 이 컴퓨터 안에서만 해요.</p>
+            </div>
+          </div>
+          <button type="button" class="switch" role="switch" aria-checked="false" data-consent="monitoring"
+                  aria-labelledby="c-monitoring-title" aria-describedby="c-monitoring-desc">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="switch-text">꺼짐</span>
+          </button>
+        </li>
+        <li class="consent-item">
+          <span class="icon icon-lg" data-icon="helper"></span>
+          <div class="consent-text">
+            <h3 id="c-helper-title">조력자에게 알리기</h3>
+            <div id="c-helper-desc">
+              <p>위험이 클 때 내가 고른 조력자에게 알려요.</p>
+              <p>누구에게, 언제 알릴지는 ⑤ 조력자에서 정해요.</p>
+              <p>이 스위치를 꺼도 직접 물어볼 수 있어요.</p>
+              <p>카드에서 '조력자에게 물어볼래요'를 고를 때예요.</p>
+            </div>
+          </div>
+          <button type="button" class="switch" role="switch" aria-checked="false" data-consent="helper_alerts"
+                  aria-labelledby="c-helper-title" aria-describedby="c-helper-desc">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="switch-text">꺼짐</span>
+          </button>
+        </li>
+        <li class="consent-item">
+          <span class="icon icon-lg" data-icon="person"></span>
+          <div class="consent-text">
+            <h3 id="c-counsel-title">상담하는 곳 알려 주기</h3>
+            <div id="c-counsel-desc">
+              <p>상담하는 곳을 알려 줘요.</p>
+              <p>지역발달장애인지원센터, 장애인권익옹호기관이에요.</p>
+              <p>이럴 때 알려 줘요.</p>
+              <ul class="bullets">
+                <li>꼭 확인할 일이 30일 동안 3번 이상 생길 때</li>
+                <li>알릴 조력자가 모두 돈을 받는 사람일 때</li>
+              </ul>
+              <p>보내지 않고 멈춘 것도 세요.</p>
+            </div>
+          </div>
+          <button type="button" class="switch" role="switch" aria-checked="false" data-consent="counseling_referral"
+                  aria-labelledby="c-counsel-title" aria-describedby="c-counsel-desc">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="switch-text">꺼짐</span>
+          </button>
+        </li>
+      </ul>
+
+      <fieldset class="choice-group">
+        <legend>누가 동의했나요?</legend>
+        <label class="radio-card"><input type="radio" name="given_by" value="self" checked> <span>나(본인)</span></label>
+        <label class="radio-card"><input type="radio" name="given_by" value="legal_representative"> <span>법정대리인</span></label>
+      </fieldset>
+      <p id="consent-updated" class="small"></p>
+      <div id="consent-status" class="status" aria-live="polite"></div>
+    </section>
+
+    <!-- ② 내 거래 -->
+    <section role="tabpanel" id="panel-txns" aria-labelledby="tab-txns" tabindex="0" hidden>
+      <h2>② 내 거래</h2>
+
+      <div class="two-col">
+        <section class="box" aria-labelledby="sample-title">
+          <h3 id="sample-title"><span class="icon" data-icon="person"></span> 연습용 거래 불러오기</h3>
+          <p>가상의 사람 거래예요. 진짜 사람의 거래가 아니에요.</p>
+          <label for="sample-persona">누구의 거래?</label>
+          <select id="sample-persona">
+            <option value="worker">가상 근로자 (월급)</option>
+            <option value="benefit">가상 복지급여 수급자</option>
+            <option value="student">가상 학생 (용돈)</option>
+          </select>
+          <label for="sample-seed">번호 (같은 번호면 같은 거래가 나와요)</label>
+          <input id="sample-seed" type="number" inputmode="numeric" min="0" max="1000000" value="1">
+          <label class="check-row"><input type="checkbox" id="sample-scenarios" checked> <span>걱정되는 거래 섞기</span></label>
+          <button type="button" id="btn-sample" class="btn primary">
+            <span class="icon" data-icon="check"></span><span>불러오기</span>
+          </button>
+        </section>
+
+        <section class="box" aria-labelledby="upload-title">
+          <h3 id="upload-title"><span class="icon" data-icon="money"></span> 내 거래내역 파일 올리기</h3>
+          <p>은행 등에서 내려받은 CSV 파일을 올려요. 파일은 이 컴퓨터 밖으로 나가지 않아요.</p>
+          <p class="small">은행 파일 모양은 따로 확인하지 못했어요. 열 이름을 알아보지 못하면 아래 '열 이름 직접 알려 주기'를 써 주세요.</p>
+          <label for="upload-file">CSV 파일 고르기</label>
+          <input id="upload-file" type="file" accept=".csv,text/csv">
+          <details>
+            <summary>열 이름 직접 알려 주기 (고급)</summary>
+            <label for="upload-mapping">열 이름 지정 (JSON)</label>
+            <textarea id="upload-mapping" rows="4" spellcheck="false" autocapitalize="off" autocorrect="off"
+                      placeholder='{"datetime": "거래일시", "out_amount": "출금액", "in_amount": "입금액", "counterparty": "내용", "memo": "적요"}'></textarea>
+          </details>
+          <button type="button" id="btn-upload" class="btn primary">
+            <span class="icon" data-icon="check"></span><span>올리기</span>
+          </button>
+          <div id="upload-report" class="report" aria-live="polite"></div>
+        </section>
+      </div>
+
+      <div id="data-status" class="status" aria-live="polite"></div>
+      <div id="data-summary" class="summary" aria-live="polite"></div>
+
+      <div class="filters" role="group" aria-label="거래 보기">
+        <button type="button" class="btn filter" data-filter="all" aria-pressed="true">전체</button>
+        <button type="button" class="btn filter" data-filter="caution" aria-pressed="false">
+          <span class="icon" data-icon="warning"></span><span>확인할 것만</span>
+        </button>
+        <button type="button" class="btn filter" data-filter="high" aria-pressed="false">
+          <span class="icon" data-icon="stop"></span><span>꼭 확인할 것만</span>
+        </button>
+      </div>
+      <div id="txn-status" class="status" aria-live="polite"></div>
+      <ol id="txn-list" class="txn-list" aria-label="거래 목록 (최근 것부터)"></ol>
+      <button type="button" id="btn-more" class="btn" hidden>더 보기</button>
+    </section>
+
+    <!-- ③ 보내기 연습 (안전 정지) -->
+    <section role="tabpanel" id="panel-practice" aria-labelledby="tab-practice" tabindex="0" hidden>
+      <h2>③ 보내기 연습</h2>
+      <div class="notice-strong" role="note">
+        <span class="icon icon-lg" data-icon="stop"></span>
+        <div>
+          <p><strong>연습 화면이에요. 실제로 돈이 나가지 않아요.</strong></p>
+          <p>SafePause는 막지 않아요. 걱정되면 한 번 더 물어볼 뿐이에요. 결정은 내가 해요.</p>
+        </div>
+      </div>
+
+      <form id="pay-form" class="pay-form" novalidate>
+        <label for="pay-to">받는 사람 (또는 가게)</label>
+        <input id="pay-to" name="to" type="text" list="payee-list" autocomplete="off" maxlength="40" required
+               spellcheck="false" autocapitalize="off" autocorrect="off">
+        <datalist id="payee-list"></datalist>
+
+        <label for="pay-amount">금액 (원)</label>
+        <input id="pay-amount" name="amount" type="text" inputmode="numeric" autocomplete="off" maxlength="14" required
+               spellcheck="false"
+               aria-describedby="pay-amount-easy">
+        <p id="pay-amount-easy" class="amount-easy" aria-live="polite"></p>
+
+        <fieldset class="choice-group">
+          <legend>어떻게 보내요?</legend>
+          <label class="radio-card"><input type="radio" name="channel" value="transfer" checked>
+            <span class="icon" data-icon="person"></span><span>계좌로 보내기</span></label>
+          <label class="radio-card"><input type="radio" name="channel" value="card">
+            <span class="icon" data-icon="store"></span><span>가게에서 결제</span></label>
+          <label class="radio-card"><input type="radio" name="channel" value="micropay">
+            <span class="icon" data-icon="phone"></span><span>휴대폰 결제</span></label>
+        </fieldset>
+
+        <fieldset class="choice-group">
+          <legend>언제 보내요? (연습)</legend>
+          <label class="radio-card"><input type="radio" name="time" value="" checked><span>지금 시각</span></label>
+          <label class="radio-card"><input type="radio" name="time" value="15:00"><span>오후 3시</span></label>
+          <label class="radio-card"><input type="radio" name="time" value="23:00">
+            <span class="icon" data-icon="moon"></span><span>밤 11시</span></label>
+          <label class="radio-card"><input type="radio" name="time" value="02:00">
+            <span class="icon" data-icon="moon"></span><span>새벽 2시</span></label>
+        </fieldset>
+
+        <details>
+          <summary>계좌번호 적기 (없으면 그냥 두어요)</summary>
+          <label for="pay-to-id">계좌번호</label>
+          <input id="pay-to-id" name="to_id" type="text" autocomplete="off" maxlength="60"
+                 spellcheck="false" autocapitalize="off" autocorrect="off">
+        </details>
+
+        <p id="pay-error" class="error" role="alert" hidden></p>
+        <button type="submit" id="btn-pay" class="btn primary big">
+          <span class="icon" data-icon="money"></span><span>보내기</span>
+        </button>
+      </form>
+
+      <div class="examples" role="group" aria-labelledby="examples-title">
+        <p id="examples-title"><strong>예시로 해 보기</strong> (눌러서 칸을 채워요)</p>
+        <button type="button" class="btn" data-example="safe">엄마에게 5만 원 (오후 3시)</button>
+        <button type="button" class="btn" data-example="night">김*호에게 30만 원 (새벽 2시)</button>
+        <button type="button" class="btn" data-example="store">처음 가는 가게에서 80만 원 결제</button>
+      </div>
+
+      <p id="speech-note" class="small" hidden>이 컴퓨터에 한국어 음성이 없어 '소리로 듣기' 버튼을 숨겼어요. 인터넷으로 글을 보내는 음성은 쓰지 않아요.</p>
+      <div id="pay-result" class="result" tabindex="-1" hidden></div>
+    </section>
+
+    <!-- ④ 알림 카드 -->
+    <section role="tabpanel" id="panel-cards" aria-labelledby="tab-cards" tabindex="0" hidden>
+      <h2>④ 알림 카드</h2>
+      <p class="lead">SafePause가 걱정했던 거래예요. 최근 것부터 보여요.</p>
+      <div id="cards-status" class="status" aria-live="polite"></div>
+      <div id="cards-list" class="cards-list"></div>
+
+      <h3>내가 고른 것</h3>
+      <p class="small">보내기 연습에서 내가 고른 것을 기록해요.</p>
+      <div id="decisions-status" class="status" aria-live="polite"></div>
+      <ol id="decisions-list" class="plain-list"></ol>
+    </section>
+
+    <!-- ⑤ 조력자 -->
+    <section role="tabpanel" id="panel-helpers" aria-labelledby="tab-helpers" tabindex="0" hidden>
+      <h2>⑤ 조력자</h2>
+      <p class="lead">조력자는 내가 믿는 사람이에요. 누구에게, 언제 알릴지 내가 정해요.</p>
+      <div class="notice" role="note">
+        <span class="icon" data-icon="helper"></span>
+        <div>
+          <p>조력자가 돈을 받는 사람이면 그 조력자에게는 알리지 않아요.</p>
+          <p>다른 조력자에게만 알려요.</p>
+          <p>알릴 조력자가 없을 때도 있어요.</p>
+          <p>그때는 상담하는 곳을 알려 줘요.</p>
+          <p>① 동의에서 '상담하는 곳 알려 주기'를 켰을 때만이에요.</p>
+        </div>
+      </div>
+      <p id="helpers-consent-note" class="small"></p>
+
+      <div id="helpers-list" class="helpers-list"></div>
+      <datalist id="relation-options">
+        <option value="가족"></option>
+        <option value="지역발달장애인지원센터 전담 인력"></option>
+        <option value="친구"></option>
+        <option value="이웃"></option>
+      </datalist>
+      <div class="row">
+        <button type="button" id="btn-add-helper" class="btn">
+          <span class="icon" data-icon="person"></span><span>조력자 더하기</span>
+        </button>
+        <button type="button" id="btn-save-helpers" class="btn primary">
+          <span class="icon" data-icon="check"></span><span>저장하기</span>
+        </button>
+      </div>
+      <div id="helpers-status" class="status" aria-live="polite"></div>
+
+      <h3>조력자 알림 기록</h3>
+      <p id="delivery-note" class="small">알림은 기록만 해요. 이 컴퓨터에 적어 두고, 문자나 메일은 보내지 않아요.</p>
+      <ol id="notices-list" class="plain-list"></ol>
+    </section>
+
+    <!-- ⑥ 성능 확인 -->
+    <section role="tabpanel" id="panel-eval" aria-labelledby="tab-eval" tabindex="0" hidden>
+      <h2>⑥ 성능 확인</h2>
+      <p class="notice-strong" role="note"><strong>합성 데이터 기준, 실제 피해 데이터 검증 아님</strong></p>
+      <p>가상의 거래에 걱정되는 거래를 섞어서, SafePause가 얼마나 찾는지 확인해요.</p>
+
+      <div class="box">
+        <label for="eval-seeds">반복 횟수 (seed 수)</label>
+        <select id="eval-seeds">
+          <option value="1">1번 (빠름)</option>
+          <option value="3" selected>3번</option>
+          <option value="5">5번</option>
+          <option value="10">10번 (느림)</option>
+        </select>
+        <fieldset class="choice-group">
+          <legend>어떤 방식으로 확인할까요?</legend>
+          <label class="check-row"><input type="checkbox" name="eval-mode" value="fused" checked> <span>규칙 + AI 함께 (fused)</span></label>
+          <label class="check-row"><input type="checkbox" name="eval-mode" value="rules"> <span>규칙만 (rules)</span></label>
+          <label class="check-row"><input type="checkbox" name="eval-mode" value="anomaly"> <span>AI만 (anomaly)</span></label>
+        </fieldset>
+        <button type="button" id="btn-eval" class="btn primary">
+          <span class="icon" data-icon="check"></span><span>확인 시작</span>
+        </button>
+      </div>
+      <div id="eval-status" class="status" aria-live="polite"></div>
+      <div id="eval-result" class="eval-result"></div>
+
+      <h3>내 거래로 확인</h3>
+      <p>저장된 거래를 모두 평소 거래로 보고, 알림이 얼마나 나오는지 세어요. 잘못 알리는 정도를 어림하는 방법이에요.</p>
+      <button type="button" id="btn-eval-mine" class="btn">
+        <span class="icon" data-icon="money"></span><span>내 거래로 확인</span>
+      </button>
+      <div id="eval-mine-status" class="status" aria-live="polite"></div>
+      <div id="eval-mine-result" class="eval-result"></div>
+    </section>
+
+    <!-- ⑦ 내 데이터 지우기 -->
+    <section role="tabpanel" id="panel-wipe" aria-labelledby="tab-wipe" tabindex="0" hidden>
+      <h2>⑦ 내 데이터 지우기</h2>
+      <p class="lead">이 컴퓨터에 저장한 것을 모두 지워요. 지우면 되돌릴 수 없어요.</p>
+      <ul class="bullets">
+        <li>동의한 것</li>
+        <li>조력자</li>
+        <li>거래</li>
+        <li>내가 고른 것</li>
+        <li>조력자 알림 기록</li>
+      </ul>
+      <button type="button" id="btn-wipe" class="btn danger big">
+        <span class="icon" data-icon="warning"></span><span>모두 지우기</span>
+      </button>
+      <div id="wipe-confirm" class="confirm" role="alertdialog" aria-labelledby="wipe-confirm-text" hidden>
+        <p id="wipe-confirm-text"><strong>정말 모두 지울까요? 되돌릴 수 없어요.</strong></p>
+        <div class="row">
+          <button type="button" id="btn-wipe-yes" class="btn danger">네, 지울래요</button>
+          <button type="button" id="btn-wipe-no" class="btn">아니요</button>
+        </div>
+      </div>
+      <div id="wipe-status" class="status" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <!-- 안전 정지 카드 -->
+  <div id="card-modal" class="modal" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="card-title" aria-describedby="card-body">
+      <p id="card-level" class="level-badge"></p>
+      <div id="card-pictos" class="pictos" aria-hidden="true"></div>
+      <h2 id="card-title" tabindex="-1"></h2>
+      <div id="card-body">
+        <ul id="card-lines" class="card-lines"></ul>
+        <p id="card-question" class="question"></p>
+      </div>
+      <p id="card-helper-note" class="helper-note" hidden></p>
+      <p id="card-error" class="error" role="alert" hidden></p>
+      <button type="button" id="card-close" class="btn" hidden>
+        <span class="icon" data-icon="stop"></span><span>닫기</span>
+      </button>
+      <button type="button" id="card-speak" class="btn speak">
+        <span class="icon" data-icon="ear"></span><span>소리로 듣기</span>
+      </button>
+      <div id="card-choices" class="choices" role="group" aria-label="고르기"></div>
+      <div id="card-ask" class="ask-step" role="group" aria-labelledby="card-ask-title" hidden></div>
+      <p class="small">연습 화면이에요. 실제로 돈이 나가지 않아요.</p>
+    </div>
+  </div>
+
+  <div id="announcer" class="sr-only" aria-live="assertive"></div>
+  <noscript><p class="noscript">이 화면은 자바스크립트가 켜져 있어야 해요.</p></noscript>
+</body>
+</html>

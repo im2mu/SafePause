@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "safepause"
+version = "0.1.0"
+description = "지원의사결정 기반 발달장애인 경제적 착취 사전 예방 AI (2026 AI 라이프 솔루션 챌린지 프로토타입)"
+readme = "README.md"
+requires-python = ">=3.10"
+# requirements.txt와 같은 범위(확인하지 않은 다음 주 버전은 받지 않음). test_packaging이 두 파일을 맞춰 본다.
+dependencies = [
+  "numpy>=1.26,<3",
+  "scikit-learn>=1.4,<2",
+  "fastapi>=0.110,<1",
+  "uvicorn>=0.29,<1",
+  "python-multipart>=0.0.9,<1",
+  "pydantic>=2,<3",
+]
+
+[project.optional-dependencies]
+# httpx 0.28은 fastapi 0.110(starlette 0.36)의 TestClient와 맞지 않아 0.27로 둔다
+test = ["pytest>=8", "httpx>=0.27,<0.28"]
+
+[project.scripts]
+safepause = "safepause.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["safepause*"]
+
+[tool.setuptools.package-data]
+"safepause.server" = ["static/*", "static/icons/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# 패키지를 설치하지 않은 환경에서 `pytest -q`만 쳐도 safepause를 찾도록 저장소 루트를 경로에 넣는다
+pythonpath = ["."]
