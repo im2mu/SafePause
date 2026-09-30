@@ -1,0 +1,264 @@
+{
+ "note": "제출 성과보고서 수치의 원자료(docs/eval/eval_results_holdout.json, eval_results_subtle_holdout.json)에서 뽑은 값. 합성 데이터 기준, 실제 피해 데이터 검증 아님.",
+ "seeds": "21~40",
+ "sets": {
+  "standard": {
+   "intensity": "standard",
+   "n_cases": 60,
+   "modes": {
+    "fused": {
+     "scenario_caution": 1.0,
+     "scenario_high": 1.0,
+     "scenario_caution_n": 300,
+     "scenario_high_n": 300,
+     "scenario_n": 300,
+     "txn_high_recall": 0.784848,
+     "txn_caution_recall": 0.835152,
+     "normal_alert_rate": 0.014498,
+     "normal_high_rate": 0.010511,
+     "control_monthly_alerts": 0.2333,
+     "control_monthly_high": 0.1167,
+     "amount_before_first_alert_mean": 67030.9,
+     "by_scenario": {
+      "night_repeat_transfer": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      },
+      "payee_surge": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      },
+      "micropay_surge": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      },
+      "new_merchant_high_value": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      },
+      "multi_line_telecom": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      }
+     }
+    },
+    "rules": {
+     "scenario_caution": 1.0,
+     "scenario_high": 1.0,
+     "scenario_caution_n": 300,
+     "scenario_high_n": 300,
+     "scenario_n": 300,
+     "txn_high_recall": 0.55697,
+     "txn_caution_recall": 0.791515,
+     "normal_alert_rate": 0.011961,
+     "normal_high_rate": 0.007249,
+     "control_monthly_alerts": 0.1167,
+     "control_monthly_high": 0.0,
+     "amount_before_first_alert_mean": 95770.9,
+     "by_scenario": {
+      "night_repeat_transfer": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      },
+      "payee_surge": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      },
+      "micropay_surge": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      },
+      "new_merchant_high_value": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      },
+      "multi_line_telecom": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      }
+     }
+    },
+    "anomaly": {
+     "scenario_caution": 1.0,
+     "scenario_high": 0.53,
+     "scenario_caution_n": 300,
+     "scenario_high_n": 159,
+     "scenario_n": 300,
+     "txn_high_recall": 0.387273,
+     "txn_caution_recall": 0.973939,
+     "normal_alert_rate": 0.099311,
+     "normal_high_rate": 0.003262,
+     "control_monthly_alerts": 3.6167,
+     "control_monthly_high": 0.1167,
+     "amount_before_first_alert_mean": 5677.6667,
+     "by_scenario": {
+      "night_repeat_transfer": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      },
+      "payee_surge": {
+       "caution": 60,
+       "high": 23,
+       "n": 60
+      },
+      "micropay_surge": {
+       "caution": 60,
+       "high": 40,
+       "n": 60
+      },
+      "new_merchant_high_value": {
+       "caution": 60,
+       "high": 12,
+       "n": 60
+      },
+      "multi_line_telecom": {
+       "caution": 60,
+       "high": 24,
+       "n": 60
+      }
+     }
+    }
+   }
+  },
+  "subtle": {
+   "intensity": "subtle",
+   "n_cases": 60,
+   "modes": {
+    "fused": {
+     "scenario_caution": 0.743333,
+     "scenario_high": 0.63,
+     "scenario_caution_n": 223,
+     "scenario_high_n": 189,
+     "scenario_n": 300,
+     "txn_high_recall": 0.416667,
+     "txn_caution_recall": 0.538333,
+     "normal_alert_rate": 0.007974,
+     "normal_high_rate": 0.005437,
+     "control_monthly_alerts": 0.2333,
+     "control_monthly_high": 0.1167,
+     "amount_before_first_alert_mean": 24704.0359,
+     "by_scenario": {
+      "night_repeat_transfer": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      },
+      "payee_surge": {
+       "caution": 5,
+       "high": 0,
+       "n": 60
+      },
+      "micropay_surge": {
+       "caution": 41,
+       "high": 17,
+       "n": 60
+      },
+      "new_merchant_high_value": {
+       "caution": 60,
+       "high": 58,
+       "n": 60
+      },
+      "multi_line_telecom": {
+       "caution": 57,
+       "high": 54,
+       "n": 60
+      }
+     }
+    },
+    "rules": {
+     "scenario_caution": 0.646667,
+     "scenario_high": 0.21,
+     "scenario_caution_n": 194,
+     "scenario_high_n": 63,
+     "scenario_n": 300,
+     "txn_high_recall": 0.105,
+     "txn_caution_recall": 0.425,
+     "normal_alert_rate": 0.005799,
+     "normal_high_rate": 0.000725,
+     "control_monthly_alerts": 0.1167,
+     "control_monthly_high": 0.0,
+     "amount_before_first_alert_mean": 19948.4536,
+     "by_scenario": {
+      "night_repeat_transfer": {
+       "caution": 60,
+       "high": 60,
+       "n": 60
+      },
+      "payee_surge": {
+       "caution": 0,
+       "high": 0,
+       "n": 60
+      },
+      "micropay_surge": {
+       "caution": 17,
+       "high": 0,
+       "n": 60
+      },
+      "new_merchant_high_value": {
+       "caution": 60,
+       "high": 3,
+       "n": 60
+      },
+      "multi_line_telecom": {
+       "caution": 57,
+       "high": 0,
+       "n": 60
+      }
+     }
+    },
+    "anomaly": {
+     "scenario_caution": 0.946667,
+     "scenario_high": 0.386667,
+     "scenario_caution_n": 284,
+     "scenario_high_n": 116,
+     "scenario_n": 300,
+     "txn_high_recall": 0.353333,
+     "txn_caution_recall": 0.911667,
+     "normal_alert_rate": 0.092787,
+     "normal_high_rate": 0.0029,
+     "control_monthly_alerts": 3.6167,
+     "control_monthly_high": 0.1167,
+     "amount_before_first_alert_mean": 619.7183,
+     "by_scenario": {
+      "night_repeat_transfer": {
+       "caution": 60,
+       "high": 59,
+       "n": 60
+      },
+      "payee_surge": {
+       "caution": 50,
+       "high": 5,
+       "n": 60
+      },
+      "micropay_surge": {
+       "caution": 60,
+       "high": 36,
+       "n": 60
+      },
+      "new_merchant_high_value": {
+       "caution": 58,
+       "high": 4,
+       "n": 60
+      },
+      "multi_line_telecom": {
+       "caution": 56,
+       "high": 12,
+       "n": 60
+      }
+     }
+    }
+   }
+  }
+ }
+}

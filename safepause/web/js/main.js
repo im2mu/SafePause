@@ -4,7 +4,7 @@
  * 늦게 온 응답 막기(리뷰 H1·M3): ctx.req()는 요청을 보낸 뒤 ①다른 화면으로 옮겼거나 ②지우기·동의 끄기로
  * 데이터 세대(session.epoch)가 바뀌었으면 결과를 버린다(STALE). 즉시 철회한 뒤 옛 거래가 다시 그려지지 않는다.
  */
-import { api, ApiError, MODE, isConsentError } from "./api.js";
+import { api, ApiError, MODE, isConsentError, STALE } from "./api.js";
 import { engine } from "./engine-client.js";
 import { $, h, fill, icon, toast, announce, closeTopSheet, closeAllSheets } from "./ui.js";
 import * as speech from "./speech.js";
@@ -37,7 +37,7 @@ const NAV = [
   { tab: "more", label: "전체", icon: "grid" },
 ];
 
-export const STALE = Symbol("stale");
+export { STALE };
 
 /** 앱 전체 상태. epoch는 지우기·'거래 살펴보기' 끄기 때 오른다. */
 export const session = {

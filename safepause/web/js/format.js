@@ -85,3 +85,34 @@ export function sentence(t) {
   const s = String(t || "").trim();
   return !s || /[.?!]$/.test(s) ? s : `${s}.`;
 }
+
+/** 한국어 금액 읽기(리뷰 H2: v0.1은 '80만원'을 80원으로 읽었다).
+ * "800000", "800,000원", "80만", "80만 원", "1.5만", "5천", "1억 2천만", "3만 5천원" → 원 단위 정수.
+ * 숫자·쉼표·공백·단위(억·만·천·원) 말고 다른 글자가 있으면 NaN(화면이 "숫자로 적어 주세요"라고 알린다). */
+export function parseKoreanAmount(text) {
+  const s = String(text ?? "").replace(/[\s,]/g, "").replace(/원$/, "");
+  if (!s) return NaN;
+  if (/^\d+$/.test(s)) return s.length > 15 ? NaN : parseInt(s, 10);
+  if (!/^(?:\d+(?:\.\d+)?|[억만천])+$/.test(s)) return NaN;   // 숫자와 단위 말고 다른 글자가 있으면 거절
+  const tokens = s.match(/\d+(?:\.\d+)?|[억만천]/g) || [];
+  let total = 0, section = 0, current = 0, lastBig = 3;       // 억=2, 만=1: 큰 단위부터 와야 한다
+  let prevWasNumber = false;
+  for (const t of tokens) {
+    if (/\d/.test(t)) {
+      if (prevWasNumber) return NaN;
+      current = parseFloat(t);
+      prevWasNumber = true;
+      continue;
+    }
+    prevWasNumber = false;
+    if (t === "천") { section += (current || 1) * 1000; current = 0; continue; }
+    const big = t === "억" ? 2 : 1;
+    if (big >= lastBig) return NaN;                            // "3만 2억"처럼 순서가 틀리면 거절
+    section += current;
+    total += (section || 1) * (big === 2 ? 1e8 : 1e4);
+    section = 0; current = 0; lastBig = big;
+  }
+  total += section + current;
+  if (!Number.isFinite(total) || total <= 0) return NaN;
+  return Math.round(total);
+}

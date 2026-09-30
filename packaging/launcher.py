@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import multiprocessing
 import sys
+import traceback
 from collections.abc import Sequence
 
 from safepause.cli import main
@@ -34,7 +35,13 @@ def _pause_on_error(code: int) -> None:
 
 def run(args: Sequence[str] | None = None) -> int:
     multiprocessing.freeze_support()  # 얼린(frozen) 실행 파일에서 하위 프로세스 대비
-    code = main(launcher_argv(sys.argv[1:] if args is None else args))
+    try:
+        code = main(launcher_argv(sys.argv[1:] if args is None else args))
+    except SystemExit as exc:   # 서버 구성 요소가 sys.exit()로 끝내도 오류 안내를 보여 주고 닫는다(v0.2)
+        code = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
+    except Exception:   # 예상하지 못한 오류: 내용을 보여 주고 창이 바로 닫히지 않게
+        traceback.print_exc()
+        code = 1
     _pause_on_error(code)
     return code
 

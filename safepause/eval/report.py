@@ -899,7 +899,9 @@ def _load_partner(path: Path, intensity: str, split: str = IN_SAMPLE
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         ok = (isinstance(data, dict) and data.get("kind") in ("synthetic", "comparison")
-              and intensity_of(data) == intensity and split_of(data) == split)
+              and intensity_of(data) == intensity and split_of(data) == split
+              # 보고서가 쓰는 키가 모두 있어야 한다(키가 빠진 옛 파일 때문에 새 결과를 잃지 않게, v0.2)
+              and all(k in data for k in ("personas", "seeds", "modes" if data.get("kind") == "comparison" else "overall")))
     except (OSError, ValueError):
         ok, data = False, None
     if not ok:
@@ -931,6 +933,7 @@ def write_report(results: dict[str, Any], out_dir: Path | str,
             else:
                 data[key], notes[key] = _load_partner(out / synthetic_json_name(stem, *key), *key)
         json_path = out / synthetic_json_name(stem, *own)
+        _atomic_write(json_path, json.dumps(results, ensure_ascii=False, indent=2) + "\n")   # 먼저 저장(v0.2)
         markdown = _synthetic_markdown(
             data[("standard", IN_SAMPLE)], data[("subtle", IN_SAMPLE)], notes[("subtle", IN_SAMPLE)],
             holdout=data[("standard", HOLDOUT)], holdout_subtle=data[("subtle", HOLDOUT)],

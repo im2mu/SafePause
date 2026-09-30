@@ -1,0 +1,78 @@
+/* AI와 데이터 설명(보호자·심사용): 판단 방법, 학습 데이터셋 요약, 한계, 오픈소스 고지.
+ * 공고 선택 사항('AI 모델 코드·설명', '학습 데이터셋 요약')을 앱 안에서도 볼 수 있게 한 화면이다.
+ * 내용 근거: docs/model_card.md, docs/dataset_card.md, safepause/detect/engine.py(결합 규칙). */
+import { h, icon, fill } from "../ui.js";
+import { SIGNAL_KO, SIGNAL_ICON, SIGNALS } from "../labels.js";
+import { MODE } from "../api.js";
+
+const RULES = {
+  night_repeat_transfer: "밤 11시~새벽 6시에 이체가 7일 안에 2건이면 확인, 3건이면 꼭 확인",
+  payee_surge: "한 상대에게 7일 동안 보낸 돈이 내 평소보다 크게 많을 때",
+  micropay_surge: "7일 동안 휴대폰 소액결제 건수·금액이 평소보다 크게 많을 때",
+  new_merchant_high_value: "처음 가는 가게에서 내 평소보다 큰 돈을 낼 때",
+  multi_line_telecom: "짧은 기간에 처음 보는 회선의 통신요금이 여러 개 나올 때",
+};
+
+export default {
+  title: "AI와 데이터 설명",
+  back: "more",
+  tab: "more",
+  async render(ctx) {
+    fill(ctx.main,
+      h("h2", { class: "page-title", tabindex: "-1", text: "AI와 데이터 설명" }),
+      h("p", { class: "page-sub", text: "SafePause가 어떻게 판단하고, 무엇으로 배웠는지 적었어요." }),
+
+      h("h3", { class: "section-title", text: "어떻게 판단하나요" }),
+      h("div", { class: "list" },
+        h("div", { class: "list-head", text: "① 약속(규칙) 5가지: 제안서의 착취 시그널" }),
+        SIGNALS.map((code) => h("div", { class: "row" }, h("span", { class: "row-icon orange" }, icon(SIGNAL_ICON[code])),
+          h("span", { class: "row-main" }, h("span", { class: "row-title", text: SIGNAL_KO[code] }),
+            h("span", { class: "row-sub", style: "white-space:normal", text: RULES[code] }))))),
+      h("div", { class: "card" },
+        h("h3", { text: "② 나만의 평소 기준 AI" }),
+        h("p", { text: "내 과거 거래로 IsolationForest(이상탐지 모델)를 배워요. 금액·시간대·처음 보는 상대·7일 건수 등 11가지 특징을 봐요." }),
+        h("p", { class: "muted", text: "점수는 '내 평소 거래 가운데 이 거래보다 덜 특이한 비율'(0~1)이에요." })),
+      h("div", { class: "card" },
+        h("h3", { text: "③ 둘을 합치는 방법" }),
+        h("ul", { style: "list-style:disc;padding-left:1.2rem;color:var(--text-2)" },
+          h("li", { text: "약속이 '꼭 확인해요'면 그대로 꼭 확인해요." }),
+          h("li", { text: "약속이 '확인해요'이고 AI 점수가 0.90 이상이면 '꼭 확인해요'로 올려요." }),
+          h("li", { text: "약속에 걸리지 않은 나가는 돈은 AI 점수가 0.98 이상일 때만 '확인해요'예요." }),
+          h("li", { text: "AI 혼자서는 '꼭 확인해요'(기본 설정의 조력자 알림)를 정하지 않아요." }),
+          h("li", { text: "거래가 30건보다 적으면 AI 없이 약속으로만 봐요." }))),
+
+      h("h3", { class: "section-title", text: "무엇으로 배웠나요 (학습 데이터셋 요약)" }),
+      h("div", { class: "card" },
+        h("p", null, h("strong", { text: "실제 사람의 거래는 쓰지 않았어요." }), " 제안서의 착취 시그널 5종을 재현하도록 설계한 합성(가상) 데이터예요."),
+        h("ul", { style: "list-style:disc;padding-left:1.2rem;margin-top:.5rem;color:var(--text-2)" },
+          h("li", { text: "가상 인물 3종: 근로자(월급), 복지급여 수급자, 학생(용돈)" }),
+          h("li", { text: "한 사례 = 120일 거래. 앞 90일(정상 거래)로 배우고, 뒤 30일을 확인해요." }),
+          h("li", { text: "걱정되는 거래 5종을 마지막 30일 안에 1번씩 섞어요(정답 표시가 붙음)." }),
+          h("li", { text: "평가는 인물 3 × 번호(seed) 20 = 60사례. 약속을 다듬은 1~20과 다른 21~40으로 따로 확인했어요." }),
+          h("li", { text: "처음 가는 가게·밤 결제·처음 보는 상대 소액 송금 같은 '평범한 잡음'도 넣어 잘못 알리는 정도를 재요." })),
+        h("p", { class: "muted", style: "margin-top:.5rem", text: "인물 값은 공개 통계로 보정하지 않은 가정이에요. 그래서 실제 탐지 성능을 뜻하지 않아요." })),
+
+      h("h3", { class: "section-title", text: "아직 못 한 것 (한계)" }),
+      h("div", { class: "notice orange" }, icon("warning"), h("ul", null,
+        h("li", { text: "실제 사용자·현장 검증은 아직 하지 않았어요." }),
+        h("li", { text: "금융앱·마이데이터 연결은 본 사업 단계 과제예요(인터넷 연결·허가 필요)." }),
+        h("li", { text: "쉬운 말 문장은 발달장애 당사자의 감수를 아직 받지 않았어요." }),
+        h("li", { text: "은행마다 다른 파일 모양은 모두 시험하지 못했어요." }))),
+
+      h("h3", { class: "section-title", text: "개인정보" }),
+      h("div", { class: "notice blue" }, icon("lock"), h("div", null,
+        h("p", { text: MODE === "engine" ? "이 앱은 인터넷 권한을 요청하지 않아요. 판단은 모두 이 기기 안의 파이썬 AI 엔진이 해요." : "로컬 서버(127.0.0.1)만 쓰고, 밖으로 보내는 기능이 없어요." }),
+        MODE === "engine" ? h("p", { text: "앱 데이터는 기기 백업·기기 이전에서 빠져요." }) : null,
+        h("p", { text: "'내 데이터'에서 언제든지 모두 지울 수 있어요." }))),
+
+      h("h3", { class: "section-title", text: "오픈소스 고지" }),
+      h("div", { class: "card" },
+        h("p", { class: "muted", text: "SafePause는 아래 오픈소스를 써요. 각 라이선스 전문은 앱과 함께 담긴 licenses 폴더에 있어요." }),
+        h("ul", { style: "list-style:disc;padding-left:1.2rem;margin-top:.5rem;color:var(--text-2)" },
+          ["Pyodide (MPL-2.0)", "Python 표준 라이브러리 (PSF License)", "NumPy (BSD-3-Clause)", "SciPy (BSD-3-Clause)",
+            "scikit-learn (BSD-3-Clause)", "joblib (BSD-3-Clause)", "threadpoolctl (BSD-3-Clause)", "pydantic · pydantic-core (MIT)",
+            "typing-extensions (PSF License)", "annotated-types · typing-inspection (MIT)"].map((t) => h("li", { text: t })),
+          MODE === "engine" ? null : ["FastAPI · Starlette · Uvicorn (BSD/MIT)"].map((t) => h("li", { text: t })))),
+      h("p", { class: "muted center", style: "margin:1.5rem 0 .5rem", text: "SafePause 안전 정지 v0.2.0" }));
+  },
+};

@@ -50,6 +50,7 @@ DAYS_PER_MONTH = 30                       # 월평균 알림 계산에 쓰는 �
 DEFAULT_PERSONAS: tuple[str, ...] = tuple(PERSONAS)
 DEFAULT_DAYS = 120
 DEFAULT_BASELINE_DAYS = 90
+MIN_MONTHLY_DAYS = 14                     # evaluate_file: 이보다 짧은 확인 기간은 한 달 평균으로 늘리지 않음
 DEFAULT_BASELINE_RATIO = 0.75             # evaluate_file: 앞 75%로 학습(서버 학습 규칙과 같음)
 MAX_LISTED_ALERTS = 200                   # evaluate_file: 결과에 담는 알림 목록 최대 건수
 
@@ -599,8 +600,9 @@ def evaluate_file(txns: Iterable[Transaction], baseline_ratio: float = DEFAULT_B
         "high": len(high),
         "alert_rate": _ratio(len(alerts), len(evaluated)),
         "high_rate": _ratio(len(high), len(evaluated)),
-        "monthly_alerts": _per_month(len(alerts), eval_days),
-        "monthly_high": _per_month(len(high), eval_days),
+        # 확인 기간이 너무 짧으면(14일 미만) 한 달로 늘려 말하지 않는다(하루 3건 → '한 달 90건' 같은 부풀림 방지, v0.2)
+        "monthly_alerts": _per_month(len(alerts), eval_days) if eval_days >= MIN_MONTHLY_DAYS else None,
+        "monthly_high": _per_month(len(high), eval_days) if eval_days >= MIN_MONTHLY_DAYS else None,
         "by_signal": {c.value: by_signal[c.value] for c in SignalCode if by_signal[c.value]},
         "anomaly_only": anomaly_only,
         "by_channel": dict(sorted(by_channel.items())),

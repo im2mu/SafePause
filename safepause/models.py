@@ -52,6 +52,13 @@ class Decision(str, Enum):
     ASK_HELPER = "ask_helper"      # 조력자에게 물어볼래요
 
 
+def as_bool(value: Any) -> bool:
+    """명확한 참일 때만 True. 저장 파일을 손으로 고쳐 "false"·"0"이 된 값을 참으로 읽지 않는다."""
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ("true", "1", "yes")
+
+
 @dataclass
 class Transaction:
     id: str
@@ -74,10 +81,17 @@ class Transaction:
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "Transaction":
+        ts = datetime.fromisoformat(str(d["ts"]))
+        if ts.tzinfo is not None:
+            # 시간대가 붙은 시각(+09:00 등)은 이 기기 시각으로 바꾼 뒤 뗀다. 섞여 있으면 정렬에서 TypeError(500)가 났다
+            ts = ts.astimezone().replace(tzinfo=None)
+        amount = int(d["amount"])
+        if amount < 0:
+            raise ValueError("amount must be >= 0")
         return Transaction(
             id=str(d["id"]),
-            ts=datetime.fromisoformat(str(d["ts"])),
-            amount=int(d["amount"]),
+            ts=ts,
+            amount=amount,
             direction=Direction(d["direction"]),
             channel=Channel(d["channel"]),
             counterparty=str(d.get("counterparty", "") or ""),
@@ -169,7 +183,7 @@ class Helper:
             contact=str(d.get("contact", "")), identifiers=[str(x) for x in d.get("identifiers", [])],
             min_level=RiskLevel(d.get("min_level", "high")),
             signal_scope=[str(x) for x in d.get("signal_scope", [])],
-            active=bool(d.get("active", True)),
+            active=as_bool(d.get("active", True)),
         )
 
 

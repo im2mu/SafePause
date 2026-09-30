@@ -113,7 +113,7 @@ export function openSheet(build, opts = {}) {
   });
   const overlay = h("div", { class: "overlay" }, sheet);
   let closed = false;
-  const entry = { close: () => close("api"), dismissible, el: sheet };
+  const entry = { close: () => close("api"), dismissible, el: sheet, onEscape: opts.onEscape };
 
   function close(reason = "api") {
     if (closed) return;
@@ -162,7 +162,8 @@ export function closeTopSheet() {
   const top = openSheets[openSheets.length - 1];
   if (!top) return false;
   if (top.dismissible) top.close();
-  return true;   // 닫을 수 없는 시트(안전 정지 카드)는 뒤로 가기로 넘어가지 않게 삼킨다
+  else if (typeof top.onEscape === "function") top.onEscape();   // 안전 정지 카드: 닫지 않고 '안 보낼래요'로 초점
+  return true;   // 닫을 수 없는 시트는 뒤로 가기로 앞 화면에 넘어가지 않게 삼킨다
 }
 
 export function closeAllSheets() {

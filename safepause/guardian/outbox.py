@@ -8,7 +8,7 @@ from typing import Iterable, Protocol, runtime_checkable
 
 from safepause.models import HelperNotice, NotifyPlan
 
-DELIVERY_NOTE = "알림은 기록만 해요. 이 컴퓨터에 적어 두고, 문자나 메일은 보내지 않아요."
+DELIVERY_NOTE = "알림은 기록만 해요. 이 기기에 적어 두고, 문자나 메일은 보내지 않아요."
 
 
 @runtime_checkable

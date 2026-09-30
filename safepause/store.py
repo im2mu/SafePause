@@ -14,9 +14,10 @@ import os
 import tempfile
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 if os.name == "nt":
     import msvcrt
@@ -25,6 +26,7 @@ else:
 
 from safepause.models import (
     Consent,
+    as_bool,
     Decision,
     Helper,
     HelperNotice,
@@ -222,9 +224,7 @@ def _lock_for(root: Path) -> _FolderLock:
 
 def _as_bool(value: Any) -> bool:
     """동의 값은 명확한 참일 때만 True(손으로 고친 "false" 문자열 등을 동의로 오해하지 않게)."""
-    if isinstance(value, bool):
-        return value
-    return str(value).strip().lower() in ("true", "1", "yes")
+    return as_bool(value)
 
 
 class Store:
@@ -234,6 +234,17 @@ class Store:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self._lock = _lock_for(self.root)
+
+    @contextmanager
+    def transaction(self) -> Iterator["Store"]:
+        """여러 번의 읽기·쓰기를 한 덩어리로 묶는다(프로세스 사이 폴더 잠금을 그동안 쥔다).
+
+        안쪽의 load/save도 같은 잠금을 다시 잡으므로(재진입) 그대로 쓸 수 있다. 예: 안전 정지 결정은
+        동의 확인 → 거래 이력 → 결정 기록 → 조력자 알림 기록을 이 안에서 해서, 그 사이에 다른 창·명령행이
+        '모두 지우기'를 해도 지운 거래가 되살아나지 않게 한다.
+        """
+        with self._lock:
+            yield self
 
     # ---- 동의 ----
     def load_consent(self) -> Consent:
@@ -292,14 +303,14 @@ class Store:
         self._append(DECISIONS_FILE, record)
 
     def load_decisions(self) -> list[dict[str, Any]]:
-        return self._read_list(DECISIONS_FILE)
+        return self._read_records(DECISIONS_FILE)
 
     # ---- 조력자 알림 기록(실제 발송 없음) ----
     def append_notice(self, notice: HelperNotice) -> None:
         self._append(NOTICES_FILE, notice.to_dict())
 
     def load_notices(self) -> list[dict[str, Any]]:
-        return self._read_list(NOTICES_FILE)
+        return self._read_records(NOTICES_FILE)
 
     # ---- 즉시 철회권 ----
     def wipe(self) -> list[str]:
@@ -384,6 +395,13 @@ class Store:
         if not isinstance(data, list):
             raise self._broken(name)
         return data
+
+    def _read_records(self, name: str) -> list[dict[str, Any]]:
+        """기록 목록(결정·알림): 원소가 모두 {…}여야 한다(손상 파일을 한국어 안내로 알림, 500 방지)."""
+        rows = self._read_list(name)
+        if any(not isinstance(r, dict) for r in rows):
+            raise self._broken(name)
+        return rows
 
     def _append(self, name: str, record: dict[str, Any]) -> None:
         with self._lock:

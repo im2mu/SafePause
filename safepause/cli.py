@@ -21,6 +21,7 @@ import os
 import socket
 import sys
 import threading
+import secrets
 import time
 import webbrowser
 from collections import Counter
@@ -44,7 +45,7 @@ DEFAULT_ANALYZE_LIMIT = 30
 DEMO_SAMPLES = 3
 REPORT_PRIVACY_NOTE = ("이 보고서에는 받는 곳·금액·시각이 들어 있어요. "
                        "wipe(모두 지우기)는 이 보고서를 지우지 않아요. 필요 없으면 직접 지워 주세요.")
-WIPE_SERVER_HINT = ("SafePause 화면(serve)이 켜져 있으면, 화면의 '⑦ 내 데이터 지우기'를 쓰거나 "
+WIPE_SERVER_HINT = ("SafePause 화면(serve)이 켜져 있으면, 화면의 '전체 → 내 데이터 → 모두 지우기'를 쓰거나 "
                     "서버 창을 끈 뒤 지워 주세요.")
 SERVE_LOCK_FILE = "serve.lock"   # 저장 폴더마다 serve 하나만(두 창이 같은 기록을 덮어쓰지 않게)
 SERVE_LOCK_OFFSET = 1 << 30      # 파일 앞쪽에 서버 주소를 적고 먼 뒤쪽 바이트를 잠근다(Windows에서도 앞쪽은 읽힘)
@@ -85,6 +86,27 @@ def find_free_port(start: int = DEFAULT_PORT, attempts: int = PORT_ATTEMPTS,
     for port in range(start, last + 1):
         if is_port_free(port, host):
             return port
+    raise CliError(f"{start}~{last}번 포트를 모두 쓰고 있어요. --port로 다른 번호를 지정해 주세요.")
+
+
+def _bind_first_free(start: int = DEFAULT_PORT, attempts: int = PORT_ATTEMPTS,
+                     host: str = LOCAL_HOST) -> tuple[socket.socket, int]:
+    """start부터 차례로 포트를 바로 잡는다(bind+listen). 잡은 소켓과 포트 번호를 돌려준다."""
+    if not 1 <= start <= 65535:
+        raise CliError(f"포트 번호는 1~65535 사이여야 해요: {start}")
+    last = min(start + max(attempts, 1) - 1, 65535)
+    for port in range(start, last + 1):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        exclusive = getattr(socket, "SO_EXCLUSIVEADDRUSE", None)  # Windows: 다른 프로그램이 같은 포트를 가로채지 못하게
+        try:
+            if exclusive is not None:
+                sock.setsockopt(socket.SOL_SOCKET, exclusive, 1)
+            sock.bind((host, port))
+            sock.listen(128)
+            sock.set_inheritable(False)
+            return sock, port
+        except OSError:
+            sock.close()
     raise CliError(f"{start}~{last}번 포트를 모두 쓰고 있어요. --port로 다른 번호를 지정해 주세요.")
 
 
@@ -162,23 +184,33 @@ def serve(port: int = DEFAULT_PORT, open_browser: bool = True) -> int:
             return _show_running_server(lock.path, open_browser)
     except OSError:   # 잠금 파일을 만들 수 없는 폴더: 잠금 없이 연다(저장이 안 되면 화면이 한국어로 알림)
         lock = None
+    sock: Optional[socket.socket] = None
     try:
-        chosen = find_free_port(port)
+        # 포트를 직접 잡아서 uvicorn에 넘긴다(비었는지 확인한 뒤 다른 프로그램이 먼저 잡는 틈이 없게, v0.2)
+        sock, chosen = _bind_first_free(port)
         if chosen != port:
             print(f"{port}번 포트를 이미 쓰고 있어 {chosen}번 포트로 엽니다.", flush=True)
-        url = f"http://{LOCAL_HOST}:{chosen}"
+        # 세션 토큰: 이 창이 연 화면만 API를 쓸 수 있다(같은 PC의 다른 프로그램·다른 계정 차단, v0.2)
+        token = secrets.token_urlsafe(32)
+        url = f"http://{LOCAL_HOST}:{chosen}/#k={token}"
         if lock is not None:
             lock.write_text(json.dumps({"url": url, "pid": os.getpid()}))
-        app = create_app()
+        app = create_app(token=token)
         # 파이프·컨테이너 로그에서도 바로 보이도록 flush
         print(f"SafePause {__version__} 화면 주소: {url}", flush=True)
         print("이 컴퓨터 안에서만 열리고, 거래 데이터는 밖으로 보내지 않아요.", flush=True)
         print("끝내려면 이 창에서 Ctrl+C를 누르세요.", flush=True)
         if open_browser:
             _open_browser_when_ready(url, chosen)
-        uvicorn.run(app, host=LOCAL_HOST, port=chosen, log_level="info", access_log=False)
+        server = uvicorn.Server(uvicorn.Config(app, log_level="info", access_log=False))
+        server.run(sockets=[sock])
         return 0
     finally:
+        if sock is not None:
+            try:
+                sock.close()
+            except OSError:
+                pass
         if lock is not None:
             try:
                 lock.write_text("")    # 주소를 지운 뒤 놓는다(파일은 남겨 두어 잠금 경쟁을 피함)
@@ -395,9 +427,11 @@ def cmd_analyze(args: argparse.Namespace) -> int:
     if 0 < rows < result["n_baseline"]:
         print(f"  AI는 앞 {result['n_baseline']}건 가운데 {rows}건으로 배웠어요 "
               f"(맨 앞 {result['n_baseline'] - rows}건은 비교할 평소 기준이 없어서 뺐어요).")
+    monthly = result.get("monthly_alerts")
+    monthly_text = (f"30일당 알림 약 {monthly:.1f}건" if monthly is not None
+                    else "확인 기간이 짧아 30일당 알림은 계산하지 않았어요")
     print(f"  알림(주의 이상) {result['alerts']}건 ({pct(result['alert_rate'])}), "
-          f"고위험 {result['high']}건 ({pct(result['high_rate'])}), "
-          f"30일당 알림 약 {result['monthly_alerts'] or 0:.1f}건")
+          f"고위험 {result['high']}건 ({pct(result['high_rate'])}), {monthly_text}")
     print(f"  ※ {metrics.FILE_DISCLAIMER}.")
     if result["alert_list"]:
         print("[알림 목록]")

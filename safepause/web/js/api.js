@@ -5,6 +5,9 @@
  */
 import { engine } from "./engine-client.js";
 
+/** 화면을 떠났거나 데이터가 지워진 뒤 늦게 온 응답(화면은 조용히 버린다). */
+export const STALE = Symbol("stale");
+
 export class ApiError extends Error {
   constructor(status, message, extra = {}) {
     super(message);
