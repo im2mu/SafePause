@@ -218,8 +218,7 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 .tag { display: inline-flex; align-items: center; gap: .25rem; font-size: 1rem; font-weight: 600; color: var(--text-2); background: var(--bg-sub); padding: .2rem .55rem; border-radius: var(--r-s); }
 .tag svg { width: .95rem; height: .95rem; }
 
-.chips { display: flex; gap: .5rem; overflow-x: auto; padding: .25rem 0 .75rem; scrollbar-width: none; }
-.chips::-webkit-scrollbar { display: none; }
+.chips { display: flex; flex-wrap: wrap; gap: .5rem; padding: .25rem 0 .75rem; }   /* 옆으로 숨은 칩은 찾기 어려워 줄바꿈으로 모두 보이게 */
 .chip {
   flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--text-2); border-radius: 999px;
   padding: .5rem 1rem; font-weight: 600; font-size: 1rem; display: inline-flex; align-items: center; gap: .35rem;
@@ -529,3 +528,4 @@ details > summary { min-height: 2.4rem; display: flex; align-items: center; curs
 .row { padding-left: min(1rem, 4vw); padding-right: min(1rem, 4vw); gap: min(.7rem, 3vw); }
 .card { padding-left: min(1.25rem, 5vw); padding-right: min(1.25rem, 5vw); }
 .row-icon svg, .choice-btn .ci svg { width: min(1.3rem, 6vw); height: min(1.3rem, 6vw); }
+.chip { max-width: 100%; }
