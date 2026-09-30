@@ -530,3 +530,4 @@ details > summary { min-height: 2.4rem; display: flex; align-items: center; curs
 .row-icon svg, .choice-btn .ci svg { width: min(1.3rem, 6vw); height: min(1.3rem, 6vw); }
 .chip { max-width: 100%; }
 .row-tags.full { flex: 1 0 100%; margin-top: 0; padding-left: calc(min(2.4rem, 10vw) + min(.7rem, 3vw)); }
+.field > label.btn { display: flex; font-weight: 700; margin-bottom: 0; }   /* 파일 고르기 버튼: 필드 제목 규칙(block)에 눌려 아이콘·글자가 두 줄로 나뉘지 않게 */
