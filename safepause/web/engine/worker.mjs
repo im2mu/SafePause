@@ -67,7 +67,7 @@ async function handle(msg) {
       return { status: 503, body: { detail: "AI 분석 부분을 켜지 못했어요. 앱을 닫았다가 다시 열어 주세요." } };
     }
   }
-  let raw = null;
+  let raw;   // undefined → 파이썬 None (JS null은 None이 아닌 jsnull로 넘어간다)
   if (msg.bytes) raw = py.toPy(msg.bytes);
   try {
     const out = bridge.handle(msg.method, msg.path, JSON.stringify(msg.body ?? null), raw);

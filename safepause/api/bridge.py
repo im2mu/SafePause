@@ -28,8 +28,19 @@ def warm() -> None:
     import safepause.detect.engine  # noqa: F401
 
 
+def _is_nullish(value: Any) -> bool:
+    """None 또는 자바스크립트 null(Pyodide 0.25+는 JS null을 None이 아닌 pyodide.ffi.jsnull로 넘긴다)."""
+    if value is None:
+        return True
+    try:
+        from pyodide.ffi import jsnull  # type: ignore[import-not-found]
+    except ImportError:
+        return False
+    return value is jsnull
+
+
 def _to_bytes(raw: Any) -> Optional[bytes]:
-    if raw is None:
+    if _is_nullish(raw):
         return None
     if isinstance(raw, (bytes, bytearray, memoryview)):
         return bytes(raw)

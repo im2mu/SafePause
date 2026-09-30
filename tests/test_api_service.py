@@ -285,3 +285,16 @@ def test_analysis_after_revoke_is_refused(ready: Service) -> None:
     with pytest.raises(ServiceError) as e:
         ready.transactions()
     assert e.value.status == 403
+
+
+def test_bridge_treats_js_null_as_no_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pyodide는 JS null을 None이 아닌 jsnull 객체로 넘긴다: 파일 없음으로 봐야 한다(앱에서 500이 났던 문제)."""
+    import types
+    jsnull = object()
+    fake = types.ModuleType("pyodide.ffi")
+    fake.jsnull = jsnull  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyodide", types.ModuleType("pyodide"))
+    monkeypatch.setitem(sys.modules, "pyodide.ffi", fake)
+    bridge.init(str(tmp_path / "store"))
+    r = json.loads(bridge.handle("GET", "/api/consent", "null", jsnull))
+    assert r["status"] == 200

@@ -160,7 +160,9 @@ export default {
     }
 
     function openUpload() {
-      const file = h("input", { class: "input", id: "upload-file", type: "file", accept: ".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel" });
+      const file = h("input", { class: "sr-only", id: "upload-file", type: "file", accept: ".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel" });
+      const fileName = h("span", { class: "muted", text: "아직 고르지 않았어요" });
+      file.addEventListener("change", () => { fileName.textContent = file.files && file.files[0] ? file.files[0].name : "아직 고르지 않았어요"; });
       const mapping = h("textarea", { class: "input", id: "upload-mapping", rows: "3", spellcheck: "false", autocapitalize: "off", autocorrect: "off",
         placeholder: '{"datetime": "거래일시", "out_amount": "출금액", "in_amount": "입금액", "counterparty": "내용"}' });
       const report = h("div", { "aria-live": "polite" });
@@ -170,7 +172,12 @@ export default {
         h("div", { class: "notice" }, icon("info"), h("div", null,
           h("p", { text: "은행 파일 모양은 따로 확인하지 못했어요." }),
           h("p", { text: "엑셀 파일이면 엑셀에서 'CSV UTF-8'로 저장한 뒤 올려 주세요." }))),
-        h("div", { class: "field" }, h("label", { for: "upload-file", text: "파일 고르기" }), file),
+        h("div", { class: "field" },
+          h("span", { class: "field-label", text: "파일" }),
+          h("label", { for: "upload-file", class: "btn weak block", role: "button", tabindex: "0",
+            onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); file.click(); } } },
+            icon("file"), h("span", { text: "파일 고르기" })),
+          file, h("p", { class: "hint" }, fileName)),
         h("details", { class: "field" }, h("summary", { class: "field-label", text: "열 이름 직접 알려 주기 (보호자·도우미용)" }),
           h("p", { class: "hint", text: "파일의 열 이름을 알아보지 못할 때 적어 주세요." }), mapping),
         report,

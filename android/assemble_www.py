@@ -43,10 +43,11 @@ def _sha256(path: Path) -> str:
 
 
 def assemble(pyodide: Path, out: Path) -> dict[str, int]:
-    if out.exists():
-        shutil.rmtree(out)
+    out.mkdir(parents=True, exist_ok=True)
+    for child in out.iterdir():   # 폴더는 두고 내용만 비운다(시험용 서버가 폴더를 쓰고 있어도 되게)
+        shutil.rmtree(child) if child.is_dir() else child.unlink()
     # 1) 화면
-    shutil.copytree(ROOT / "safepause" / "web", out, ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copytree(ROOT / "safepause" / "web", out, ignore=shutil.ignore_patterns("__pycache__"), dirs_exist_ok=True)
     (out / "js" / "mode.js").write_text(MODE_JS, encoding="utf-8")
     index = (out / "index.html").read_text(encoding="utf-8")
     tag = '<script type="module" src="js/main.js"></script>'
