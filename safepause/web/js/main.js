@@ -189,6 +189,12 @@ async function boot() {
     const a = e.target.closest && e.target.closest("a[data-skip]");
     if (a) { e.preventDefault(); $("#main").focus(); }   // 리뷰 M1: '본문으로 바로 가기'가 화면을 바꾸지 않게
   });
+  // 글자를 적는 동안(휴대폰 자판이 열림) 아래 탭을 숨겨 입력 칸이 자판에 가리지 않게 한다(넓은 화면은 CSS에서 무시)
+  const isTyping = (el) => el && el.matches && el.matches("input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea, select");
+  document.addEventListener("focusin", (e) => { if (isTyping(e.target)) document.body.classList.add("typing"); });
+  document.addEventListener("focusout", () => {
+    window.setTimeout(() => { if (!isTyping(document.activeElement)) document.body.classList.remove("typing"); }, 50);
+  });
   window.addEventListener("hashchange", () => {
     if (!/^#\//.test(location.hash)) return;   // #main 같은 문서 안 이동은 화면을 바꾸지 않는다
     if (restoring) return;
