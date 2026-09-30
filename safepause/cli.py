@@ -135,6 +135,34 @@ def _open_browser_when_ready(url: str, port: int, timeout: float = BROWSER_WAIT_
     return thread
 
 
+def _open_browser_when_started(server: Any, url: str, timeout: float = BROWSER_WAIT_SEC) -> threading.Thread:
+    """uvicorn 서버가 실제로 시작(started)된 뒤 브라우저를 연다. 시작하지 못하면 열지 않는다(v0.2 2차 검증).
+
+    소켓을 미리 잡아 두므로 '연결되는지' 확인은 서버가 뜨기 전에도 성공한다. 그래서 server.started를 본다.
+    """
+    def worker() -> None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if getattr(server, "started", False):
+                break
+            if getattr(server, "should_exit", False):
+                return
+            time.sleep(0.1)
+        else:
+            print(f"브라우저에서 {url} 을 직접 열어 주세요.", flush=True)
+            return
+        try:
+            opened = webbrowser.open(url)
+        except webbrowser.Error:
+            opened = False
+        if not opened:
+            print(f"브라우저를 열지 못했어요. {url} 을 직접 열어 주세요.", flush=True)
+
+    thread = threading.Thread(target=worker, name="safepause-browser", daemon=True)
+    thread.start()
+    return thread
+
+
 def _running_server_url(path: Path) -> str:
     """먼저 뜬 serve가 잠금 파일에 적어 둔 주소(127.0.0.1만). 없거나 읽지 못하면 빈 글."""
     try:
@@ -200,9 +228,9 @@ def serve(port: int = DEFAULT_PORT, open_browser: bool = True) -> int:
         print(f"SafePause {__version__} 화면 주소: {url}", flush=True)
         print("이 컴퓨터 안에서만 열리고, 거래 데이터는 밖으로 보내지 않아요.", flush=True)
         print("끝내려면 이 창에서 Ctrl+C를 누르세요.", flush=True)
-        if open_browser:
-            _open_browser_when_ready(url, chosen)
         server = uvicorn.Server(uvicorn.Config(app, log_level="info", access_log=False))
+        if open_browser:
+            _open_browser_when_started(server, url)
         server.run(sockets=[sock])
         return 0
     finally:

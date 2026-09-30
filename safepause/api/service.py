@@ -483,6 +483,34 @@ def _load_upload(raw: bytes, mapping: Optional[dict[str, Any]]) -> tuple[list[Tr
         raise ServiceError(400, str(exc)) from exc
 
 
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_text(value: Any) -> str:
+    """스프레드시트가 수식으로 읽지 않게: =·+·-·@·탭·CR로 시작하는 글 앞에 '를 붙인다(CSV 수식 주입 방지)."""
+    text = str(value or "")
+    return "'" + text if text.startswith(_FORMULA_START) else text
+
+
+def _unique_ids(txns: list[Transaction]) -> tuple[list[Transaction], int]:
+    """올린 파일의 live- id를 csv- 접두어로 바꾸되, 바꾼 뒤에도 id가 겹치지 않게 -2, -3…을 붙인다."""
+    used = {t.id for t in txns if not t.id.startswith(LIVE_ID_PREFIX)}
+    out: list[Transaction] = []
+    renamed = 0
+    for t in txns:
+        if t.id.startswith(LIVE_ID_PREFIX):
+            base = f"{UPLOADED_LIVE_PREFIX}{t.id}"[:100]
+            new_id, k = base, 2
+            while new_id in used:
+                new_id = f"{base}-{k}"
+                k += 1
+            used.add(new_id)
+            t = replace(t, id=new_id)
+            renamed += 1
+        out.append(t)
+    return out, renamed
+
+
 def _parse_mapping(text: str) -> Optional[dict[str, Any]]:
     if not text or not text.strip():
         return None
@@ -695,14 +723,9 @@ class Service:
             if reasons:
                 detail += " " + " ".join(r if r.endswith((".", "요")) else f"{r}." for r in reasons)
             raise ServiceError(400, detail)
-        # 파일에 연습 거래와 같은 모양의 id(live-…)가 있으면 바꿔 저장한다(연습 거래로 오인·중복 기록 방지)
-        renamed = 0
-        fixed: list[Transaction] = []
-        for t in txns:
-            if t.id.startswith(LIVE_ID_PREFIX):
-                t = replace(t, id=f"{UPLOADED_LIVE_PREFIX}{t.id}"[:120])
-                renamed += 1
-            fixed.append(t)
+        # 파일에 연습 거래와 같은 모양의 id(live-…)가 있으면 바꿔 저장한다(연습 거래로 오인·중복 기록 방지).
+        # 바꾼 id가 파일의 다른 id와 겹치지 않게 한다(v0.2 2차 검증)
+        fixed, renamed = _unique_ids(txns)
         if renamed:
             report = {**report, "warnings": [*report.get("warnings", []),
                                              f"연습 거래와 같은 모양의 번호 {renamed}건은 이름을 바꿔 저장했어요."]}
@@ -924,7 +947,7 @@ class Service:
         level_ko = {"none": "괜찮아요", "caution": "확인해요", "high": "꼭 확인해요"}
         for t, a in zip(snap.txns, snap.assessments):
             w.writerow([t.ts.isoformat(sep=" ", timespec="minutes"), "나감" if t.direction == Direction.OUT else "들어옴",
-                        t.channel.value, t.counterparty, int(t.amount), level_ko[a.level.value],
+                        t.channel.value, _csv_text(t.counterparty), int(t.amount), level_ko[a.level.value],
                         " ".join(h.code.value for h in a.rule_hits), f"{float(a.anomaly_score):.4f}",
                         "예" if LIVE_ID_RE.fullmatch(t.id) else ""])
         return {"filename": f"safepause-results-{self.now():%Y%m%d}.csv", "mime": "text/csv",

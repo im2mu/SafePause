@@ -55,7 +55,7 @@ def handle(method: str, path: str, body_json: str = "null", raw: Any = None) -> 
         return json.dumps({"status": 503, "body": {"detail": "엔진이 아직 준비되지 않았어요."}}, ensure_ascii=False)
     try:
         body = json.loads(body_json) if body_json else None
-    except (json.JSONDecodeError, RecursionError):
+    except (ValueError, RecursionError):   # JSONDecodeError도 ValueError. 4300자리 넘는 정수도 여기서 400
         return json.dumps({"status": 400, "body": {"detail": "요청 형식이 잘못됐어요."}}, ensure_ascii=False)
     try:
         status, payload = dispatch(_service, method, path, body, _to_bytes(raw))

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+import re
 from collections.abc import Callable, Iterable
 from datetime import datetime
 from email import policy as _email_policy
@@ -65,12 +66,36 @@ _CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'
         "form-action 'self'; frame-ancestors 'none'")
 
 
+# Host 머리글은 '이름[:포트]' 모양만 받는다('127.0.0.1/x'처럼 경로가 섞인 값은 거절).
+# v0.2 2차 검증: 옛 starlette(0.36)는 request.url을 Host 문자열로 만들어, 경로가 섞인 Host로 /api 판단을 속일 수 있었다.
+_HOST_RE = re.compile(r"^(?P<host>127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?$", re.IGNORECASE)
+
+
 def _host_of(value: str) -> str:
-    """'127.0.0.1:8765', '[::1]:8765' → 호스트 이름."""
-    try:
-        return (urlsplit("//" + value).hostname or "").lower()
-    except ValueError:
+    """'127.0.0.1:8765', '[::1]:8765' → 호스트 이름. 모양이 다르면 빈 글."""
+    m = _HOST_RE.match((value or "").strip())
+    if not m:
         return ""
+    return m.group("host").strip("[]").lower()
+
+
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "X-Frame-Options": "DENY",
+}
+
+
+def _secure(response: Response, *, api: bool) -> Response:
+    """보안 머리글을 붙인다(정상 응답·오류 응답 모두)."""
+    for k, v in SECURITY_HEADERS.items():
+        response.headers.setdefault(k, v)
+    response.headers.setdefault("Content-Security-Policy", _CSP)
+    if api:
+        response.headers["Cache-Control"] = "no-store"
+    else:   # 화면 파일: 늘 다시 확인(새 버전으로 바꾼 뒤 옛 파일이 남지 않게)
+        response.headers.setdefault("Cache-Control", "no-cache")
+    return response
 
 
 def _json(status: int, detail: str, **extra: Any) -> JSONResponse:
@@ -140,8 +165,8 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
         host = _host_of(request.headers.get("host", ""))
         if host not in hosts:
             return _json(400, "이 주소로는 열 수 없어요. http://127.0.0.1 주소로 열어 주세요.")
-        path = request.url.path
-        is_api = path.startswith("/api/")
+        path = request.scope.get("path", "")   # 실제 라우팅에 쓰는 경로(Host 문자열과 무관)
+        is_api = path.startswith("/api")
         if request.method not in _SAFE_METHODS:
             origin = request.headers.get("origin")
             # Origin이 있으면 같은 출처여야 한다. 'null'(파일·샌드박스 등 출처를 숨긴 요청)도 거절한다
@@ -165,15 +190,7 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
                 if size > limit:
                     return _json(413, TOO_BIG if path == UPLOAD_PATH else "요청이 너무 커요.")
         response: Response = await call_next(request)
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("Referrer-Policy", "no-referrer")
-        response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("Content-Security-Policy", _CSP)
-        if is_api:
-            response.headers["Cache-Control"] = "no-store"
-        else:   # 화면 파일: 늘 다시 확인(새 버전으로 바꾼 뒤 옛 파일이 남지 않게)
-            response.headers.setdefault("Cache-Control", "no-cache")
-        return response
+        return _secure(response, api=is_api)
 
     # ---- 오류 처리(한국어) ----
     @app.exception_handler(ServiceError)
@@ -192,8 +209,9 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
 
     @app.exception_handler(Exception)
     async def _unexpected(request: Request, exc: Exception) -> JSONResponse:
-        log.exception("처리하지 못한 오류: %s %s", request.method, request.url.path)
-        return _json(500, INTERNAL_ERROR)
+        log.exception("처리하지 못한 오류: %s %s", request.method, request.scope.get("path", ""))
+        # 이 처리기는 가장 바깥에서 불려 _guard의 머리글이 붙지 않는다: 여기서 직접 붙인다
+        return _secure(_json(500, INTERNAL_ERROR), api=True)
 
     # ---- 상태 ----
     @app.get("/api/health")

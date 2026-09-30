@@ -298,3 +298,112 @@ def test_bridge_treats_js_null_as_no_file(tmp_path: Path, monkeypatch: pytest.Mo
     bridge.init(str(tmp_path / "store"))
     r = json.loads(bridge.handle("GET", "/api/consent", "null", jsnull))
     assert r["status"] == 200
+
+
+# ---- 2차 적대적 검증 수정 확인 ---------------------------------------------------------
+
+@pytest.mark.parametrize("host", ["127.0.0.1/x", "127.0.0.1:1/a", "localhost/", "127.0.0.1?", "127.0.0.1#", "evil.example"])
+def test_host_with_path_is_rejected(tmp_path: Path, host: str) -> None:
+    app = create_app(tmp_path, now=lambda: NOW, token="t0ken-ABCDEFGHIJKLMNOP")
+    with TestClient(app, base_url=BASE) as c:
+        r = c.get("/api/consent", headers={"host": host})
+        assert r.status_code == 400
+        assert c.get("/api/consent", headers={"host": "LOCALHOST:8765", "X-SafePause": "t0ken-ABCDEFGHIJKLMNOP"}).status_code == 200
+
+
+def test_web_files_are_in_package_data() -> None:
+    import fnmatch
+    import tomllib
+    cfg = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    patterns = cfg["tool"]["setuptools"]["package-data"]["safepause"]
+    files = [p.relative_to(ROOT / "safepause").as_posix() for p in (ROOT / "safepause" / "web").rglob("*") if p.is_file()]
+    missing = [f for f in files if not any(fnmatch.fnmatch(f, pat) and f.count("/") == pat.count("/") for pat in patterns)]
+    assert files and not missing, missing
+
+
+def test_wheel_contains_web(tmp_path: Path) -> None:
+    out = subprocess.run([sys.executable, "-m", "pip", "wheel", str(ROOT), "--no-deps", "--no-build-isolation",
+                          "--no-index", "-w", str(tmp_path), "-q"], capture_output=True, text=True, cwd=tmp_path)
+    if out.returncode != 0:
+        pytest.skip(f"휠을 만들 수 없는 환경: {out.stderr[-200:]}")
+    import zipfile
+    whl = next(tmp_path.glob("safepause-*.whl"))
+    names = set(zipfile.ZipFile(whl).namelist())
+    for needed in ("safepause/web/index.html", "safepause/web/js/main.js", "safepause/web/js/views/send.js",
+                   "safepause/web/css/app.css", "safepause/web/icons/stop.svg", "safepause/web/data/eval_reference.json"):
+        assert needed in names, needed
+
+
+def test_results_csv_escapes_formulas(tmp_path: Path) -> None:
+    svc = Service(tmp_path, now=lambda: NOW)
+    svc.store.save_consent(svc.store.load_consent().__class__(monitoring=True))
+    rows = ["id,ts,amount,direction,channel,counterparty"]
+    names = ["=1+2", "@SUM(A1)", "+cmd|x", "-5", "엄마"]
+    for i, n in enumerate(names):
+        rows.append(f"x{i},2026-09-0{i + 1}T10:00:00,5000,in,income,\"{n}\"")
+    svc.upload("\n".join(rows).encode("utf-8"))
+    text = svc.export_results_csv()["text"]
+    for n in names[:4]:
+        assert f",'{n}," in text or f",\"'{n}\"," in text, n
+    assert ",엄마," in text
+
+
+def test_renamed_upload_ids_stay_unique(tmp_path: Path) -> None:
+    svc = Service(tmp_path, now=lambda: NOW)
+    svc.store.save_consent(svc.store.load_consent().__class__(monitoring=True))
+    csv = ("id,ts,amount,direction,channel,counterparty\n"
+           "live-1,2026-09-01T10:00:00,5000,out,card,가게\n"
+           "csv-live-1,2026-09-02T10:00:00,6000,out,card,가게\n"
+           "live-2,2026-09-03T10:00:00,7000,out,card,가게\n"
+           "csv-live-2,2026-09-04T10:00:00,8000,out,card,가게\n").encode("utf-8")
+    svc.upload(csv)
+    ids = [t.id for t in svc.store.load_transactions()]
+    assert len(ids) == len(set(ids)) == 4 and not any(i.startswith("live-") for i in ids)
+
+
+@pytest.mark.parametrize("method,path", [("PUT", "/api/helpers"), ("POST", "/api/data/sample"),
+                                         ("PUT", "/api/consent"), ("POST", "/api/safepause/check"),
+                                         ("POST", "/api/safepause/decide")])
+def test_router_missing_body_matches_fastapi(tmp_path: Path, method: str, path: str) -> None:
+    app = create_app(tmp_path / "pc", now=lambda: NOW)
+    with TestClient(app, base_url=BASE, headers={"X-SafePause": "1"}) as c:
+        pc = c.request(method, path)
+    svc = Service(tmp_path / "app", now=lambda: NOW)
+    status, body = dispatch(svc, method, path, None)
+    assert pc.status_code == status == 422
+    assert pc.json()["detail"] == body["detail"]
+
+
+def test_bridge_huge_integer_is_400(tmp_path: Path) -> None:
+    bridge.init(str(tmp_path / "store"))
+    r = json.loads(bridge.handle("POST", "/api/safepause/check", '{"to":"a","amount":' + "9" * 5000 + "}", None))
+    assert r["status"] == 400
+
+
+def test_500_has_security_headers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    app = create_app(tmp_path, now=lambda: NOW)
+    monkeypatch.setattr(app.state.safepause, "get_consent", lambda: 1 / 0)
+    with TestClient(app, base_url=BASE, headers={"X-SafePause": "1"}, raise_server_exceptions=False) as c:
+        r = c.get("/api/consent")
+    assert r.status_code == 500
+    for h in ("content-security-policy", "x-content-type-options", "x-frame-options", "cache-control"):
+        assert h in r.headers, h
+
+
+def test_browser_opens_only_after_server_started(monkeypatch: pytest.MonkeyPatch) -> None:
+    import types
+
+    from safepause import cli
+    opened: list[str] = []
+    monkeypatch.setattr(cli.webbrowser, "open", lambda url: opened.append(url) or True)
+    server = types.SimpleNamespace(started=False, should_exit=False)
+    t = cli._open_browser_when_started(server, "http://127.0.0.1:1/#k=x", timeout=5)
+    import time as _t
+    _t.sleep(0.4)
+    assert opened == []                      # 아직 시작 전: 열지 않음
+    server.started = True
+    t.join(3)
+    assert opened == ["http://127.0.0.1:1/#k=x"]
+    failed = types.SimpleNamespace(started=False, should_exit=True)
+    cli._open_browser_when_started(failed, "u", timeout=2).join(3)
+    assert opened == ["http://127.0.0.1:1/#k=x"]   # 시작하지 못한 서버는 열지 않음

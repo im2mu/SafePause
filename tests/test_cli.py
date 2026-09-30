@@ -371,7 +371,7 @@ def test_launcher_run_passes_command(capsys):
 
 def test_spec_file_mentions_required_parts():
     spec = (ROOT / "packaging" / "safepause.spec").read_text(encoding="utf-8")
-    for needle in ('name="SafePause"', "safepause/server/static", 'collect_submodules("sklearn"',
+    for needle in ('name="SafePause"', "safepause/web", 'collect_submodules("sklearn"',
                    'collect_submodules("uvicorn")', "launcher.py"):
         assert needle in spec
     compile(spec, "safepause.spec", "exec")  # 문법 확인(실행하지 않음)

@@ -31,8 +31,20 @@ INTERNAL_ERROR = "처리하다 문제가 생겼어요. 다시 해 주세요."
 Handler = Callable[[Service, dict[str, str], Any, Optional[bytes]], Any]
 
 
+class _MissingBody(Exception):
+    """본문이 꼭 필요한 요청에 본문이 없음(FastAPI와 같은 422 '요청')."""
+
+
 def _model(cls: type[BaseModel], body: Any) -> Any:
-    return cls.model_validate(body if body is not None else {})
+    if body is None:
+        raise _MissingBody()
+    return cls.model_validate(body)
+
+
+def _helpers(body: Any) -> Any:
+    if body is None:
+        raise _MissingBody()
+    return HelperList.validate_python(body)
 
 
 def _eval_run(s: Service, q: dict[str, str], body: Any, raw: Optional[bytes]) -> Any:
@@ -60,7 +72,7 @@ ROUTES: dict[tuple[str, str], Handler] = {
     ("GET", "/api/consent"): lambda s, q, b, r: s.get_consent(),
     ("PUT", "/api/consent"): lambda s, q, b, r: s.put_consent(_model(ConsentIn, b)),
     ("GET", "/api/helpers"): lambda s, q, b, r: s.get_helpers(),
-    ("PUT", "/api/helpers"): lambda s, q, b, r: s.put_helpers(HelperList.validate_python(b if b is not None else [])),
+    ("PUT", "/api/helpers"): lambda s, q, b, r: s.put_helpers(_helpers(b)),
     ("GET", "/api/data/summary"): lambda s, q, b, r: s.data_summary(),
     ("POST", "/api/data/sample"): lambda s, q, b, r: s.data_sample(_model(SampleIn, b)),
     ("POST", "/api/data/upload"): _upload,
@@ -92,6 +104,9 @@ def dispatch(service: Service, method: str, path: str, body: Any = None,
         return 200, route(service, query, body, raw)
     except ValidationError as exc:
         detail, errors = validation_detail(exc.errors())
+        return 422, {"detail": detail, "errors": errors}
+    except _MissingBody:
+        detail, errors = validation_detail([{"loc": ("body",), "type": "missing"}])
         return 422, {"detail": detail, "errors": errors}
     except ServiceError as exc:
         payload: dict[str, Any] = {"detail": exc.detail}
