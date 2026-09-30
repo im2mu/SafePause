@@ -32,6 +32,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from safepause import __version__, config
 from safepause.api.constants import MAX_UPLOAD_BYTES, NO_FILE, TOO_BIG
@@ -201,6 +202,17 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
     @app.exception_handler(StoreError)
     async def _store_error(request: Request, exc: StoreError) -> JSONResponse:
         return _json(500, str(exc))
+
+    # 프레임워크가 내는 영어 오류(본문 해석 실패·없는 주소·허용 안 된 방법)도 쉬운 한국어로(안드로이드 router와 같은 문구)
+    _HTTP_KO = {400: "보낸 내용을 읽지 못했어요. 다시 해 주세요.", 404: "없는 기능이에요.", 405: "이 방법으로는 쓸 수 없어요."}
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        detail = exc.detail if isinstance(exc.detail, str) and re.search(r"[가-힣]", exc.detail) else _HTTP_KO.get(exc.status_code, INTERNAL_ERROR)
+        response = _json(exc.status_code, detail)
+        for key, value in (exc.headers or {}).items():
+            response.headers[key] = value
+        return response
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:

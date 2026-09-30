@@ -407,3 +407,19 @@ def test_browser_opens_only_after_server_started(monkeypatch: pytest.MonkeyPatch
     failed = types.SimpleNamespace(started=False, should_exit=True)
     cli._open_browser_when_started(failed, "u", timeout=2).join(3)
     assert opened == ["http://127.0.0.1:1/#k=x"]   # 시작하지 못한 서버는 열지 않음
+
+
+def test_framework_http_errors_are_korean(tmp_path):
+    """본문 해석 실패(깨진 UTF-8)·없는 주소·허용 안 된 방법도 한국어 문구(안드로이드 router와 같음)."""
+    from fastapi.testclient import TestClient
+
+    from safepause.server.app import create_app
+
+    client = TestClient(create_app(tmp_path / "store"), base_url=BASE)
+    headers = {"X-SafePause": "1", "Content-Type": "application/json"}
+    r = client.post("/api/safepause/check", content=b'{"to": "\xb1\xe8", "amount": 1000}', headers=headers)
+    assert r.status_code == 400 and r.json()["detail"] == "보낸 내용을 읽지 못했어요. 다시 해 주세요."
+    r = client.get("/api/nothing-here")
+    assert r.status_code == 404 and r.json()["detail"] == "없는 기능이에요."
+    r = client.delete("/api/consent", headers=headers)
+    assert r.status_code == 405 and r.json()["detail"] == "이 방법으로는 쓸 수 없어요."
