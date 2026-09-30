@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 108dp 적응형 아이콘 전경: 안쪽 72dp 안전 영역에 흰 팔각형(멈춤)과 가운데 손바닥 모양 막대 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M44.1,30 L63.9,30 L78,44.1 L78,63.9 L63.9,78 L44.1,78 L30,63.9 L30,44.1 Z" />
+    <path android:fillColor="#3182F6"
+        android:pathData="M47,44 h4 v20 h-4 z M57,44 h4 v20 h-4 z" />
+</vector>
