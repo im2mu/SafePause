@@ -189,12 +189,20 @@ async function boot() {
     const a = e.target.closest && e.target.closest("a[data-skip]");
     if (a) { e.preventDefault(); $("#main").focus(); }   // 리뷰 M1: '본문으로 바로 가기'가 화면을 바꾸지 않게
   });
-  // 글자를 적는 동안(휴대폰 자판이 열림) 아래 탭을 숨겨 입력 칸이 자판에 가리지 않게 한다(넓은 화면은 CSS에서 무시)
+  // 휴대폰 자판이 열린 동안에만 아래 탭을 숨겨 입력 칸이 자판에 가리지 않게 한다(넓은 화면은 CSS에서 무시).
+  // 자판은 창 높이가 줄어드는 것으로 안다: 뒤로 가기로 자판만 닫아도(입력 칸 초점은 남음) 탭이 다시 보인다
   const isTyping = (el) => el && el.matches && el.matches("input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea, select");
-  document.addEventListener("focusin", (e) => { if (isTyping(e.target)) document.body.classList.add("typing"); });
-  document.addEventListener("focusout", () => {
-    window.setTimeout(() => { if (!isTyping(document.activeElement)) document.body.classList.remove("typing"); }, 50);
-  });
+  let fullH = window.innerHeight, lastW = window.innerWidth;
+  const updateTyping = () => {
+    if (window.innerWidth !== lastW) { lastW = window.innerWidth; fullH = window.innerHeight; }   // 화면 돌림
+    fullH = Math.max(fullH, window.innerHeight);
+    const keyboard = window.innerHeight < fullH * 0.8;
+    document.body.classList.toggle("typing", keyboard && isTyping(document.activeElement));
+  };
+  window.addEventListener("resize", updateTyping);
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", updateTyping);
+  document.addEventListener("focusin", updateTyping);
+  document.addEventListener("focusout", () => window.setTimeout(updateTyping, 50));
   window.addEventListener("hashchange", () => {
     if (!/^#\//.test(location.hash)) return;   // #main 같은 문서 안 이동은 화면을 바꾸지 않는다
     if (restoring) return;
