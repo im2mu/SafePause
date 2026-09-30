@@ -705,6 +705,20 @@ class DateRangeError(ValueError):
     """날짜가 받을 수 있는 범위(MIN_YEAR~MAX_YEAR) 밖일 때."""
 
 
+class AmountError(ValueError):
+    """금액이 반올림해서 0원 이하일 때(거래로 받지 않는다)."""
+
+
+def round_amount(number: float) -> int:
+    """금액을 원 단위로 반올림한다. 0.5는 절댓값이 커지는 쪽(2.5→3, -2.5→-3).
+
+    표준 CSV(txn_from_standard_row)와 한국어 머리글 CSV(loader)가 같은 규칙을 쓴다.
+    Python의 round()는 2.5→2(짝수 쪽)라 쓰지 않는다.
+    """
+    value = math.floor(abs(number) + 0.5)
+    return int(-value if number < 0 else value)
+
+
 def check_year(ts: datetime) -> datetime:
     """연도가 MIN_YEAR~MAX_YEAR 안이면 그대로, 아니면 DateRangeError(날짜 계산 넘침 방지)."""
     if not MIN_YEAR <= ts.year <= MAX_YEAR:
@@ -763,7 +777,10 @@ def parse_standard_ts(text: str) -> datetime:
 
 
 def txn_from_standard_row(row: dict[str, str | None]) -> Transaction:
-    """표준 CSV 한 행(dict) → Transaction. 금액의 쉼표는 허용한다."""
+    """표준 CSV 한 행(dict) → Transaction. 금액의 쉼표는 허용한다.
+
+    금액은 원 단위로 반올림(round_amount)하고, 0원 이하(음수 포함)면 AmountError(ValueError).
+    """
     def get(key: str) -> str:
         return (row.get(key) or "").strip()
 
@@ -773,7 +790,9 @@ def txn_from_standard_row(row: dict[str, str | None]) -> Transaction:
     number = float(amount_text)
     if not math.isfinite(number) or abs(number) >= AMOUNT_LIMIT:
         raise ValueError(f"amount를 금액으로 읽을 수 없어요: {amount_text[:20]}")
-    amount = abs(int(number))
+    amount = round_amount(number)
+    if amount <= 0:
+        raise AmountError(f"amount가 0원 이하예요: {amount_text[:20]}")
     label = get("label") or None
     return Transaction(
         id=get("id"),
