@@ -3,19 +3,23 @@
 점수(0~1)는 학습 데이터 점수 분포 대비 백분위다. 대상보다 덜 이례적인 학습 거래의 비율이므로
 1.0이면 학습한 어떤 평소 거래보다도 이례적이라는 뜻이다. 높을수록 이례적.
 평가 시점에 평소 기준 구간이 아직 없으면(이력 초기) 개인 기준 비교가 불가능하므로 0.0을 준다.
+
+scikit-learn은 학습(fit)할 때 처음 불러온다. 룰만 쓰거나 학습 전(30건 미만)이면 sklearn·scipy를
+싣지 않아 앱 시작이 가볍다(모바일 2단계 로딩). 학습된 모델을 pickle로 풀면 sklearn은 pickle이 부른다.
 """
 from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Mapping
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
-from sklearn.ensemble import IsolationForest
 
 from safepause.config import Settings
 from safepause.detect.features import (
+    BINARY_FEATURES,
     FEATURE_NAMES,
+    TIME_FEATURES,
     UPPER_RISK_FEATURES,
     HistoryLike,
     as_history,
@@ -25,11 +29,16 @@ from safepause.detect.features import (
 )
 from safepause.models import Reason, Transaction
 
+if TYPE_CHECKING:  # 타입 검사 때만. 실행 중에는 fit()이 처음 부를 때 불러온다
+    from sklearn.ensemble import IsolationForest
+
 MIN_TRAIN = 30        # 학습 거래가 이보다 적으면 학습하지 않음(fitted=False)
 N_ESTIMATORS = 200
 MODEL_TAG = "iforest-v1"
 _Z_CAP = 99.0         # 설명용 표준화 편차 표시 상한
 MIN_EXPLAIN_Z = 1.0   # 이 값보다 작은 편차는 이유로 내지 않음
+_STD_EPS = 1e-9       # 이보다 작은 표준편차는 분산 0(학습 때 값이 한 가지뿐)으로 본다
+_FEATURE_INDEX = {name: k for k, name in enumerate(FEATURE_NAMES)}
 
 
 class PersonalAnomalyModel:
@@ -78,6 +87,8 @@ class PersonalAnomalyModel:
         rows = rows_ready if len(rows_ready) >= MIN_TRAIN else rows_all
         x = np.asarray(rows, dtype=float)
 
+        from sklearn.ensemble import IsolationForest  # 지연 불러오기(모듈 설명 참고)
+
         forest = IsolationForest(n_estimators=N_ESTIMATORS, contamination="auto",
                                  random_state=self.seed)
         forest.fit(x)
@@ -112,39 +123,62 @@ class PersonalAnomalyModel:
         return self.score_features(compute_features(txn, hist, txn.ts))
 
     # ---- 설명 ----
+    def time_known(self) -> bool:
+        """학습 거래의 시각이 한 가지가 아닌지(hour_sin·hour_cos 중 하나라도 분산이 있음).
+
+        False면(예: 날짜만 있는 CSV라 모두 12:00) 평소 시간을 알 수 없어 시각 이유를 내지 않는다.
+        """
+        if not self.fitted or self._std is None:
+            return False
+        return any(float(self._std[_FEATURE_INDEX[name]]) > _STD_EPS
+                   for name in ("hour_sin", "hour_cos"))
+
     def explain_features(self, feats: Mapping[str, float], top_k: int = 2) -> list[Reason]:
         """학습 분포 대비 표준화 편차(|z|)가 큰 특징 순으로 최대 top_k개.
 
         |z| < MIN_EXPLAIN_Z 인 특징과, UPPER_RISK_FEATURES(값이 클수록 위험)의 평소보다
-        작은 쪽 편차는 이유로 내지 않는다.
+        작은 쪽 편차는 이유로 내지 않는다. 학습 때 값이 한 가지뿐이던(분산 0) 연속 특징은 z를 구할 수
+        없고 모델 점수에도 쓰이지 않으므로 이유로 내지 않는다(z=0). 0/1 사실 특징(BINARY_FEATURES:
+        처음 보는 상대·회선 등)은 분산 0이어도 값이 다르면 ±_Z_CAP으로 남긴다. 학습 시각이 모두
+        같으면(time_known()이 False) 시각 특징(TIME_FEATURES)은 이유로 내지 않는다.
+        시각 특징 이유의 detail에는 심야 여부(is_night, 모델 설정 기준)를 함께 담는다(카드 아이콘용).
         """
         if not self.fitted or self._mean is None or self._std is None or top_k <= 0:
             return []
         x = np.asarray(feature_vector(feats), dtype=float)
+        time_known = self.time_known()
         scored: list[tuple[float, int]] = []
-        for k in range(len(FEATURE_NAMES)):
+        for k, name in enumerate(FEATURE_NAMES):
+            if name in TIME_FEATURES and not time_known:
+                continue
             diff = float(x[k] - self._mean[k])
             std = float(self._std[k])
-            if std > 1e-9:
+            if std > _STD_EPS:
                 z = diff / std
-            else:  # 학습 때 값이 한 가지뿐이던 특징
+            elif name in BINARY_FEATURES:  # 학습 때 값이 한 가지뿐이던 0/1 사실 특징
                 z = 0.0 if abs(diff) < 1e-12 else math.copysign(_Z_CAP, diff)
+            else:  # 분산 0 연속 특징: 설명하지 않는다
+                z = 0.0
             z = max(-_Z_CAP, min(_Z_CAP, z))
-            if FEATURE_NAMES[k] in UPPER_RISK_FEATURES and z < 0:
+            if name in UPPER_RISK_FEATURES and z < 0:
                 continue
             if abs(z) >= MIN_EXPLAIN_Z:
                 scored.append((z, k))
         scored.sort(key=lambda item: (-abs(item[0]), item[1]))
         reasons: list[Reason] = []
+        night = bool(x[_FEATURE_INDEX["is_night"]] >= 0.5)
         for z, k in scored[:top_k]:
             name = FEATURE_NAMES[k]
-            reasons.append(Reason(code=f"anomaly:{name}", detail={
+            detail = {
                 "feature": name,
                 "value": round(float(x[k]), 4),
                 "baseline_mean": round(float(self._mean[k]), 4),
                 "baseline_std": round(float(self._std[k]), 4),
                 "z": round(z, 2),
-            }))
+            }
+            if name in TIME_FEATURES:
+                detail["is_night"] = night
+            reasons.append(Reason(code=f"anomaly:{name}", detail=detail))
         return reasons
 
     def explain(self, txn: Transaction, history_before: HistoryLike,

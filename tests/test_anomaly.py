@@ -208,3 +208,111 @@ def test_label_is_not_used(history: list[Transaction]) -> None:
     b = PersonalAnomalyModel(seed=1).fit(relabeled)
     p = probes(history[-1].ts)[3]
     assert a.score(p, history) == b.score(p, relabeled)
+
+
+# ---- 리뷰 2: 분산 0 특징과 시각 이유 ----
+TIME_NAMES = {"hour_sin", "hour_cos", "is_night"}
+
+
+def _date_only(txns: list[Transaction]) -> list[Transaction]:
+    """날짜만 있는 CSV처럼 모든 거래를 12:00으로."""
+    import dataclasses
+    return [dataclasses.replace(t, ts=t.ts.replace(hour=12, minute=0)) for t in txns]
+
+
+def test_date_only_history_gives_no_time_reasons(history: list[Transaction]) -> None:
+    """학습 시각이 모두 같으면 평소 시간을 모르므로 '평소와 다른 시간' 이유를 내지 않는다(리뷰 12 재현)."""
+    dated = _date_only(history)
+    m = PersonalAnomalyModel(seed=0).fit(dated)
+    assert m.fitted and not m.time_known()
+    assert PersonalAnomalyModel(seed=0).fit(history).time_known()   # 시각이 여러 가지면 True
+    for p in probes(dated[-1].ts):                        # 새벽 2~4시 거래 포함
+        names = {r.detail["feature"] for r in m.explain(p, dated, top_k=len(FEATURE_NAMES))}
+        assert not names & TIME_NAMES, (p.id, names)
+    # 점수는 그대로 계산된다(설명만 바뀜)
+    assert 0.0 <= m.score(probes(dated[-1].ts)[3], dated) <= 1.0
+
+
+def test_zero_variance_continuous_feature_is_not_explained(model: PersonalAnomalyModel,
+                                                           history: list[Transaction]) -> None:
+    import copy
+    m = copy.deepcopy(model)
+    assert m._mean is not None and m._std is not None
+    k_cont = FEATURE_NAMES.index("cp_count_7d")
+    k_bin = FEATURE_NAMES.index("new_line")
+    m._mean[k_cont], m._std[k_cont] = 1.0, 0.0        # 학습 때 늘 1이던 연속 특징
+    m._mean[k_bin], m._std[k_bin] = 0.0, 0.0          # 학습 때 늘 0이던 0/1 특징
+    feats = dict(zip(FEATURE_NAMES, [float(v) for v in m._mean]))
+    feats["cp_count_7d"] = 5.0
+    feats["new_line"] = 1.0
+    reasons = {r.detail["feature"]: r for r in m.explain_features(feats, top_k=len(FEATURE_NAMES))}
+    assert "cp_count_7d" not in reasons                  # z를 구할 수 없고 점수에도 쓰이지 않음
+    assert reasons["new_line"].detail["z"] == 99.0       # 사실인 0/1 특징은 남긴다
+
+
+def test_time_reason_carries_night_flag(model: PersonalAnomalyModel,
+                                        history: list[Transaction]) -> None:
+    found = 0
+    for p in probes(history[-1].ts):
+        for r in model.explain(p, history, top_k=len(FEATURE_NAMES)):
+            if r.detail["feature"] in TIME_NAMES:
+                assert r.detail["is_night"] is model.settings.is_night(p.ts.hour)
+                found += 1
+            else:
+                assert "is_night" not in r.detail
+    assert found > 0
+
+
+# ---- 리뷰 6: sklearn 지연 불러오기 ----
+def _run_python(code: str) -> str:
+    """새 파이썬 프로세스에서 code를 실행하고 출력(앞뒤 공백 제거)을 돌려준다."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    env = {**os.environ, "PYTHONPATH": str(root), "PYTHONIOENCODING": "utf-8"}
+    done = subprocess.run([sys.executable, "-c", code], cwd=root, capture_output=True, text=True,
+                          encoding="utf-8", env=env, timeout=120)
+    assert done.returncode == 0, done.stderr
+    return done.stdout.strip()
+
+
+def test_engine_import_does_not_load_sklearn() -> None:
+    out = _run_python(
+        "import sys\n"
+        "import safepause.detect.engine, safepause.explain.easy_card\n"
+        "print('sklearn' in sys.modules, 'scipy' in sys.modules)\n"
+    )
+    assert out == "False False"
+
+
+def test_rules_mode_and_unfitted_work_without_sklearn() -> None:
+    out = _run_python(
+        "import sys\n"
+        "sys.modules['sklearn'] = None  # import sklearn 이 ImportError를 내게 막는다\n"
+        "from datetime import datetime, timedelta\n"
+        "from safepause.detect.engine import RiskEngine\n"
+        "from safepause.models import Channel, Direction, Transaction\n"
+        "t0 = datetime(2026, 1, 1, 1)\n"
+        "txns = [Transaction(f'x{i}', t0 + timedelta(days=i), 100_000, Direction.OUT,\n"
+        "                    Channel.TRANSFER, '김*호', '999-000-111') for i in range(3)]\n"
+        "rules = RiskEngine(mode='rules').assess_many(txns)\n"
+        "eng = RiskEngine().fit(txns)  # 30건 미만: 학습하지 않음\n"
+        "fused = eng.assess_many(txns)\n"
+        "one = eng.assess_pending(txns[-1], txns[:-1])\n"
+        "print(rules[-1].level.value, fused[-1].level.value, one.level.value, eng.fitted,\n"
+        "      eng.model_version())\n"
+    )
+    assert out == "high high high False rules-v1+iforest-v1-unfitted"
+
+
+def test_pickled_model_keeps_scores_and_version(model: PersonalAnomalyModel,
+                                                history: list[Transaction]) -> None:
+    import pickle
+    restored = pickle.loads(pickle.dumps(model))
+    assert restored.version == model.version and restored.fitted
+    ps = probes(history[-1].ts)
+    assert [restored.score(p, history) for p in ps] == [model.score(p, history) for p in ps]
+    assert [restored.explain(p, history) for p in ps] == [model.explain(p, history) for p in ps]

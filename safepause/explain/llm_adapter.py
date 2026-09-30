@@ -66,20 +66,45 @@ def validate_loopback_endpoint(endpoint: str) -> str:
 
 # ---- 숫자 보존 검사 -------------------------------------------------------
 
-_NUMBER_TOKEN = re.compile(r"\d+(?:\.\d+)?\s*[^\s\d.,?!]?")
+# 숫자 뒤 단위어. 긴 것부터 맞춘다('3번째'가 '3번'으로 잘리지 않게: "이번이 3번째예요" ≠ "3번 보냈어요").
+_UNIT_WORDS: tuple[str, ...] = tuple(sorted((
+    "번째", "가지", "개월", "시간", "주일",
+    "번", "째", "만", "천", "백", "억", "조", "원", "일", "주", "달", "년", "월",
+    "시", "분", "초", "개", "건", "명", "곳", "살", "회", "배", "%",
+), key=len, reverse=True))
+# 시각 앞의 때 말. '새벽 2시'를 '오후 2시'로 바꾸면 뜻이 달라지므로 '시'와 한 토큰으로 본다.
+_DAY_PARTS: tuple[str, ...] = ("새벽", "아침", "오전", "낮", "오후", "저녁", "밤")
+_NUMBER_TOKEN = re.compile(
+    r"(?:(?P<part>" + "|".join(_DAY_PARTS) + r")\s*)?"
+    r"(?P<num>\d+(?:\.\d+)?)\s*"
+    r"(?P<unit>" + "|".join(re.escape(u) for u in _UNIT_WORDS) + r")?"
+)
+
+
+def _line_tokens(line: str) -> list[str]:
+    text = re.sub(r"(?<=\d),(?=\d)", "", line)
+    tokens: list[str] = []
+    for m in _NUMBER_TOKEN.finditer(text):
+        unit = m.group("unit") or ""
+        part = m.group("part") if unit == "시" and m.group("part") else ""
+        tokens.append(f"{part}{m.group('num')}{unit}")
+    return tokens
 
 
 def number_tokens(lines: Iterable[str]) -> list[str]:
-    """숫자와 바로 뒤 단위 글자(예: "4번", "30만", "5천")를 모아 정렬해 돌려준다."""
+    """숫자와 뒤의 단위어 전체(예: "4번", "3번째", "30만", "5천", "새벽2시")를 모아 정렬해 돌려준다."""
     tokens: list[str] = []
     for line in lines:
-        text = re.sub(r"(?<=\d),(?=\d)", "", line)
-        tokens += [re.sub(r"\s+", "", t) for t in _NUMBER_TOKEN.findall(text)]
+        tokens += _line_tokens(line)
     return sorted(tokens)
 
 
 def same_numbers(before: Iterable[str], after: Iterable[str]) -> bool:
-    return Counter(number_tokens(before)) == Counter(number_tokens(after))
+    """줄마다 숫자·단위어가 그대로인지. 줄 수가 다르거나 숫자가 다른 줄로 옮겨 가도 False."""
+    b, a = list(before), list(after)
+    if len(b) != len(a):
+        return False
+    return all(Counter(_line_tokens(x)) == Counter(_line_tokens(y)) for x, y in zip(b, a))
 
 
 # ---- 프롬프트·응답 --------------------------------------------------------
