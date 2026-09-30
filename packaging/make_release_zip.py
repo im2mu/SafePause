@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TOP = "SafePause"   # zip 안 맨 위 폴더 이름(짧은 경로에 풀기 쉽게)
 
 # 넣는 것(허용 목록)
-INCLUDE_DIRS: tuple[str, ...] = ("safepause", "tests", "docs", "sample_data", "packaging", ".github", "android")
+INCLUDE_DIRS: tuple[str, ...] = ("safepause", "tests", "docs", "sample_data", "samples", "tools", "packaging", ".github", "android")
 INCLUDE_FILES: tuple[str, ...] = (
     "README.md", "SPEC.md", "requirements.txt", "pyproject.toml", "run_windows.bat", "run_mac_linux.sh",
     "Dockerfile", ".gitattributes", ".gitignore",

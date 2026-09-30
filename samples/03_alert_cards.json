@@ -1,0 +1,746 @@
+{
+  "total": 20,
+  "items": [
+    {
+      "card": {
+        "txn_id": "s-night_repeat_transfer-20260625-04",
+        "level": "high",
+        "title": "밤에 돈을 자주 보냈어요",
+        "lines": [
+          "그때 밤늦게 돈을 여러 번 보냈어요.",
+          "7일 동안 4번 보냈어요.",
+          "걱정되는 점이 1가지 더 있었어요.",
+          "누가 시켰나요?"
+        ],
+        "pictograms": [
+          "moon",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "밤에 돈을 자주 보냈어요. 그때 밤늦게 돈을 여러 번 보냈어요. 7일 동안 4번 보냈어요. 걱정되는 점이 1가지 더 있었어요. 누가 시켰나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-night_repeat_transfer-20260625-04",
+        "ts": "2026-06-27T04:41:25",
+        "amount": 360000,
+        "direction": "out",
+        "channel": "transfer",
+        "counterparty": "김*호",
+        "counterparty_id": "900-7058-436671",
+        "line_id": "",
+        "memo": "모바일이체",
+        "label": "night_repeat_transfer"
+      },
+      "signals": [
+        "night_repeat_transfer",
+        "payee_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-multi_line_telecom-20260616-02",
+        "level": "high",
+        "title": "휴대폰 요금이 여러 개였어요",
+        "lines": [
+          "처음 보는 휴대폰 요금이 나왔어요.",
+          "한 달 동안 요금이 3개 나왔어요.",
+          "내가 만든 휴대폰이 맞나요?"
+        ],
+        "pictograms": [
+          "phone",
+          "warning",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "휴대폰 요금이 여러 개였어요. 처음 보는 휴대폰 요금이 나왔어요. 한 달 동안 요금이 3개 나왔어요. 내가 만든 휴대폰이 맞나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-multi_line_telecom-20260616-02",
+        "ts": "2026-06-26T09:35:11",
+        "amount": 59990,
+        "direction": "out",
+        "channel": "telecom_bill",
+        "counterparty": "다라모바일",
+        "counterparty_id": "TEL-DARA",
+        "line_id": "010-****-9970",
+        "memo": "통신요금",
+        "label": "multi_line_telecom"
+      },
+      "signals": [
+        "multi_line_telecom"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-night_repeat_transfer-20260625-03",
+        "level": "high",
+        "title": "밤에 돈을 자주 보냈어요",
+        "lines": [
+          "그때 밤늦게 돈을 여러 번 보냈어요.",
+          "7일 동안 3번 보냈어요.",
+          "걱정되는 점이 1가지 더 있었어요.",
+          "누가 시켰나요?"
+        ],
+        "pictograms": [
+          "moon",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "밤에 돈을 자주 보냈어요. 그때 밤늦게 돈을 여러 번 보냈어요. 7일 동안 3번 보냈어요. 걱정되는 점이 1가지 더 있었어요. 누가 시켰나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-night_repeat_transfer-20260625-03",
+        "ts": "2026-06-26T02:22:54",
+        "amount": 190000,
+        "direction": "out",
+        "channel": "transfer",
+        "counterparty": "김*호",
+        "counterparty_id": "900-7058-436671",
+        "line_id": "",
+        "memo": "모바일이체",
+        "label": "night_repeat_transfer"
+      },
+      "signals": [
+        "night_repeat_transfer",
+        "payee_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-night_repeat_transfer-20260625-02",
+        "level": "high",
+        "title": "한 사람에게 많이 보냈어요",
+        "lines": [
+          "김*호에게 돈을 자주 보냈어요.",
+          "7일 동안 2번 보냈어요.",
+          "7일 동안 모두 60만 원이었어요.",
+          "누가 보내라고 했나요?"
+        ],
+        "pictograms": [
+          "person",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "한 사람에게 많이 보냈어요. 김*호에게 돈을 자주 보냈어요. 7일 동안 2번 보냈어요. 7일 동안 모두 60만 원이었어요. 누가 보내라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-night_repeat_transfer-20260625-02",
+        "ts": "2026-06-26T02:14:46",
+        "amount": 320000,
+        "direction": "out",
+        "channel": "transfer",
+        "counterparty": "김*호",
+        "counterparty_id": "900-7058-436671",
+        "line_id": "",
+        "memo": "모바일이체",
+        "label": "night_repeat_transfer"
+      },
+      "signals": [
+        "night_repeat_transfer",
+        "payee_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-multi_line_telecom-20260616-01",
+        "level": "high",
+        "title": "휴대폰 요금이 여러 개였어요",
+        "lines": [
+          "처음 보는 휴대폰 요금이 나왔어요.",
+          "한 달 동안 요금이 2개 나왔어요.",
+          "내가 만든 휴대폰이 맞나요?"
+        ],
+        "pictograms": [
+          "phone",
+          "warning",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "휴대폰 요금이 여러 개였어요. 처음 보는 휴대폰 요금이 나왔어요. 한 달 동안 요금이 2개 나왔어요. 내가 만든 휴대폰이 맞나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-multi_line_telecom-20260616-01",
+        "ts": "2026-06-16T15:50:21",
+        "amount": 77860,
+        "direction": "out",
+        "channel": "telecom_bill",
+        "counterparty": "가나통신",
+        "counterparty_id": "TEL-GANA",
+        "line_id": "010-****-6925",
+        "memo": "통신요금",
+        "label": "multi_line_telecom"
+      },
+      "signals": [
+        "multi_line_telecom"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-micropay_surge-20260610-10",
+        "level": "high",
+        "title": "휴대폰 결제가 많았어요",
+        "lines": [
+          "그때 휴대폰으로 결제를 많이 했어요.",
+          "7일 동안 10번 결제했어요.",
+          "7일 동안 모두 64만 3천 원이었어요.",
+          "누가 결제해 달라고 했나요?"
+        ],
+        "pictograms": [
+          "phone",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "휴대폰 결제가 많았어요. 그때 휴대폰으로 결제를 많이 했어요. 7일 동안 10번 결제했어요. 7일 동안 모두 64만 3천 원이었어요. 누가 결제해 달라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-micropay_surge-20260610-10",
+        "ts": "2026-06-15T19:03:56",
+        "amount": 93000,
+        "direction": "out",
+        "channel": "micropay",
+        "counterparty": "모바일상품권",
+        "counterparty_id": "MP-GIFT",
+        "line_id": "010-****-1234",
+        "memo": "휴대폰결제",
+        "label": "micropay_surge"
+      },
+      "signals": [
+        "micropay_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-micropay_surge-20260610-09",
+        "level": "high",
+        "title": "휴대폰 결제가 많았어요",
+        "lines": [
+          "그때 휴대폰으로 결제를 많이 했어요.",
+          "7일 동안 9번 결제했어요.",
+          "7일 동안 모두 55만 원이었어요.",
+          "누가 결제해 달라고 했나요?"
+        ],
+        "pictograms": [
+          "phone",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "휴대폰 결제가 많았어요. 그때 휴대폰으로 결제를 많이 했어요. 7일 동안 9번 결제했어요. 7일 동안 모두 55만 원이었어요. 누가 결제해 달라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-micropay_surge-20260610-09",
+        "ts": "2026-06-15T13:47:41",
+        "amount": 44000,
+        "direction": "out",
+        "channel": "micropay",
+        "counterparty": "모바일상품권",
+        "counterparty_id": "MP-GIFT",
+        "line_id": "010-****-1234",
+        "memo": "휴대폰결제",
+        "label": "micropay_surge"
+      },
+      "signals": [
+        "micropay_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-micropay_surge-20260610-08",
+        "level": "high",
+        "title": "휴대폰 결제가 많았어요",
+        "lines": [
+          "그때 휴대폰으로 결제를 많이 했어요.",
+          "7일 동안 8번 결제했어요.",
+          "7일 동안 모두 50만 6천 원이었어요.",
+          "누가 결제해 달라고 했나요?"
+        ],
+        "pictograms": [
+          "phone",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "휴대폰 결제가 많았어요. 그때 휴대폰으로 결제를 많이 했어요. 7일 동안 8번 결제했어요. 7일 동안 모두 50만 6천 원이었어요. 누가 결제해 달라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-micropay_surge-20260610-08",
+        "ts": "2026-06-15T13:23:46",
+        "amount": 69000,
+        "direction": "out",
+        "channel": "micropay",
+        "counterparty": "모바일상품권",
+        "counterparty_id": "MP-GIFT",
+        "line_id": "010-****-1234",
+        "memo": "휴대폰결제",
+        "label": "micropay_surge"
+      },
+      "signals": [
+        "micropay_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-micropay_surge-20260610-07",
+        "level": "high",
+        "title": "휴대폰 결제가 많았어요",
+        "lines": [
+          "그때 휴대폰으로 결제를 많이 했어요.",
+          "7일 동안 7번 결제했어요.",
+          "7일 동안 모두 43만 7천 원이었어요.",
+          "누가 결제해 달라고 했나요?"
+        ],
+        "pictograms": [
+          "phone",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "휴대폰 결제가 많았어요. 그때 휴대폰으로 결제를 많이 했어요. 7일 동안 7번 결제했어요. 7일 동안 모두 43만 7천 원이었어요. 누가 결제해 달라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-micropay_surge-20260610-07",
+        "ts": "2026-06-15T12:44:05",
+        "amount": 91000,
+        "direction": "out",
+        "channel": "micropay",
+        "counterparty": "모바일상품권",
+        "counterparty_id": "MP-GIFT",
+        "line_id": "010-****-1234",
+        "memo": "휴대폰결제",
+        "label": "micropay_surge"
+      },
+      "signals": [
+        "micropay_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-micropay_surge-20260610-06",
+        "level": "high",
+        "title": "휴대폰 결제가 많았어요",
+        "lines": [
+          "그때 휴대폰으로 결제를 많이 했어요.",
+          "7일 동안 6번 결제했어요.",
+          "7일 동안 모두 34만 6천 원이었어요.",
+          "누가 결제해 달라고 했나요?"
+        ],
+        "pictograms": [
+          "phone",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "휴대폰 결제가 많았어요. 그때 휴대폰으로 결제를 많이 했어요. 7일 동안 6번 결제했어요. 7일 동안 모두 34만 6천 원이었어요. 누가 결제해 달라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-micropay_surge-20260610-06",
+        "ts": "2026-06-14T17:41:28",
+        "amount": 74000,
+        "direction": "out",
+        "channel": "micropay",
+        "counterparty": "콘텐츠이용료",
+        "counterparty_id": "MP-CONT",
+        "line_id": "010-****-1234",
+        "memo": "휴대폰결제",
+        "label": "micropay_surge"
+      },
+      "signals": [
+        "micropay_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-micropay_surge-20260610-05",
+        "level": "high",
+        "title": "휴대폰 결제가 많았어요",
+        "lines": [
+          "그때 휴대폰으로 결제를 많이 했어요.",
+          "7일 동안 5번 결제했어요.",
+          "7일 동안 모두 27만 2천 원이었어요.",
+          "누가 결제해 달라고 했나요?"
+        ],
+        "pictograms": [
+          "phone",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "휴대폰 결제가 많았어요. 그때 휴대폰으로 결제를 많이 했어요. 7일 동안 5번 결제했어요. 7일 동안 모두 27만 2천 원이었어요. 누가 결제해 달라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-micropay_surge-20260610-05",
+        "ts": "2026-06-14T14:13:00",
+        "amount": 61000,
+        "direction": "out",
+        "channel": "micropay",
+        "counterparty": "모바일상품권",
+        "counterparty_id": "MP-GIFT",
+        "line_id": "010-****-1234",
+        "memo": "휴대폰결제",
+        "label": "micropay_surge"
+      },
+      "signals": [
+        "micropay_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-new_merchant_high_value-20260607-03",
+        "level": "high",
+        "title": "새 가게에 큰 돈을 냈어요",
+        "lines": [
+          "온라인 쇼핑몰은 처음 간 가게였어요.",
+          "그때 결제는 21만 1천 원이었어요.",
+          "평소보다 훨씬 큰 돈이었어요.",
+          "누가 사 달라고 했나요?"
+        ],
+        "pictograms": [
+          "store",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "새 가게에 큰 돈을 냈어요. 온라인 쇼핑몰은 처음 간 가게였어요. 그때 결제는 21만 1천 원이었어요. 평소보다 훨씬 큰 돈이었어요. 누가 사 달라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-new_merchant_high_value-20260607-03",
+        "ts": "2026-06-10T11:51:31",
+        "amount": 211000,
+        "direction": "out",
+        "channel": "card",
+        "counterparty": "온라인 쇼핑몰",
+        "counterparty_id": "M-9006",
+        "line_id": "",
+        "memo": "체크카드",
+        "label": "new_merchant_high_value"
+      },
+      "signals": [
+        "new_merchant_high_value"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-new_merchant_high_value-20260607-02",
+        "level": "high",
+        "title": "새 가게에 큰 돈을 냈어요",
+        "lines": [
+          "귀금속점은 처음 간 가게였어요.",
+          "그때 결제는 22만 4천 원이었어요.",
+          "평소보다 훨씬 큰 돈이었어요.",
+          "누가 사 달라고 했나요?"
+        ],
+        "pictograms": [
+          "store",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "새 가게에 큰 돈을 냈어요. 귀금속점은 처음 간 가게였어요. 그때 결제는 22만 4천 원이었어요. 평소보다 훨씬 큰 돈이었어요. 누가 사 달라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-new_merchant_high_value-20260607-02",
+        "ts": "2026-06-08T13:37:03",
+        "amount": 224000,
+        "direction": "out",
+        "channel": "card",
+        "counterparty": "귀금속점",
+        "counterparty_id": "M-9003",
+        "line_id": "",
+        "memo": "체크카드",
+        "label": "new_merchant_high_value"
+      },
+      "signals": [
+        "new_merchant_high_value"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-new_merchant_high_value-20260607-01",
+        "level": "high",
+        "title": "새 가게에 큰 돈을 냈어요",
+        "lines": [
+          "휴대폰 매장은 처음 간 가게였어요.",
+          "그때 결제는 12만 8천 원이었어요.",
+          "평소보다 훨씬 큰 돈이었어요.",
+          "누가 사 달라고 했나요?"
+        ],
+        "pictograms": [
+          "store",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "새 가게에 큰 돈을 냈어요. 휴대폰 매장은 처음 간 가게였어요. 그때 결제는 12만 8천 원이었어요. 평소보다 훨씬 큰 돈이었어요. 누가 사 달라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-new_merchant_high_value-20260607-01",
+        "ts": "2026-06-07T11:14:52",
+        "amount": 128000,
+        "direction": "out",
+        "channel": "card",
+        "counterparty": "휴대폰 매장",
+        "counterparty_id": "M-9004",
+        "line_id": "",
+        "memo": "체크카드",
+        "label": "new_merchant_high_value"
+      },
+      "signals": [
+        "new_merchant_high_value"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-payee_surge-20260531-07",
+        "level": "high",
+        "title": "한 사람에게 많이 보냈어요",
+        "lines": [
+          "한*솔에게 돈을 자주 보냈어요.",
+          "7일 동안 7번 보냈어요.",
+          "7일 동안 모두 59만 원이었어요.",
+          "누가 보내라고 했나요?"
+        ],
+        "pictograms": [
+          "person",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "한 사람에게 많이 보냈어요. 한*솔에게 돈을 자주 보냈어요. 7일 동안 7번 보냈어요. 7일 동안 모두 59만 원이었어요. 누가 보내라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-payee_surge-20260531-07",
+        "ts": "2026-06-04T16:49:12",
+        "amount": 130000,
+        "direction": "out",
+        "channel": "transfer",
+        "counterparty": "한*솔",
+        "counterparty_id": "900-7637-211815",
+        "line_id": "",
+        "memo": "모바일이체",
+        "label": "payee_surge"
+      },
+      "signals": [
+        "payee_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-payee_surge-20260531-06",
+        "level": "high",
+        "title": "한 사람에게 많이 보냈어요",
+        "lines": [
+          "한*솔에게 돈을 자주 보냈어요.",
+          "7일 동안 6번 보냈어요.",
+          "7일 동안 모두 46만 원이었어요.",
+          "누가 보내라고 했나요?"
+        ],
+        "pictograms": [
+          "person",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "한 사람에게 많이 보냈어요. 한*솔에게 돈을 자주 보냈어요. 7일 동안 6번 보냈어요. 7일 동안 모두 46만 원이었어요. 누가 보내라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-payee_surge-20260531-06",
+        "ts": "2026-06-01T15:20:23",
+        "amount": 20000,
+        "direction": "out",
+        "channel": "transfer",
+        "counterparty": "한*솔",
+        "counterparty_id": "900-7637-211815",
+        "line_id": "",
+        "memo": "모바일이체",
+        "label": "payee_surge"
+      },
+      "signals": [
+        "payee_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-payee_surge-20260531-05",
+        "level": "high",
+        "title": "한 사람에게 많이 보냈어요",
+        "lines": [
+          "한*솔에게 돈을 자주 보냈어요.",
+          "7일 동안 5번 보냈어요.",
+          "7일 동안 모두 44만 원이었어요.",
+          "누가 보내라고 했나요?"
+        ],
+        "pictograms": [
+          "person",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "한 사람에게 많이 보냈어요. 한*솔에게 돈을 자주 보냈어요. 7일 동안 5번 보냈어요. 7일 동안 모두 44만 원이었어요. 누가 보내라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-payee_surge-20260531-05",
+        "ts": "2026-06-01T13:14:42",
+        "amount": 80000,
+        "direction": "out",
+        "channel": "transfer",
+        "counterparty": "한*솔",
+        "counterparty_id": "900-7637-211815",
+        "line_id": "",
+        "memo": "모바일이체",
+        "label": "payee_surge"
+      },
+      "signals": [
+        "payee_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-payee_surge-20260531-04",
+        "level": "high",
+        "title": "한 사람에게 많이 보냈어요",
+        "lines": [
+          "한*솔에게 돈을 자주 보냈어요.",
+          "7일 동안 4번 보냈어요.",
+          "7일 동안 모두 36만 원이었어요.",
+          "누가 보내라고 했나요?"
+        ],
+        "pictograms": [
+          "person",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "한 사람에게 많이 보냈어요. 한*솔에게 돈을 자주 보냈어요. 7일 동안 4번 보냈어요. 7일 동안 모두 36만 원이었어요. 누가 보내라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-payee_surge-20260531-04",
+        "ts": "2026-06-01T09:48:07",
+        "amount": 80000,
+        "direction": "out",
+        "channel": "transfer",
+        "counterparty": "한*솔",
+        "counterparty_id": "900-7637-211815",
+        "line_id": "",
+        "memo": "모바일이체",
+        "label": "payee_surge"
+      },
+      "signals": [
+        "payee_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "s-payee_surge-20260531-03",
+        "level": "high",
+        "title": "한 사람에게 많이 보냈어요",
+        "lines": [
+          "한*솔에게 돈을 자주 보냈어요.",
+          "7일 동안 3번 보냈어요.",
+          "7일 동안 모두 28만 원이었어요.",
+          "누가 보내라고 했나요?"
+        ],
+        "pictograms": [
+          "person",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "한 사람에게 많이 보냈어요. 한*솔에게 돈을 자주 보냈어요. 7일 동안 3번 보냈어요. 7일 동안 모두 28만 원이었어요. 누가 보내라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "s-payee_surge-20260531-03",
+        "ts": "2026-05-31T20:41:03",
+        "amount": 110000,
+        "direction": "out",
+        "channel": "transfer",
+        "counterparty": "한*솔",
+        "counterparty_id": "900-7637-211815",
+        "line_id": "",
+        "memo": "모바일이체",
+        "label": "payee_surge"
+      },
+      "signals": [
+        "payee_surge"
+      ]
+    },
+    {
+      "card": {
+        "txn_id": "t00009",
+        "level": "caution",
+        "title": "가게에 큰 돈을 냈어요",
+        "lines": [
+          "영화관에서 결제했어요.",
+          "그때 결제는 11만 1천 원이었어요.",
+          "큰 돈이었어요.",
+          "누가 사 달라고 했나요?"
+        ],
+        "pictograms": [
+          "store",
+          "money",
+          "question"
+        ],
+        "question": "그때 걱정했던 거래예요.",
+        "choices": [],
+        "speak_text": "가게에 큰 돈을 냈어요. 영화관에서 결제했어요. 그때 결제는 11만 1천 원이었어요. 큰 돈이었어요. 누가 사 달라고 했나요? 그때 걱정했던 거래예요.",
+        "source": "template"
+      },
+      "txn": {
+        "id": "t00009",
+        "ts": "2026-03-07T12:33:25",
+        "amount": 111000,
+        "direction": "out",
+        "channel": "card",
+        "counterparty": "영화관",
+        "counterparty_id": "M-8003",
+        "line_id": "",
+        "memo": "체크카드",
+        "label": "normal"
+      },
+      "signals": [
+        "new_merchant_high_value"
+      ]
+    }
+  ]
+}

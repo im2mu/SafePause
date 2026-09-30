@@ -1,0 +1,159 @@
+{
+  "range": {
+    "personas": [
+      "worker",
+      "benefit",
+      "student"
+    ],
+    "seeds": [
+      1,
+      40
+    ],
+    "days": 120,
+    "train_days": 90,
+    "eval_days": 30
+  },
+  "personas": {
+    "worker": {
+      "name": "가상 근로자(급여 근로)",
+      "train_txns_mean": 149.5,
+      "eval_normal_txns_mean": 50.4,
+      "out_share": 0.9799,
+      "night_share": 0.0447,
+      "channel_share": {
+        "card": 0.8157,
+        "atm": 0.0294,
+        "income": 0.0201,
+        "micropay": 0.0214,
+        "transfer": 0.0933,
+        "telecom_bill": 0.0201
+      },
+      "amount_median": {
+        "card": 9400,
+        "atm": 30000.0,
+        "income": 1901000.0,
+        "micropay": 7600.0,
+        "transfer": 40000.0,
+        "telecom_bill": 54965.0
+      }
+    },
+    "benefit": {
+      "name": "가상 복지급여 수급자",
+      "train_txns_mean": 113.8,
+      "eval_normal_txns_mean": 39.8,
+      "out_share": 0.9736,
+      "night_share": 0.0292,
+      "channel_share": {
+        "card": 0.8062,
+        "atm": 0.0457,
+        "micropay": 0.0264,
+        "telecom_bill": 0.0264,
+        "income": 0.0264,
+        "transfer": 0.069
+      },
+      "amount_median": {
+        "card": 6900.0,
+        "atm": 30000.0,
+        "micropay": 7850.0,
+        "telecom_bill": 33025.0,
+        "income": 900000.0,
+        "transfer": 35000.0
+      }
+    },
+    "student": {
+      "name": "가상 학생(용돈)",
+      "train_txns_mean": 139.1,
+      "eval_normal_txns_mean": 46.6,
+      "out_share": 0.9856,
+      "night_share": 0.0607,
+      "channel_share": {
+        "card": 0.7946,
+        "telecom_bill": 0.0216,
+        "transfer": 0.0805,
+        "atm": 0.0232,
+        "micropay": 0.0658,
+        "income": 0.0144
+      },
+      "amount_median": {
+        "card": 5200,
+        "telecom_bill": 25455.0,
+        "transfer": 15000.0,
+        "atm": 30000,
+        "micropay": 8100.0,
+        "income": 300000.0
+      }
+    }
+  },
+  "scenarios": {
+    "night_repeat_transfer": {
+      "standard": {
+        "cases": 120,
+        "txns_mean": 5.13,
+        "amount_median": 300000.0,
+        "night_0_4_share": 0.8312
+      },
+      "subtle": {
+        "cases": 120,
+        "txns_mean": 2,
+        "amount_median": 560000.0,
+        "night_0_4_share": 0.825
+      }
+    },
+    "payee_surge": {
+      "standard": {
+        "cases": 120,
+        "txns_mean": 5.47,
+        "amount_median": 100000.0,
+        "night_0_4_share": 0.0
+      },
+      "subtle": {
+        "cases": 120,
+        "txns_mean": 2,
+        "amount_median": 53000.0,
+        "night_0_4_share": 0.0
+      }
+    },
+    "micropay_surge": {
+      "standard": {
+        "cases": 120,
+        "txns_mean": 11.47,
+        "amount_median": 59000.0,
+        "night_0_4_share": 0.0
+      },
+      "subtle": {
+        "cases": 120,
+        "txns_mean": 4,
+        "amount_median": 77000.0,
+        "night_0_4_share": 0.0
+      }
+    },
+    "new_merchant_high_value": {
+      "standard": {
+        "cases": 120,
+        "txns_mean": 3.01,
+        "amount_median": 188000,
+        "night_0_4_share": 0.0
+      },
+      "subtle": {
+        "cases": 120,
+        "txns_mean": 1,
+        "amount_median": 100000.0,
+        "night_0_4_share": 0.0
+      }
+    },
+    "multi_line_telecom": {
+      "standard": {
+        "cases": 120,
+        "txns_mean": 2.43,
+        "amount_median": 68245.0,
+        "night_0_4_share": 0.0
+      },
+      "subtle": {
+        "cases": 120,
+        "txns_mean": 1,
+        "amount_median": 65490.0,
+        "night_0_4_share": 0.0
+      }
+    }
+  }
+}
