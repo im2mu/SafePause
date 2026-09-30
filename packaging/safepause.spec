@@ -6,9 +6,9 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules
 
 ROOT = Path(SPECPATH).resolve().parent          # 저장소 루트(packaging의 상위 폴더)
-STATIC = ROOT / "safepause" / "server" / "static"
-if not STATIC.is_dir():
-    raise SystemExit(f"정적 화면 폴더가 없어요: {STATIC}")
+WEB = ROOT / "safepause" / "web"                # v0.2 화면(안드로이드 앱과 같은 파일)
+if not (WEB / "index.html").is_file():
+    raise SystemExit(f"화면 폴더가 없어요: {WEB}")
 
 
 def _no_tests(name: str) -> bool:
@@ -26,7 +26,7 @@ a = Analysis(
     [str(ROOT / "packaging" / "launcher.py")],
     pathex=[str(ROOT)],
     binaries=[],
-    datas=[(str(STATIC), "safepause/server/static")],   # index.html, app.js, style.css, icons/*.svg
+    datas=[(str(WEB), "safepause/web")],   # index.html, js/, css/, icons/, data/ (engine/은 앱 전용이지만 작아서 함께)
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

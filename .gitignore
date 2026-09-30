@@ -18,3 +18,12 @@ serve.lock
 file_eval_*
 *.csv
 !sample_data/*.csv
+# 안드로이드: 서명 키(비밀)·조립 결과·내려받은 Pyodide·빌드 결과
+android/signing/
+android/www-build/
+android/pyodide-dist/
+*.jks
+*.keystore
+keystore.properties
+*.apk
+*.idsig

@@ -445,3 +445,44 @@ tbody th { font-weight: 600; color: var(--text-2); }
 .ic { width: 1.25rem; height: 1.25rem; display: inline-block; }
 .divider { height: .5rem; }
 .main.onboard { max-width: none; padding: 0; }
+
+/* 목록 줄 안의 글 조각은 한 줄씩 쌓는다(이름 칸이 좁아지지 않게) */
+.row-main > span, .row-end > span { display: block; }
+.row-main { flex: 1 1 8rem; }
+.row-end { flex: 0 0 auto; }
+.row-tags { display: flex !important; }
+.btn-row > .btn { padding-left: .6rem; padding-right: .6rem; white-space: nowrap; }
+/* 위쪽 제목줄: 하위 화면만 보인다(탭 첫 화면은 본문 큰 제목이 대신함) */
+.appbar.root .appbar-title { visibility: hidden; }
+.onboard-foot { position: sticky; bottom: 0; background: var(--surface); }
+.main.sub .page-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.row { padding: .8rem 1rem; gap: .7rem; }
+.row-icon { width: 2.4rem; height: 2.4rem; }
+.row-main { flex: 1 1 5rem; }
+.appbar.root { display: none; }
+.main { padding-top: max(.75rem, env(safe-area-inset-top)); }
+/* 안전 정지 카드: 본문만 스크롤하고 선택지는 아래 칸에 늘 보인다(내용을 가리지 않음, 리뷰 M7) */
+.sheet.split { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+.sheet.split > .sheet-body { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter); }
+.sheet.split > .sheet-foot { flex: none; display: grid; gap: .5rem; padding: .75rem 0 max(1rem, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
+.sheet.split .pause-head { margin-top: 0; }
+@media (max-height: 640px) { .choice-btn { min-height: 3rem; } }
+@media (max-width: 480px) {
+  .stats { grid-template-columns: 1fr; gap: .4rem; }
+  .stat { display: flex; justify-content: space-between; align-items: center; text-align: left; padding: .6rem .9rem; }
+  .stat b { order: 2; font-size: 1.15rem; }
+}
+/* 화면을 옮길 때 제목에 주는 초점(스크린리더용)은 테두리를 그리지 않는다 */
+h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, h3[tabindex="-1"]:focus, .focus-target:focus, main:focus { box-shadow: none; outline: none; }
+/* 좁은 화면의 표: 지표마다 카드처럼(칸 이름을 값 앞에 붙임) */
+@media (max-width: 560px) {
+  .table-wrap table, .table-wrap tbody, .table-wrap tr, .table-wrap th, .table-wrap td { display: block; width: 100%; }
+  .table-wrap thead { display: none; }
+  .table-wrap caption { display: block; width: auto; }
+  .table-wrap tbody tr { padding: .7rem 1rem; border-top: 1px solid var(--line); }
+  .table-wrap tbody th, .table-wrap td { border: 0; padding: .1rem 0; }
+  .table-wrap tbody th { color: var(--text); font-weight: 700; margin-bottom: .2rem; }
+  .table-wrap td.num { text-align: left; white-space: normal; display: flex; justify-content: space-between; gap: .75rem; }
+  .table-wrap td.num::before { content: attr(data-label); color: var(--text-3); font-weight: 600; }
+}
+.alert-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem; }

@@ -27,7 +27,7 @@ HEADERS = {"X-SafePause": "1"}
 NOW = datetime(2026, 9, 30, 12, 0, 0)
 ROOT = Path(__file__).resolve().parents[1]
 BANK_EXAMPLE = ROOT / "sample_data" / "bank_export_example.csv"
-STATIC = ROOT / "safepause" / "server" / "static"
+WEB = ROOT / "safepause" / "web"
 
 
 # ---- 준비 ------------------------------------------------------------------
@@ -105,34 +105,39 @@ def test_health(client: TestClient) -> None:
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "ok" and body["offline"] is True
-    assert body["version"] == "0.1.0"
+    assert body["version"] == "0.2.0"
     assert r.headers["cache-control"] == "no-store"
 
 
 def test_index_and_static_files(client: TestClient) -> None:
+    # v0.2: 새 화면(safepause/web)을 PC 서버와 안드로이드 앱이 같이 쓴다
     r = client.get("/")
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/html")
-    assert "연습 화면이에요. 실제로 돈이 나가지 않아요." in r.text
+    assert '<script type="module" src="js/main.js">' in r.text
     assert "default-src 'self'" in r.headers["content-security-policy"]
-    for tab in ("① 동의", "② 내 거래", "③ 보내기 연습", "④ 알림 카드", "⑤ 조력자", "⑥ 성능 확인", "⑦ 내 데이터 지우기"):
-        assert tab in r.text
-    for path, kind in (("/static/app.js", "javascript"), ("/static/style.css", "css")):
+    assert "script-src 'self';" in r.headers["content-security-policy"]   # PC는 wasm 실행도 허용하지 않음
+    for path, kind in (("/js/main.js", "javascript"), ("/css/app.css", "css"), ("/data/eval_reference.json", "json")):
         res = client.get(path)
-        assert res.status_code == 200 and kind in res.headers["content-type"]
+        assert res.status_code == 200 and kind in res.headers["content-type"], path
+    tabs = client.get("/js/main.js").text
+    for label in ("홈", "내 거래", "보내기", "알림", "전체"):
+        assert f'label: "{label}"' in tabs
 
 
 def test_ui_has_no_external_resources() -> None:
     # 외부 CDN·글꼴 금지(오프라인). SVG의 xmlns 이름공간은 주소 호출이 아니므로 제외.
-    for name in ("index.html", "app.js", "style.css"):
-        text = (STATIC / name).read_text(encoding="utf-8")
-        assert not re.search(r"https?://", text), name
-        assert "@import" not in text and "fonts.googleapis" not in text
+    for path in sorted(WEB.rglob("*")):
+        if path.suffix not in (".html", ".js", ".mjs", ".css"):
+            continue
+        text = path.read_text(encoding="utf-8")
+        assert not re.search(r"https?://(?!www\.w3\.org/2000/svg)", text), path.name
+        assert "@import" not in text and "fonts.googleapis" not in text, path.name
 
 
 @pytest.mark.parametrize("name", sorted(PICTOGRAMS))
 def test_all_pictograms_served(client: TestClient, name: str) -> None:
-    r = client.get(f"/static/icons/{name}.svg")
+    r = client.get(f"/icons/{name}.svg")
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("image/svg+xml")
     assert r.text.startswith("<svg") and 'viewBox="0 0 64 64"' in r.text
@@ -150,7 +155,7 @@ def test_write_requires_client_header_and_same_origin(home: Path) -> None:
     app = create_app(home, now=lambda: NOW)
     with TestClient(app, base_url=BASE) as bare:   # X-SafePause 머리글 없음
         r = bare.post("/api/wipe")
-        assert r.status_code == 403 and "X-SafePause" in r.json()["detail"]
+        assert r.status_code == 403 and "SafePause 화면에서 보낸 요청이 아니에요" in r.json()["detail"]
         assert bare.put("/api/consent", json={"monitoring": True}).status_code == 403
         assert bare.get("/api/consent").status_code == 200   # 읽기는 허용
     with TestClient(app, base_url=BASE, headers=HEADERS) as c:
@@ -945,14 +950,15 @@ def test_upload_racing_wipe_or_revoke_is_not_saved(home: Path, monkeypatch: pyte
     c = TestClient(app, base_url=BASE, headers=HEADERS)
     set_consent(c, monitoring=True)
     started, release = threading.Event(), threading.Event()
-    real_load = appmod.load_csv
+    import safepause.api.service as svc
+    real_load = svc._load_upload
 
     def slow_load(raw: bytes, mapping: Any) -> Any:   # 큰 파일을 읽는 동안을 흉내 낸다
         started.set()
         release.wait(10)
         return real_load(raw, mapping)
 
-    monkeypatch.setattr(appmod, "load_csv", slow_load)
+    monkeypatch.setattr(svc, "_load_upload", slow_load)
     result: dict[str, Any] = {}
 
     def upload() -> None:
@@ -1113,7 +1119,7 @@ def test_ask_helper_without_helpers_says_so(client: TestClient) -> None:
     assert d["notices_recorded"] == 0 and d["asked_count"] == 0
     assert d["result_title"] == "물어볼 조력자가 없어요"
     assert d["result_lines"][0] == "김*호에게 30만 원을 아직 보내지 않았어요."
-    assert "⑤ 조력자" in d["result_lines"][1]
+    assert "'조력자' 화면" in d["result_lines"][1]
     assert "물어봐요" not in " ".join([d["result_title"], *d["result_lines"]])
     record = client.get("/api/decisions").json()["items"][0]
     assert record["decision"] == "ask_helper" and record["asked"] == 0

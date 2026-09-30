@@ -74,9 +74,9 @@ function renderNav(activeTab) {
   }
 }
 
-function setAppbar({ title, back, actions }) {
+function setAppbar({ title, back, actions, root }) {
   const bar = $("#appbar");
-  bar.className = `appbar${back ? " has-back" : ""}`;
+  bar.className = `appbar${back ? " has-back" : ""}${root ? " root" : ""}`;
   fill(bar,
     back ? h("button", { type: "button", class: "icon-btn", "aria-label": "뒤로", onclick: () => history.length > 1 ? history.back() : go(back) }, icon("back")) : null,
     h("h1", { class: "appbar-title", text: title || "" }),
@@ -106,14 +106,16 @@ async function render(path) {
   $("#appbar").hidden = Boolean(view.noAppbar);
   main.className = `main${noNav ? " no-nav" : ""}`;
   renderNav(view.tab || "");
-  setAppbar({ title: view.title, back: view.back || null });
+  // 탭 첫 화면(홈 빼고)은 본문 큰 제목이 있어 위쪽 제목을 숨긴다(두 번 보이지 않게). 하위 화면은 본문 제목을 숨긴다
+  setAppbar({ title: view.title, back: view.back || null, root: !view.back && view.tab && view.tab !== "home" });
+  main.classList.toggle("sub", Boolean(view.back));
   main.replaceChildren();
 
   const ctx = {
     path, main, session,
     alive: () => navToken === token,
     onCleanup: (fn) => cleanup.push(fn),
-    setTitle: (title, actions) => setAppbar({ title, back: view.back || null, actions }),
+    setTitle: (title, actions) => setAppbar({ title, back: view.back || null, actions, root: !view.back && view.tab && view.tab !== "home" }),
     go,
     /** 늦게 온 응답을 버리는 요청. 버릴 때는 STALE을 던진다(화면은 조용히 무시). */
     async req(method, p, body, file) {

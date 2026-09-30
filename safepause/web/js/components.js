@@ -60,12 +60,11 @@ export function alertCard(item) {
   const t = item.txn;
   const lv = LEVEL[c.level] || LEVEL.caution;
   return h("article", { class: `card pause level-${c.level}`, "aria-label": `${lv.text}: ${c.title}` },
-    h("div", { class: "card-row" },
+    h("div", { class: "alert-head" },
       h("span", { class: `row-icon ${c.level === "high" ? "red" : "orange"}` }, picto((c.pictograms || [])[0] || lv.icon, "ic") || icon(lv.icon)),
-      h("div", { class: "grow" },
-        h("h3", { text: c.title }),
-        h("p", { class: "muted", text: `${formatWhen(t.ts)} · ${t.counterparty || "(이름 없음)"} · ${formatWon(t.amount)}` })),
       levelBadge(c.level)),
+    h("h3", { text: c.title }),
+    h("p", { class: "muted", text: `${formatWhen(t.ts)} · ${t.counterparty || "(이름 없음)"} · ${formatWon(t.amount)}` }),
     h("ul", { class: "pause-lines", style: "margin:.9rem 0 0" }, c.lines.map((line) => h("li", { text: line }))),
     c.question ? h("p", { class: "muted", style: "margin-top:.6rem", text: c.question }) : null,
     speakButton(() => [lv.text, c.speak_text].map(sentence).join(" "), { cls: "btn sm", label: "소리로 듣기" }));

@@ -558,7 +558,7 @@ def test_payee_card_does_not_claim_new_when_history_is_short() -> None:
 def test_practice_result_when_nobody_was_asked() -> None:
     title, lines = practice_result(Decision.ASK_HELPER, make_txn(counterparty="김*호"), asked_count=0)
     assert title == "물어볼 조력자가 없어요"
-    assert lines == ["김*호에게 30만 원을 아직 보내지 않았어요.", "⑤ 조력자에서 조력자를 정할 수 있어요."]
+    assert lines == ["김*호에게 30만 원을 아직 보내지 않았어요.", "'조력자' 화면에서 조력자를 정할 수 있어요."]
     title, _ = practice_result(Decision.ASK_HELPER, make_txn(counterparty="김*호"), asked_count=2)
     assert title == "조력자에게 물어봐요"
 

@@ -29,6 +29,7 @@ async function boot() {
   py.FS.mkdirTree("/spdata");
   py.FS.mount(py.FS.filesystems.IDBFS, {}, "/spdata");
   await syncfs(true);
+  await py.loadPackage(["pydantic"], { messageCallback: () => {}, errorCallback: () => {} });   // 입력 검사(작음)
   const zip = await (await fetch(new URL("../py/safepause.zip", import.meta.url))).arrayBuffer();
   py.unpackArchive(zip, "zip", { extractDir: "/home/pyodide/app" });
   py.runPython("import sys; sys.path.insert(0, '/home/pyodide/app')");

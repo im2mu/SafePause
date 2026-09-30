@@ -138,8 +138,8 @@ export default {
       const card = r.card;
       const lv = LEVEL[card.level] || LEVEL.caution;
       let sheetApi = null;
-      const body = h("div");
-      const foot = h("div", { class: "sheet-actions", style: "position:sticky;bottom:0;background:var(--surface);padding:.75rem 0 .25rem" });
+      const body = h("div", { class: "sheet-body" });
+      const foot = h("div", { class: "sheet-foot", role: "group", "aria-label": "고르기" });
 
       function helperNote() {
         const plan = r.notify_plan_preview;
@@ -243,7 +243,7 @@ export default {
       }
 
       sheetApi = openSheet(() => [body, foot], {
-        className: `pause level-${card.level}`, dismissible: false,
+        className: `pause split level-${card.level}`, dismissible: false,
         label: `${lv.text}: ${card.title}`,
         initialFocus: "#card-title",
         onEscape: () => {

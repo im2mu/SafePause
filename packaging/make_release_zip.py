@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TOP = "SafePause"   # zip 안 맨 위 폴더 이름(짧은 경로에 풀기 쉽게)
 
 # 넣는 것(허용 목록)
-INCLUDE_DIRS: tuple[str, ...] = ("safepause", "tests", "docs", "sample_data", "packaging", ".github")
+INCLUDE_DIRS: tuple[str, ...] = ("safepause", "tests", "docs", "sample_data", "packaging", ".github", "android")
 INCLUDE_FILES: tuple[str, ...] = (
     "README.md", "SPEC.md", "requirements.txt", "pyproject.toml", "run_windows.bat", "run_mac_linux.sh",
     "Dockerfile", ".gitattributes", ".gitignore",
@@ -35,12 +35,14 @@ INCLUDE_FILES: tuple[str, ...] = (
 PRIVATE_FILE_NAMES = frozenset({
     "consent.json", "helpers.json", "transactions.json", "decisions.json", "notices.json", "serve.lock",
 })
-PRIVATE_FILE_GLOBS: tuple[str, ...] = ("file_eval_*", ".sp-*", "*.lock")
+PRIVATE_FILE_GLOBS: tuple[str, ...] = ("file_eval_*", ".sp-*", "*.lock",
+                                       "*.jks", "*.keystore", "keystore.properties", "*.apk", "*.idsig")   # 서명 키·빌드 결과는 넣지 않음
 CSV_DIR = "sample_data"      # *.csv는 이 폴더(가상 예시)에서만 넣는다
 
 EXCLUDE_DIRS = {
     ".git", ".venv", "venv", "build", "dist", ".pytest_cache", "__pycache__", ".mypy_cache",
     ".ruff_cache", ".idea", ".vscode", ".ci-home", "ci-eval", "eval_out",
+    "signing", "www-build", "pyodide-dist",   # 안드로이드: 서명 키 폴더·조립 결과·내려받은 Pyodide
 }
 EXCLUDE_DIR_GLOBS = ("*.egg-info",)
 EXCLUDE_FILE_GLOBS = ("*.pyc", "*.pyo", "*.zip", "*.log", ".DS_Store", "Thumbs.db")

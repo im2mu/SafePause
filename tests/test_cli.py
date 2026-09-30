@@ -339,7 +339,7 @@ def test_server_host_is_loopback_only():
     assert cli.LOCAL_HOST == "127.0.0.1"
     src = Path(cli.__file__).read_text(encoding="utf-8")
     assert "0.0.0.0" not in src
-    assert "host=LOCAL_HOST" in src
+    assert "host: str = LOCAL_HOST" in src and "sock.bind((host, port))" in src   # v0.2: 소켓을 직접 잡음
 
 
 # ---------------------------------------------------------------------------
@@ -483,17 +483,47 @@ def test_serve_holds_folder_lock_while_running(home, monkeypatch, capsys):
 
     seen: dict[str, object] = {}
 
-    def fake_run(app, host, port, **_k):
+    def fake_run(self, sockets=None):   # v0.2: serve가 잡은 소켓을 uvicorn.Server.run에 넘긴다
         other = FileLock(home / cli.SERVE_LOCK_FILE, offset=cli.SERVE_LOCK_OFFSET)
         seen["locked"] = not other.acquire(timeout=0)
         seen["url"] = cli._running_server_url(home / cli.SERVE_LOCK_FILE)
-        seen["host"], seen["port"] = host, port
+        seen["host"], seen["port"] = sockets[0].getsockname()[:2]
+        seen["token_required"] = self.config.app.state.safepause is not None
 
-    monkeypatch.setattr(uvicorn, "run", fake_run)
+    monkeypatch.setattr(uvicorn.Server, "run", fake_run)
     assert cli.run(["serve", "--no-browser"]) == 0
     assert seen["locked"] is True and seen["host"] == "127.0.0.1"
-    assert seen["url"] == f"http://127.0.0.1:{seen['port']}"
+    # 주소에 세션 토큰이 붙는다(#k=…, 서버로는 보내지 않는 조각)
+    assert str(seen["url"]).startswith(f"http://127.0.0.1:{seen['port']}/#k=") and len(str(seen["url"])) > 40
     after = FileLock(home / cli.SERVE_LOCK_FILE, offset=cli.SERVE_LOCK_OFFSET)
     assert after.acquire(timeout=0)                     # 끝나면 놓는다
     after.release()
     assert cli._running_server_url(home / cli.SERVE_LOCK_FILE) == ""   # 주소도 지운다
+
+
+def test_bind_first_free_holds_port_and_skips_busy():
+    busy = _busy_socket()
+    try:
+        port = busy.getsockname()[1]
+        sock, chosen = cli._bind_first_free(port, attempts=20)
+        try:
+            assert chosen != port and sock.getsockname()[1] == chosen
+            assert cli.is_port_free(chosen) is False       # 잡은 포트는 다른 프로그램이 못 잡는다(틈 없음)
+        finally:
+            sock.close()
+    finally:
+        busy.close()
+    with pytest.raises(cli.CliError):
+        cli._bind_first_free(0)
+
+
+def test_launcher_handles_system_exit(monkeypatch):
+    launcher = _load_launcher()
+
+    def boom(argv):
+        raise SystemExit(3)
+
+    monkeypatch.setattr(launcher, "main", boom)
+    paused: list[int] = []
+    monkeypatch.setattr(launcher, "_pause_on_error", lambda code: paused.append(code))
+    assert launcher.run([]) == 3 and paused == [3]

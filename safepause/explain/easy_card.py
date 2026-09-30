@@ -735,7 +735,7 @@ def render_card(assessment: RiskAssessment, txn: Transaction, *,
 
 
 NO_HELPER_TO_ASK = "물어볼 조력자가 없어요"
-NO_HELPER_HINT = "⑤ 조력자에서 조력자를 정할 수 있어요."
+NO_HELPER_HINT = "'조력자' 화면에서 조력자를 정할 수 있어요."
 
 
 def practice_result(decision: Decision | str, txn: Transaction,

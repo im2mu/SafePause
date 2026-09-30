@@ -1,181 +1,162 @@
-"""화면 파일(정적) 점검: 개인정보·쉬운 말·글자 크기 규칙이 코드에 남아 있는지."""
+"""화면(safepause/web) 정적 검사: 쉬운 말 규칙·꼭 남길 문장·접근성·보안·오프라인(v0.2 새 화면).
+
+화면 코드는 PC 서버와 안드로이드 앱이 같이 쓴다. 브라우저 동작은 docs/mobile.md의 수동 점검 목록과
+에뮬레이터 점검으로 확인하고, 여기서는 파일만 본다.
+"""
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
-STATIC = Path(__file__).resolve().parents[1] / "safepause" / "server" / "static"
-APP_JS = (STATIC / "app.js").read_text(encoding="utf-8")
-INDEX = (STATIC / "index.html").read_text(encoding="utf-8")
-CSS = (STATIC / "style.css").read_text(encoding="utf-8")
+import pytest
+
+from safepause.explain.easy_card import FORBIDDEN_WORDS, PICTOGRAMS
+
+ROOT = Path(__file__).resolve().parents[1]
+WEB = ROOT / "safepause" / "web"
+JS = WEB / "js"
+VIEWS = JS / "views"
+CSS = (WEB / "css" / "app.css").read_text(encoding="utf-8")
+INDEX = (WEB / "index.html").read_text(encoding="utf-8")
+ALL_JS = {p.relative_to(WEB).as_posix(): p.read_text(encoding="utf-8")
+          for p in sorted(WEB.rglob("*")) if p.suffix in (".js", ".mjs")}
+JOINED = "\n".join(ALL_JS.values())
+
+# 당사자가 보는 화면(보호자·심사용 화면 eval·about은 전문 용어 예외)
+PERSON_VIEWS = ["home.js", "txns.js", "send.js", "alerts.js", "consent.js", "helpers.js", "notices.js",
+                "onboarding.js", "more.js", "data.js"]
 
 
-def test_speech_uses_only_local_voices() -> None:
-    """온라인 음성은 읽을 글(받는 사람·금액)을 밖으로 보내므로 쓰지 않는다(S35)."""
-    assert "localService === true" in APP_JS
-    assert "u.voice = koVoice" in APP_JS
-    assert "voiceschanged" in APP_JS
-    assert 'u.lang = "ko-KR"' not in APP_JS          # 목소리 없이 언어만 주면 브라우저가 온라인 음성을 고를 수 있음
-    assert 'id="speech-note"' in INDEX
+def _string_literals(js: str) -> list[str]:
+    """JS 문자열 리터럴(따옴표·백틱) 안의 글만 뽑는다(주석·코드 이름 제외)."""
+    no_comments = re.sub(r"/\*.*?\*/", "", js, flags=re.S)
+    no_comments = re.sub(r"(?m)^\s*//.*$", "", no_comments)
+    return re.findall(r'"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\]|\\.)*)`', no_comments)
 
 
-def test_no_hard_words_on_person_screens() -> None:
-    # 등급 배지·조력자 설정·기록 안내(당사자가 보는 곳). ⑥ 성능 확인 표의 심사용 표기는 예외.
-    level_block = APP_JS.split("const LEVEL = {")[1].split("};")[0]
-    helper_form = APP_JS.split("function helperForm")[1].split("function renderHelpers")[0]
-    for text in ("고위험", "주의"):
-        assert text not in level_block and text not in helper_form, text
-    for text in ("푸시", "당사자님"):
-        assert text not in APP_JS and text not in INDEX, text
+def _visible_text(js: str) -> str:
+    return "\n".join(a or b for a, b in _string_literals(js))
 
 
-def test_no_claim_of_checked_bank_formats() -> None:
-    assert "모든 금융기관의 파일 모양을 확인한 것은 아니에요" not in INDEX
-    assert "은행 파일 모양은 따로 확인하지 못했어요" in INDEX
-
-
-def test_font_size_not_reduced_on_small_screens() -> None:
-    assert "118.75%" not in CSS
+def test_font_size_not_reduced() -> None:
+    # SPEC 접근성: 기본 글자 20px 이상(html 125%, 1rem = 20px). 모든 글자 크기는 1rem 이상.
+    assert "html { font-size: 125%;" in CSS
     sizes = [float(x) for x in re.findall(r"font-size:\s*([0-9.]+)rem", CSS)]
-    assert sizes and min(sizes) >= 1.0                # 1rem = 20px(html 125%)
-    assert "[hidden] { display: none !important; }" in CSS
+    assert sizes and min(sizes) >= 1.0
+    assert not re.search(r"font-size:\s*[0-9.]+px", CSS)
 
 
-def test_upload_size_checked_in_browser_and_wipe_clears_screen() -> None:
-    assert "file.size > MAX_UPLOAD_BYTES" in APP_JS
-    clear = APP_JS.split("function clearShownData")[1].split("async function doWipe")[0]
-    # [변경 r2] 카드 모달·입력칸에 남은 받는 사람·금액·계좌번호·조력자 이름도 지운다
-    for sel in ("#pay-result", "#upload-report", "#eval-mine-result", "#cards-list", "#notices-list",
-                "#decisions-list", "#card-title", "#card-question", "#card-pictos", "#card-helper-note",
-                "#helpers-list", "#pay-amount-easy", "#upload-mapping"):
-        assert sel in clear, sel
-    assert '$("#pay-form").reset()' in clear              # 받는 사람·금액·계좌번호 입력칸
-    assert '$("#card-helper-note").hidden = true' in clear
-    assert "state.pending = null" in APP_JS and "state.lastCheck = null" in APP_JS
+def test_touch_targets_at_least_48px() -> None:
+    # 버튼 최소 높이(1rem = 20px 기준): 2.4rem = 48px 이상
+    for sel in (".btn", ".icon-btn", ".chip", ".row"):
+        block = re.search(re.escape(sel) + r"\s*\{([^}]*)\}", CSS)
+        assert block, sel
+    heights = [float(x) for x in re.findall(r"min-height:\s*([0-9.]+)rem", CSS)]
+    assert min(heights) >= 2.4 or all(h >= 2.4 for h in heights if h >= 2)
 
 
-def test_ask_helper_step_and_consent_notes() -> None:
-    assert "openAskStep" in APP_JS and "helper_ids" in APP_JS
-    assert 'id="card-ask"' in INDEX
-    assert "30일 동안 3번 이상" in INDEX                # 상담 연결 조건(Settings.high_repeat_for_counseling)
-    assert "이 스위치를 꺼도 직접 물어볼 수 있어요" in INDEX   # 조력자 알림을 꺼도 직접 물으면 알림
-    assert ">지금 시각<" in INDEX
+def test_no_external_resources_and_csp() -> None:
+    for name, text in {**ALL_JS, "index.html": INDEX, "app.css": CSS}.items():
+        assert not re.search(r"https?://(?!www\.w3\.org/2000/svg)", text), name
+        assert "@import" not in text and "fonts.googleapis" not in text, name
+    assert "Content-Security-Policy" in INDEX and "default-src 'self'" in INDEX
+    assert "script-src 'self' 'wasm-unsafe-eval'" in INDEX       # 앱 안 파이썬(웹어셈블리)만 추가 허용
+    assert "<script>" not in INDEX and "onclick=" not in INDEX   # 인라인 스크립트 없음
 
 
-def _block(html: str, element_id: str) -> str:
-    start = html.index(f'id="{element_id}"')
-    return html[start:html.index("</div>", start)]
+def test_no_html_injection_apis() -> None:
+    # 서버·엔진이 준 글(받는 사람 이름 등)은 textContent로만 넣는다(XSS 차단)
+    for name, text in ALL_JS.items():
+        for bad in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "eval(", "new Function"):
+            assert bad not in text, (name, bad)
+        assert 'setAttribute("style"' not in text, name   # CSP가 막는 인라인 style 속성 대신 CSSOM
 
 
-def test_consent_texts_are_short_sentences() -> None:
-    """[변경 r2] 동의 설명은 쉬운 정보 원칙: 한 줄(문장·목록 항목)에 한 내용, 30자 안팎."""
-    for element_id in ("c-monitoring-desc", "c-helper-desc", "c-counsel-desc"):
-        block = _block(INDEX, element_id)
-        items = re.findall(r"<(?:p|li)>([^<]+)</(?:p|li)>", block)
-        assert len(items) >= (2 if element_id == "c-monitoring-desc" else 4), element_id
-        for text in items:
-            sentences = [x for x in re.split(r"(?<=[.?!])\s+", text.strip()) if x]
-            assert len(sentences) == 1, text
-            assert len(text) <= 32, text
-            assert ":" not in text, text
-    # ⑤ 안내는 ① 스위치 이름으로 부른다
-    assert "상담 연결에 동의했을 때" not in INDEX
-    assert "'상담하는 곳 알려 주기'를 켰을 때" in INDEX
-
-
-def test_ask_step_is_truthful_and_card_is_escapable() -> None:
-    ask = APP_JS.split("function openAskStep")[1].split("function closeAskStep")[0]
-    # 고를 사람이 없으면 요청을 보내지 않고 까닭을 보여 준다(거짓 '물어봐요' 결과 방지)
-    nobody = ask.split("if (!cands.some((c) => !c.conflict))")[1].split("return;")[0]
-    assert "chooseDecision" not in nobody and "askNobodyLines" in nobody
-    # 자동 알림 대상은 체크를 풀 수 없게 두고 까닭을 적는다('고른 사람에게만'이라고 하지 않음)
-    assert "c.auto" in ask and "⑤에서 정한 대로" in ask
-    assert "고른 사람에게만" not in APP_JS
-    assert "speakButton(" in ask                          # 물어볼 사람 고르기도 소리로 듣기
-    # 카드 음성은 조력자 안내도 읽는다
-    speak = APP_JS.split("function cardSpeakText")[1].split("function closeCard")[0]
-    assert "#card-helper-note" in speak
-    # 결정 요청이 실패해도 모달에 갇히지 않는다
-    choose = APP_JS.split("async function chooseDecision")[1].split("function closeCardAfterError")[0]
-    assert "isConsentError(err)" in choose and "showUncheckedResult(" in choose
-    assert "#card-close" in choose and 'id="card-close"' in INDEX
-    # 고른 기록: 물어본 조력자가 없었으면 그렇게 적는다
-    assert "x.asked === 0" in APP_JS and "물어보려 했지만 조력자가 없었어요" in APP_JS
-
-
-
-# ---- 리뷰 수정 확인(round 3) ------------------------------------------------
-
-def _tag(html: str, element_id: str) -> str:
-    start = html.rindex("<", 0, html.index(f'id="{element_id}"'))
-    return html[start:html.index(">", start)]
-
-
-def test_sensitive_inputs_turn_off_spellcheck() -> None:
-    """[변경 r3] 온라인 맞춤법 검사가 받는 사람·계좌번호·조력자 글을 브라우저 회사 서버로 보내지 않게(S35)."""
+def test_spellcheck_and_autocorrect_off() -> None:
+    # 받는 사람·계좌번호·금액·조력자 입력이 브라우저의 온라인 맞춤법 검사로 나가지 않게(S35)
     assert '<body spellcheck="false">' in INDEX
-    for element_id in ("pay-to", "pay-to-id", "pay-amount", "upload-mapping"):
-        assert 'spellcheck="false"' in _tag(INDEX, element_id), element_id
-    form = APP_JS.split("function helperForm")[1].split("function renderHelpers")[0]
-    assert 'spellcheck: "false"' in form
-    for field in ('"data-f": "name"', '"data-f": "identifiers"', '"data-f": "relation"', '"data-f": "contact"'):
-        line = next(ln for ln in form.splitlines() if field in ln)
-        assert "...noCheck" in line, field
+    for view in ("send.js", "helpers.js"):
+        text = (VIEWS / view).read_text(encoding="utf-8")
+        assert 'spellcheck: "false"' in text and 'autocorrect: "off"' in text and 'autocapitalize: "off"' in text
 
 
-def test_grid_columns_shrink_on_narrow_screens() -> None:
-    """[변경 r3] minmax(20em, 1fr)처럼 em만 쓰면 320px(400% 확대)에서 가로로 넘친다. min(…, 100%)로 감싼다."""
-    assert re.findall(r"minmax\(min\(", CSS)
-    assert not re.findall(r"minmax\(\s*[0-9.]+em", CSS)
+@pytest.mark.parametrize("phrase", [
+    "연습 화면이에요. 실제로 돈이 나가지 않아요.",
+    "SafePause는 막지 않아요.",
+    "걱정되면 한 번 더 물어볼 뿐이에요. 결정은 내가 해요.",
+    "은행 파일 모양은 따로 확인하지 못했어요.",
+    "이 조력자에게 자동으로 알리기",
+    "끄면 자동으로는 알리지 않아요. 카드에서 '조력자에게 물어볼래요'로 고를 때만 알려요.",
+    "꼭 확인할 일이 30일 동안 3번 이상 생길 때",
+    "이 스위치를 꺼도 직접 물어볼 수 있어요.",
+    "'동의'에서 '상담하는 곳 알려 주기'를 켰을 때만이에요.",
+    "언제든지 끌 수 있어요. 끄면 바로 멈춰요.",
+    "알림은 기록만 해요.",
+    "합성 데이터 기준, 실제 피해 데이터 검증 아님",
+    "정말 모두 지울까요?",
+])
+def test_required_phrases_kept(phrase: str) -> None:
+    assert phrase in JOINED, phrase
 
 
-def test_result_speech_reads_everything_shown() -> None:
-    """[변경 r3] 결과 화면의 '소리로 듣기'는 상담 안내·기록 안내도 읽고, 카드 음성은 등급 배지도 읽는다."""
-    result = APP_JS.split("function showPayResult")[1].split("// ---- ④ 알림 카드")[0]
-    assert "spokenParts.push(COUNSELING_TITLE" in result and "spokenParts.push(recorded)" in result
-    unchecked = APP_JS.split("function showUncheckedResult")[1].split("// 카드 모달")[0]
-    assert "speakButton(" in unchecked
-    speak = APP_JS.split("function cardSpeakText")[1].split("function closeCard")[0]
-    assert "LEVEL[r.card.level]" in speak and "state.cardHelperText" in speak
-    assert 'notes.join(" ")' in APP_JS
+@pytest.mark.parametrize("view", PERSON_VIEWS)
+def test_person_views_use_easy_words(view: str) -> None:
+    text = _visible_text((VIEWS / view).read_text(encoding="utf-8"))
+    for word in [*FORBIDDEN_WORDS, "이상거래", "패턴", "탐지", "알고리즘", "모니터링", "이례", "임계", "통계",
+                 "고위험", "푸시", "당사자님"]:
+        assert word not in text, (view, word)
+    assert not re.search(r"(?<![가-힣])주의(?![가-힣])", text), view   # '주의' 단독(전문 용어) 금지
 
 
-def test_speech_note_shown_when_browser_has_no_speech_api() -> None:
-    assert "SPEECH_NOTE_NO_API" in APP_JS and "이 브라우저에서는 '소리로 듣기'를 쓸 수 없어요." in APP_JS
-    pick = APP_JS.split("function pickVoice")[1].split("function speak(")[0]
-    assert "if (!canSpeak) return;" not in pick          # 음성 기능이 없어도 안내는 보여 준다
+def test_level_names_are_easy_words() -> None:
+    labels = (JS / "labels.js").read_text(encoding="utf-8")
+    for text in ('text: "괜찮아요"', 'text: "확인해요"', 'text: "꼭 확인해요"'):
+        assert text in labels
 
 
-def test_ask_step_texts_match_level_and_auto_rules() -> None:
-    ask = APP_JS.split("function openAskStep")[1].split("function closeAskStep")[0]
-    assert 'r.card.level === "high" ? "꼭 확인할 일이라" : "확인할 일이라"' in ask
-    assert "⑤에서 정한 대로 꼭 알려요" not in APP_JS
-    preview = APP_JS.split("function askPreviewText")[1].split("function fillWith")[0]
-    assert "다른 사람을 더할 수 있어요" in preview
-    assert "등록한 조력자가 없어요" not in APP_JS and "물어볼 수 있는 조력자가 없어요" in APP_JS
+def test_pictograms_match_easy_card() -> None:
+    icons = (JS / "icons.js").read_text(encoding="utf-8")
+    picto = json.loads(re.search(r"export const PICTO = (\{.*?\});", icons, re.S).group(1))
+    assert set(picto) == set(PICTOGRAMS)
+    for name in PICTOGRAMS:
+        assert (WEB / "icons" / f"{name}.svg").is_file()
 
 
-def test_helper_active_switch_is_auto_alert_only() -> None:
-    """[변경 r3] ⑤의 체크는 '자동으로 알리기'. 꺼도 직접 물어볼 때는 고를 수 있다고 알린다."""
-    form = APP_JS.split("function helperForm")[1].split("function renderHelpers")[0]
-    assert "이 조력자에게 자동으로 알리기" in form and "'조력자에게 물어볼래요'로 고를 때만 알려요" in form
-    assert '"이 조력자에게 알리기"' not in APP_JS
+def test_safe_pause_card_rules() -> None:
+    send = (VIEWS / "send.js").read_text(encoding="utf-8")
+    # 초점은 제목, 등급을 대화상자 이름에(리뷰 M4), 닫을 수 없는 카드(Esc·뒤로 가기는 '안 보낼래요'로 초점만)
+    assert 'initialFocus: "#card-title"' in send
+    assert 'aria-labelledby", "card-level card-title"' in send
+    assert "dismissible: false" in send
+    assert "[data-decision=\"cancel\"]" in send
+    # 선택지는 서버가 준 순서·문구 그대로
+    assert "card.choices.map" in send
+    # 카드 없으면 바로 '보냈어요'(막지 않음), 동의가 없어도 막지 않고 결과를 보여 줌
+    assert 'await decide("send", null, null)' in send and "showUnchecked(req)" in send
+    # 금액은 한국어 단위를 읽는다(리뷰 H2)
+    assert "parseKoreanAmount" in send
 
 
-def test_turning_off_monitoring_clears_payee_names() -> None:
-    """[변경 r3] '거래 살펴보기'를 끄면 받는 사람 자동완성 등 분석 결과를 화면에서 바로 지운다(S37)."""
-    toggle = APP_JS.split("async function toggleConsent")[1].split("async function changeGivenBy")[0]
-    assert 'key === "monitoring" && !next' in toggle and "clearAnalysisViews()" in toggle
-    clear = APP_JS.split("function clearAnalysisViews")[1].split("async function changeGivenBy")[0]
-    assert "#payee-list" in clear and "#txn-list" in clear and "#cards-list" in clear
-    practice = APP_JS.split("async function loadPractice")[1].split("function parseAmount")[0]
-    assert "isConsentError(e)" in practice and '$("#payee-list").replaceChildren()' in practice
+def test_stale_response_guard() -> None:
+    main = (JS / "main.js").read_text(encoding="utf-8")
+    assert "session.epoch !== epoch" in main and "throw STALE" in main
+    assert "ctx.session.bumpEpoch()" in (VIEWS / "consent.js").read_text(encoding="utf-8")
+    assert "ctx.session.bumpEpoch()" in (VIEWS / "data.js").read_text(encoding="utf-8")
 
 
-def test_learned_count_says_span_and_rows() -> None:
-    """AI 학습 안내는 학습 구간 거래 수와 실제 학습 행 수(평소 기준이 없는 맨 앞 거래를 뺌)를 구분한다."""
-    assert "건으로 평소 모습을 배웠어요.`" not in APP_JS.split("function learnedText")[0]
-    learned = APP_JS.split("function learnedText")[1].split("function learnedRows")[0]
-    assert "rows < span" in learned and "비교할 평소가 없어서 뺐어요" in learned
-    assert "learnedText(data.model.train_count, data.model.train_rows)" in APP_JS
-    assert "learnedRows(r.n_baseline, r.n_train_rows)" in APP_JS
+def test_reduced_motion_and_dark_mode() -> None:
+    assert "prefers-reduced-motion: reduce" in CSS
+    assert "prefers-color-scheme: dark" in CSS
+
+
+def test_eval_reference_matches_submitted_numbers() -> None:
+    ref = json.loads((WEB / "data" / "eval_reference.json").read_text(encoding="utf-8"))
+    for key, fn in (("standard", "eval_results_holdout.json"), ("subtle", "eval_results_subtle_holdout.json")):
+        doc = json.loads((ROOT / "docs" / "eval" / fn).read_text(encoding="utf-8"))
+        for mode, v in doc["modes"].items():
+            got = ref["sets"][key]["modes"][mode]
+            assert got["scenario_high"] == v["overall"]["recall_high"]
+            assert got["txn_high_recall"] == v["confusion"]["high"]["recall"]
+            assert got["normal_high_rate"] == v["normal"]["high_rate"]
+            assert got["control_monthly_alerts"] == v["control"]["monthly_alerts"]

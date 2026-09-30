@@ -16,6 +16,8 @@ export function h(tag, attrs, ...children) {
       if (key === "class") el.className = value;
       else if (key === "text") el.textContent = value;
       else if (key === "dataset") Object.assign(el.dataset, value);
+      // CSP(style-src 'self')는 style 속성 문자열을 막는다. CSSOM(el.style)으로 넣으면 허용된다.
+      else if (key === "style") el.style.cssText = String(value);
       else if (key.startsWith("on") && typeof value === "function") el.addEventListener(key.slice(2), value);
       else if (key === "value" && "value" in el) el.value = value;
       else if (key === "checked" || key === "disabled" || key === "selected") el[key] = Boolean(value);

@@ -54,7 +54,7 @@ def test_release_zip_excludes_dev_files_and_fixes_line_endings(tmp_path: Path) -
         names = zf.namelist()
     assert all(n.startswith("SafePause/") for n in names)
     for needed in ("README.md", "run_windows.bat", "run_mac_linux.sh", "requirements.txt",
-                   "safepause/server/static/index.html", "safepause/models.py", "docs/eval/eval_report.md"):
+                   "safepause/web/index.html", "safepause/web/js/main.js", "safepause/api/service.py", "safepause/models.py", "docs/eval/eval_report.md"):
         assert f"SafePause/{needed}" in names, needed
     banned = (".venv/", "build/", "dist/", ".egg-info/", ".pytest_cache/", "__pycache__/", ".git/")
     assert not [n for n in names if any(b in n for b in banned)]

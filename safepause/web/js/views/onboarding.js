@@ -50,7 +50,7 @@ export default {
           }))),
         h("div", { class: "onboard-foot" },
           h("button", { type: "button", class: "btn primary big block", text: "다음", onclick: () => { step = 2; show(); } }),
-          h("button", { type: "button", class: "btn ghost big block", text: "앞으로", onclick: () => { step = 0; show(); } })));
+          h("button", { type: "button", class: "btn ghost big block", text: "이전으로", onclick: () => { step = 0; show(); } })));
       } else {
         const err = h("div");
         const radios = [["self", "나(본인)"], ["legal_representative", "법정대리인"]].map(([v, t]) => {
@@ -78,7 +78,7 @@ export default {
               }
             }),
           }, icon("check"), h("span", { text: "시작하기" })),
-          h("button", { type: "button", class: "btn ghost big block", text: "앞으로", onclick: () => { step = 1; show(); } })));
+          h("button", { type: "button", class: "btn ghost big block", text: "이전으로", onclick: () => { step = 1; show(); } })));
       }
       main.querySelector("h1")?.focus();
     }
