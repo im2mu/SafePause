@@ -9,6 +9,9 @@
 window_long_days(30일) 안이면, 이력이 그 전을 담지 않아 정말 처음인지 알 수 없다(예: 1개월치
 CSV의 늘 가던 병원, 매달 내는 인터넷 요금). 이때는 CAUTION까지만 내고, 카드도 '처음'이라고
 말하지 않는다. 엔진도 이 근거만으로는 이상 점수로 HIGH를 올리지 않는다(engine.combine_level).
+
+0원 거래는 옮겨지는 돈이 없어 어느 룰에도 걸리지 않고, 이력(History)도 0원 거래를 건수에 넣지 않는다.
+같은 상대·회선은 조력자 정책과 같은 규칙으로 판별한다(features.normalize_identifier, History.resolve_*).
 """
 from __future__ import annotations
 
@@ -17,7 +20,7 @@ from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from safepause.config import Settings
-from safepause.detect.features import History, HistoryLike, as_history, counterparty_key, line_key
+from safepause.detect.features import History, HistoryLike, as_history, counterparty_key
 from safepause.models import Channel, Direction, RiskLevel, SignalCode, SignalHit, Transaction
 
 # 심야 반복 이체
@@ -46,7 +49,8 @@ RuleFn = Callable[[Transaction, History, datetime], Optional[SignalHit]]
 
 
 def _is_out(txn: Transaction, channel: Channel) -> bool:
-    return txn.channel == channel and txn.direction == Direction.OUT
+    """이 거래 방법의 출금이고 금액이 있는 거래(0원은 옮겨지는 돈이 없어 룰 대상이 아니다)."""
+    return txn.channel == channel and txn.direction == Direction.OUT and txn.amount > 0
 
 
 def _newness_unknown(hist: History, first: datetime) -> bool:
@@ -209,13 +213,13 @@ def multi_line_telecom(txn: Transaction, hist: History, as_of: datetime) -> Opti
     새 회선 2개 이상 HIGH, 그 밖 CAUTION(대상의 새 회선 여부를 알 수 없으면 늘 CAUTION).
     """
     s = hist.settings
-    line = line_key(txn.line_id)
-    if not (_is_out(txn, Channel.TELECOM_BILL) and line):
+    if not _is_out(txn, Channel.TELECOM_BILL):
         return None
-    if hist.line_known(line, as_of):
+    line = hist.resolve_line(txn.line_id)   # 가린 표기도 정책과 같은 규칙으로 아는 회선에 묶는다
+    if not line or hist.line_known(line, as_of):
         return None
     prior = hist.bills_recent(as_of, s.window_long_days)
-    lines = {line_key(p.line_id) for p in prior} | {line}
+    lines = {hist.resolve_line(p.line_id) for p in prior} | {line}
     if len(lines) < LINE_MIN_DISTINCT:
         return None
     window_start = as_of - timedelta(days=s.window_long_days)
@@ -235,13 +239,13 @@ def multi_line_telecom(txn: Transaction, hist: History, as_of: datetime) -> Opti
         "new_lines_30d": len(new_lines),
         "unknown_lines_30d": len(unknown_lines),   # 이력이 짧아 새 회선인지 알 수 없어 세지 않은 회선
         "newness_unknown": newness_unknown,
-        "usual_line": usual_line,
+        "usual_line": hist.line_label(usual_line) if usual_line else usual_line,   # 처음 본 표기
         "window_days": s.window_long_days,
         "line_id": txn.line_id,
         "amount": txn.amount,
     }
     high = len(new_lines) >= LINE_HIGH_NEW and not newness_unknown
-    related = [p for p in prior if line_key(p.line_id) in new_lines]
+    related = [p for p in prior if hist.resolve_line(p.line_id) in new_lines]
     return _hit(SignalCode.MULTI_LINE_TELECOM, RiskLevel.HIGH if high else RiskLevel.CAUTION,
                 evidence, related, txn)
 

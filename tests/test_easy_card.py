@@ -561,3 +561,59 @@ def test_practice_result_when_nobody_was_asked() -> None:
     assert lines == ["김*호에게 30만 원을 아직 보내지 않았어요.", "⑤ 조력자에서 조력자를 정할 수 있어요."]
     title, _ = practice_result(Decision.ASK_HELPER, make_txn(counterparty="김*호"), asked_count=2)
     assert title == "조력자에게 물어봐요"
+
+
+# ---- 리뷰 7: 심야 그림은 근거의 심야 여부나 넘겨받은 설정으로 ----
+def _time_card(reason: Reason, hour: int, **kwargs):
+    return render_card(make_assessment([], RiskLevel.CAUTION, [reason]), make_txn(hour=hour), **kwargs)
+
+
+def test_time_card_icon_follows_reason_night_flag() -> None:
+    # 근거(엔진 설정 기준 심야 여부)가 시각보다 우선
+    day_but_night = _time_card(Reason("anomaly:hour_sin", {"feature": "hour_sin", "is_night": True}), 14)
+    night_but_day = _time_card(Reason("anomaly:hour_cos", {"feature": "hour_cos", "is_night": False}), 2)
+    assert day_but_night is not None and day_but_night.pictograms[0] == "moon"
+    assert night_but_day is not None and night_but_day.pictograms[0] == "warning"
+    is_night_feature = _time_card(Reason("anomaly:is_night", {"feature": "is_night", "value": 1.0}), 21)
+    assert is_night_feature is not None and is_night_feature.pictograms[0] == "moon"
+
+
+def test_time_card_icon_uses_passed_settings() -> None:
+    from safepause.config import Settings
+
+    reason = Reason("anomaly:hour_sin", {})          # 심야 여부가 없는 근거
+    assert _time_card(reason, 23).pictograms[0] == "moon"                        # 기본 23~6시
+    early = Settings(night_start_hour=0, night_end_hour=5)                        # 자정을 넘지 않는 설정
+    assert _time_card(reason, 23, settings=early).pictograms[0] == "warning"
+    assert _time_card(reason, 3, settings=early).pictograms[0] == "moon"
+    late = Settings(night_start_hour=21, night_end_hour=6)
+    card = _time_card(reason, 22, settings=late, past=True)
+    assert card.pictograms[0] == "moon" and readability_issues(card) == []
+
+
+def test_engine_time_reason_drives_card_icon() -> None:
+    """엔진이 붙인 시각 이유에는 엔진 설정 기준 심야 여부가 담겨 카드 그림과 맞는다."""
+    from datetime import timedelta
+
+    from safepause.config import Settings
+    from safepause.detect.engine import RiskEngine
+    from safepause.data.synth import make_dataset
+
+    from safepause.detect.features import FEATURE_NAMES, History, compute_features
+
+    settings = Settings(night_start_hour=20, night_end_hour=6)   # 21시도 심야로 보는 설정
+    txns = make_dataset("worker", 2, 120)
+    eng = RiskEngine(settings, seed=0).fit(txns[: int(len(txns) * 0.75)])
+    p = Transaction(id="live-1", ts=(txns[-1].ts + timedelta(days=1)).replace(hour=21, minute=0),
+                    amount=20_000, direction=Direction.OUT, channel=Channel.CARD,
+                    counterparty="동네편의점", counterparty_id="M-1001")
+    feats = compute_features(p, History(txns, settings, as_of=p.ts), p.ts)
+    reasons = eng.model.explain_features(feats, top_k=len(FEATURE_NAMES))
+    times = [r for r in reasons if r.detail["feature"] in ("hour_sin", "hour_cos", "is_night")]
+    assert times                                      # 밤 9시는 이 사람의 평소 시간과 다르다
+    assert all(r.detail["is_night"] is True for r in times)
+    a = RiskAssessment(txn_id=p.id, level=RiskLevel.CAUTION, rule_hits=[], anomaly_score=0.99,
+                       reasons=[times[0]])
+    card = render_card(a, p)                          # 설정을 넘기지 않아도 근거로 정한다
+    assert card is not None and card.pictograms[0] == "moon"
+    assert card.title == "평소와 다른 시간이에요" and readability_issues(card) == []

@@ -418,3 +418,57 @@ def test_incremental_rules_match_naive() -> None:
         assert inc == evaluate_rules(txn, txns[:idx], settings), txn.id
         seen_codes |= {h.code for h in inc}
     assert seen_codes == set(SignalCode)  # 5개 시그널 모두 한 번 이상 발생
+
+
+# ---- 리뷰 반영: 0원·식별값 표기·짧은 평소 구간 ----
+def test_zero_won_transactions_are_not_counted_by_rules() -> None:
+    """0원 심야 이체 3건이 심야 반복(HIGH)으로 잡히던 문제(리뷰 06 재현). 0원은 룰 건수에 넣지 않는다."""
+    hist = baseline()
+    zeros = [mk(day(60 + k, 1), 0, T, OUT, "홍길동", "110-111-111111") for k in range(3)]
+    for k, z in enumerate(zeros):
+        assert evaluate_rules(z, hist + zeros[:k]) == [], z.id      # 0원 대상은 어느 룰에도 안 걸림
+    real = mk(day(63, 1), 50_000, T, OUT, "홍길동", "110-111-111111")
+    codes = {h.code for h in evaluate_rules(real, hist + zeros)}
+    assert SignalCode.NIGHT_REPEAT_TRANSFER not in codes             # 앞선 0원 심야 이체는 세지 않음(1건)
+    zero_micro = [mk(day(60, 10 + k), 0, MICRO, OUT, "게임", "G1", OWN_LINE) for k in range(7)]
+    real_micro = mk(day(60, 20), 3_000, MICRO, OUT, "게임", "G1", OWN_LINE)
+    assert hits_of(real_micro, hist + zero_micro, SignalCode.MICROPAY_SURGE) == []   # 전에는 8건 HIGH
+    zero_bill = mk(day(40, 9), 0, BILL, cp="통신사", line="010-****-2222")
+    assert evaluate_rules(zero_bill, hist) == []
+    real_bill = mk(day(45, 9), 33_000, BILL, cp="통신사", line="010-****-2222")
+    hit = one_hit(real_bill, hist + [zero_bill], SignalCode.MULTI_LINE_TELECOM)    # 0원 청구로 아는 회선이 되지 않음
+    assert hit.evidence["distinct_lines_30d"] == 2
+
+
+def test_payee_known_by_account_in_other_format() -> None:
+    """엄마 계좌(111-222)를 숫자만·점으로 적어도 아는 상대(리뷰 11 재현: 전에는 PAYEE_SURGE)."""
+    hist = baseline()
+    for typed in ("111-222", "111222", "111.222", "111 222"):
+        target = mk(day(60, 12), 300_000, T, OUT, "엄마", typed)
+        assert hits_of(target, hist, SignalCode.PAYEE_SURGE) == [], typed
+
+
+def test_new_merchant_uses_floor_when_baseline_span_is_short() -> None:
+    """평소 구간이 7일 미만이면 p95 = 0 → 10만 원 하한(리뷰 3: 전에는 6만 원×3 = 18만 원 기준)."""
+    early = [mk(START + timedelta(hours=6 * i), 60_000, CARD, cp="편의점", cp_id="M1")
+             for i in range(6)]
+    target = mk(START + timedelta(days=10), 150_000, CARD, cp="전자상가", cp_id="NEW1")
+    hit = one_hit(target, early, SignalCode.NEW_MERCHANT_HIGH_VALUE)
+    assert hit.evidence["card_p95"] == 0 and hit.evidence["threshold"] == 100_000
+    assert hit.evidence["ratio_vs_p95"] is None
+
+
+@pytest.mark.parametrize("typed", ["010 **** 1111", "010.****.1111", "010-1234-1111"])
+def test_own_line_in_other_format_is_not_new(typed: str) -> None:
+    target = mk(day(45, 9), 55_000, BILL, cp="통신사", line=typed)
+    assert hits_of(target, baseline(), SignalCode.MULTI_LINE_TELECOM) == []
+
+
+def test_multi_line_counts_masked_variants_once_and_keeps_display_form() -> None:
+    prior = [mk(day(38, 9), 55_000, BILL, cp="통신사", line="010-1234-1111"),   # 본인 회선, 다른 표기
+             mk(day(40, 9), 33_000, BILL, cp="통신사", line="010-****-2222")]
+    target = mk(day(45, 9), 33_000, BILL, cp="통신사", line="010 **** 3333")
+    hit = one_hit(target, baseline() + prior, SignalCode.MULTI_LINE_TELECOM)
+    assert hit.evidence["distinct_lines_30d"] == 3          # 본인·2222·3333 (본인 회선 표기가 달라도 하나)
+    assert hit.evidence["usual_line"] == OWN_LINE          # 근거의 평소 회선은 처음 본 표기
+    assert hit.evidence["line_id"] == "010 **** 3333"

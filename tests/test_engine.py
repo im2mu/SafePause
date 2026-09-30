@@ -332,3 +332,25 @@ def test_assess_many_performance_1000() -> None:
     elapsed = time.perf_counter() - t0
     assert len(results) == 1000
     assert elapsed < 5.0, f"학습+1,000건 평가가 {elapsed:.2f}초 걸림"
+
+
+# ---- 리뷰 1: 계좌 표기만 달라도 같은 상대(정책과 같은 판단) ----
+def test_known_payee_typed_in_other_format_is_not_new() -> None:
+    """엄마 계좌를 숫자만·점으로 적으면 '처음 보내는 사람' 고위험이 나던 문제(리뷰 11 재현)."""
+    from safepause.data.synth import PERSONAS, make_dataset
+    from safepause.guardian.policy import is_conflict
+    from safepause.models import Helper
+
+    txns = make_dataset("worker", 1, 120)
+    name, acct = PERSONAS["worker"].known_payees[0]
+    eng = RiskEngine(seed=0).fit(txns[: int(len(txns) * 0.75)])
+    helper = Helper(id="h1", name=name, relation="가족", identifiers=[acct])
+    results = []
+    for typed in (acct, acct.replace("-", ""), acct.replace("-", "."), acct.replace("-", " ")):
+        p = Transaction("live-1", txns[-1].ts + timedelta(hours=2), 300_000, OUT, Channel.TRANSFER,
+                        name, typed)
+        a = eng.assess_pending(p, txns)
+        assert is_conflict(helper, p)                      # 정책: 엄마가 이번 거래 상대
+        assert not a.rule_hits, typed                      # 탐지: 아는 상대(전에는 PAYEE_SURGE)
+        results.append((a.level, a.anomaly_score))
+    assert len(set(results)) == 1                          # 표기와 관계없이 같은 판단

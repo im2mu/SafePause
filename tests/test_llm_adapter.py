@@ -263,9 +263,12 @@ def test_no_redirect_handler_refuses() -> None:
 # ---- 도우미 함수 ----------------------------------------------------------
 
 def test_number_tokens_and_same_numbers() -> None:
-    assert number_tokens(["12만 5천 원이에요.", "새벽 2시예요.", "4번이에요."]) == sorted(["12만", "5천", "2시", "4번"])
+    # 단위어 전체('3번째')와 시각 앞 때 말('새벽 2시')까지 한 토큰
+    assert number_tokens(["12만 5천 원이에요.", "새벽 2시예요.", "4번이에요."]) == sorted(["12만", "5천", "새벽2시", "4번"])
     assert number_tokens(["1,234만 원"]) == ["1234만"]
-    assert same_numbers(["이번 주에만 4번이에요.", "모두 30만 원이에요."], ["모두 30만 원이에요.", "4번 보냈어요."])
+    assert same_numbers(["이번 주에만 4번이에요.", "모두 30만 원이에요."], ["이번 주에 4번 보냈어요.", "다 합쳐 30만 원이에요."])
+    # 줄 단위 비교: 숫자가 다른 줄로 옮겨 가면 원본을 쓴다(전에는 줄 순서를 바꿔도 통과)
+    assert not same_numbers(["이번 주에만 4번이에요.", "모두 30만 원이에요."], ["모두 30만 원이에요.", "4번 보냈어요."])
     assert not same_numbers(["4번, 30만 원"], ["30번, 4만 원"])
     assert not same_numbers(["4번이에요."], ["네 번이에요."])
     assert not same_numbers(["30만 원"], ["30만 원", "1번"])
@@ -277,3 +280,48 @@ def test_parse_lines_variants() -> None:
     assert parse_lines("") is None
     assert parse_lines('{"lines": ["가요.", ""]}') is None
     assert parse_lines('["가요."]') is None
+
+
+# ---- 리뷰 5: 줄 단위·단위어 전체 비교 ----
+PAYEE_LINES = ["엄마에게 돈을 자주 보냈어요.", "7일 동안 이번이 3번째예요.",
+               "이번 돈까지 모두 30만 원이에요.", "누가 보내라고 했나요?"]
+
+
+def _payee_card() -> AlertCard:
+    return build_card("x", RiskLevel.HIGH, "한 사람에게 많이 보냈어요", list(PAYEE_LINES),
+                      ["person", "money", "question"])
+
+
+@pytest.mark.parametrize("changed, why", [
+    (["엄마에게 돈을 자주 보냈어요.", "7일 동안 3번 보냈어요.",
+      "이번 돈까지 모두 30만 원이에요.", "누가 보내라고 했나요?"], "'이번이 3번째'가 '3번 보냈어요'로(뜻 바뀜)"),
+    (["엄마에게 돈을 자주 보냈어요.", "3일 동안 이번이 7번째예요.",
+      "이번 돈까지 모두 30만 원이에요.", "누가 보내라고 했나요?"], "숫자 뒤섞기"),
+    (["엄마에게 돈을 7일 동안 자주 보냈어요.", "이번이 3번째예요.",
+      "이번 돈까지 모두 30만 원이에요.", "누가 보내라고 했나요?"], "숫자가 다른 줄로 옮겨 감"),
+])
+def test_meaning_changing_numbers_are_rejected(changed: list[str], why: str) -> None:
+    card = _payee_card()
+    rewriter = LocalLLMRewriter(enabled=True, model="m")
+    out = rewriter._accept_or_original(card, changed)   # 네트워크 없이 검증 단계만
+    assert out is card, why
+    assert "숫자" in (rewriter.last_error or "")
+
+
+def test_same_numbers_with_new_wording_is_accepted() -> None:
+    card = _payee_card()
+    rewriter = LocalLLMRewriter(enabled=True, model="m")
+    new_lines = ["엄마에게 돈을 자주 보냈어요.", "7일 동안 이번이 3번째예요.",
+                 "이번 돈까지 다 합쳐 30만 원이에요.", "누가 보내라고 했나요?"]
+    out = rewriter._accept_or_original(card, new_lines)
+    assert out.source == "llm" and out.lines == new_lines and rewriter.last_error is None
+
+
+def test_unit_words_and_time_of_day_are_whole_tokens() -> None:
+    assert number_tokens(["이번이 3번째예요."]) == ["3번째"]
+    assert number_tokens(["3번 보냈어요."]) == ["3번"]
+    assert number_tokens(["2시간 뒤예요.", "오후 3시 20분이에요.", "3개월이에요."]) == \
+        sorted(["2시간", "오후3시", "20분", "3개월"])
+    assert not same_numbers(["새벽 2시에 돈이 나가요."], ["오후 2시에 돈이 나가요."])
+    assert same_numbers(["새벽 2시에 돈이 나가요."], ["새벽 2시에 돈을 보내요."])
+    assert not same_numbers(["7일 동안 이번이 3번째예요."], ["7일 동안 3번 보냈어요."])

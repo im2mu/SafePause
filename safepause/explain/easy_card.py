@@ -9,6 +9,8 @@
   과거형으로 말한다('요즘' 같은 지금 기준 말 대신 '그때')
 - 이력이 짧아 처음인지 알 수 없다는 근거(newness_unknown)가 있으면 '처음·새로'라고 말하지 않는다
 - 질문·선택지는 거래 방법에 맞춘다(이체: 보내다, 결제·요금: 내다, 현금: 찾다)
+- AI 단독 '다른 시간' 카드의 심야 그림(moon)은 근거에 담긴 심야 여부(이상탐지 시각 이유의
+  detail.is_night: 엔진 설정 기준)를 먼저 쓰고, 없으면 넘겨받은 설정(settings, 기본 Settings())으로 정한다
 """
 from __future__ import annotations
 
@@ -125,8 +127,6 @@ ANOMALY_FEATURE_GROUPS: dict[str, str] = {
     "channel_count_7d_ratio": "channel_burst",
     "new_line": "new_line",
 }
-
-_SETTINGS = Settings()
 
 
 # ---- 금액·시각 포맷 -------------------------------------------------------
@@ -390,6 +390,7 @@ class _Ctx:
     detail: dict[str, Any]
     hit: Optional[SignalHit]
     past: bool
+    settings: Optional[Settings] = None   # 근거에 심야 여부가 없을 때 쓸 판단 설정(없으면 기본값)
 
     def count(self, keys: tuple[str, ...] = _COUNT_KEYS) -> Optional[int]:
         """최근 7일 건수(대상 거래 포함)."""
@@ -569,6 +570,20 @@ def _feature_value(reason: Optional[Reason]) -> Optional[float]:
     return float(value)
 
 
+def _is_night_for_card(ctx: _Ctx, reason: Optional[Reason]) -> bool:
+    """심야 그림을 쓸지. 근거의 심야 여부(detail.is_night, is_night 특징 값)가 있으면 그것을,
+    없으면 넘겨받은 설정(없으면 기본 Settings())으로 정한다."""
+    detail = reason.detail if reason is not None and isinstance(reason.detail, dict) else {}
+    flag = detail.get("is_night")
+    if isinstance(flag, bool):
+        return flag
+    if detail.get("feature") == "is_night":
+        value = _feature_value(reason)
+        if value is not None:
+            return value >= 0.5
+    return (ctx.settings or Settings()).is_night(ctx.txn.ts.hour)
+
+
 def _tpl_anomaly(group: str, ctx: _Ctx, reason: Optional[Reason] = None) -> _Parts:
     txn, past = ctx.txn, ctx.past
     transfer = txn.channel == Channel.TRANSFER
@@ -580,7 +595,7 @@ def _tpl_anomaly(group: str, ctx: _Ctx, reason: Optional[Reason] = None) -> _Par
             *ctx.tail(),
         ], ["money", "warning", "question"])
     if group == "time":
-        icon = "moon" if _SETTINGS.is_night(txn.ts.hour) else "warning"
+        icon = "moon" if _is_night_for_card(ctx, reason) else "warning"
         when = format_time_kr(txn.ts)
         return _Parts(ctx.pick("평소와 다른 시간이에요", "평소와 다른 시간이었어요"), [
             f"{when}에 돈이 나갔어요." if past else f"{when}에 돈이 나가요.",
@@ -681,12 +696,16 @@ def _anomaly_reason(reasons: list[Reason]) -> Optional[tuple[str, Reason]]:
 
 
 def compose_parts(assessment: RiskAssessment, txn: Transaction,
-                  past: bool = False) -> tuple[str, list[str], list[str]]:
-    """(제목, 줄, 그림) 을 고른다. 룰 시그널이 있으면 그것이 우선이다."""
+                  past: bool = False, settings: Optional[Settings] = None
+                  ) -> tuple[str, list[str], list[str]]:
+    """(제목, 줄, 그림) 을 고른다. 룰 시그널이 있으면 그것이 우선이다.
+
+    settings: 근거에 심야 여부가 없을 때 심야 그림을 정하는 판단 설정(없으면 기본 Settings()).
+    """
     hits = [h for h in assessment.rule_hits if h.code in _SIGNAL_TEMPLATES]
     if hits:
         hit = _primary_hit(hits)
-        ctx = _Ctx(txn, _detail_for(hit, assessment.reasons), hit, past)
+        ctx = _Ctx(txn, _detail_for(hit, assessment.reasons), hit, past, settings)
         parts = _SIGNAL_TEMPLATES[hit.code](ctx)
         others = len({h.code for h in hits}) - 1
         if others > 0 and len(parts.lines) < MAX_LINES:
@@ -694,22 +713,23 @@ def compose_parts(assessment: RiskAssessment, txn: Transaction,
             more = "있었어요" if past else "있어요"
             parts.lines.insert(len(parts.lines) - 1, f"걱정되는 점이 {others}가지 더 {more}.")
     else:
-        ctx = _Ctx(txn, {}, None, past)
+        ctx = _Ctx(txn, {}, None, past, settings)
         found = _anomaly_reason(assessment.reasons)
         parts = _tpl_anomaly(found[0], ctx, found[1]) if found else _generic_parts(ctx)
     return parts.title, parts.lines[:MAX_LINES], parts.pictograms
 
 
 def render_card(assessment: RiskAssessment, txn: Transaction, *,
-                past: bool = False) -> Optional[AlertCard]:
+                past: bool = False, settings: Optional[Settings] = None) -> Optional[AlertCard]:
     """위험 판단을 쉬운 말 카드로. 위험 없음(NONE)이면 None.
 
     past=False: 보내기 전 안전 정지 카드(질문 + 선택지 3개, 거래 방법에 맞는 말).
     past=True: 이미 끝난 거래의 기록 카드(④ 알림 카드). 묻지 않고 선택지도 없다.
+    settings: 판단에 쓴 설정. 근거에 심야 여부가 없을 때 심야 그림(moon)을 정하는 데 쓴다.
     """
     if assessment.level == RiskLevel.NONE:
         return None
-    title, lines, pictograms = compose_parts(assessment, txn, past)
+    title, lines, pictograms = compose_parts(assessment, txn, past, settings)
     return build_card(assessment.txn_id or txn.id, assessment.level, title, lines, pictograms,
                       channel=txn.channel, past=past)
 

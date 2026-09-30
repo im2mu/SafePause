@@ -56,6 +56,7 @@ packaging/
 ## 2. config.py / store.py
 - `config.data_dir() -> Path`: 환경변수 `SAFEPAUSE_HOME` 우선, 없으면 Windows `%LOCALAPPDATA%\SafePause`, 그 외 `~/.safepause`. 없으면 생성.
 - `config.Settings` dataclass: `night_start_hour=23`, `night_end_hour=6`(23:00~05:59를 심야로 봄), `window_short_days=7`, `window_long_days=30`, `baseline_days=90`, `high_repeat_for_counseling=3`(30일 내 고위험 3건 이상이면 상담 연계 제안).
+  - [변경 r4] `is_night(h)`: 시작 > 끝이면 자정을 넘는 구간(h ≥ 시작 또는 h < 끝), 아니면 시작 ≤ h < 끝(시작 = 끝이면 심야 없음). 두 시각과 h는 0~23 정수여야 한다(아니면 ValueError). 이유: 자정을 넘지 않는 설정(예: 0~5시)이면 늘 `h ≥ 0`이 참이라 하루 종일 심야가 됐다(리뷰).
 - `store.Store(root: Path)`: JSON 파일 기반. 메서드
   - `load_consent()->Consent`, `save_consent(Consent)`
   - `load_helpers()->list[Helper]`, `save_helpers(list[Helper])`
@@ -143,7 +144,11 @@ packaging/
 ## 5. detect/
 ### features.py
 - `class History`: 과거 거래(평가 대상 이전 것만)로부터 개인 기준 통계 계산. `History(txns: list[Transaction], settings)`; `.known_payees`, `.known_merchants`, `.known_lines`, `.card_amount_p95`, `.transfer_7d_mean` 등.
-- `txn_features(txn, history_before: list[Transaction], settings) -> dict[str, float]`: 이례성 모델 입력. 최소: `log_amount`, `amount_vs_p95`(금액/개인 p95), `hour_sin`,`hour_cos`, `is_night`, `new_counterparty`(0/1), `cp_count_7d`, `cp_sum_7d_ratio`(해당 상대 7일 합/개인 평소 7일 송금 합), `channel_count_7d_ratio`, `new_line`(0/1). 누수 금지: history_before는 txn.ts 이전 거래만.
+- `txn_features(txn, history_before: list[Transaction], settings) -> dict[str, float]`: 이례성 모델 입력. 최소: `log_amount`, `amount_vs_p95`(금액/개인 p95), `hour_sin`,`hour_cos`, `is_night`, `new_counterparty`(0/1), `cp_count_7d`, `cp_sum_7d_ratio`(해당 상대 7일 합(대상 포함) / 같은 거래 방법·방향의 평소 7일 합계, 분모 하한 1만 원. 이체면 평소 7일 송금 합), `channel_count_7d_ratio`, `new_line`(0/1). 누수 금지: history_before는 txn.ts 이전 거래만.
+  - [변경 r4] 같은 상대·회선 판별(`counterparty_key`, `line_key`)은 조력자 정책(§7 이해충돌)과 같은 규칙으로 한다: 식별값의 공백·하이픈·점은 무시하고, 계좌처럼 보이는 조각(숫자 6개 이상)은 숫자와 가림표(*)만 남긴다('900-0101-100001' = '9000101100001' = '농협 900.0101.100001'). 가림표가 있으면 길이가 같고 둘 다 보이는 자리의 숫자가 모두 같으며 그런 자리가 4개 이상일 때 같은 상대로 보고, History가 먼저 본 상대·회선 키로 묶는다(`resolve_counterparty`, `resolve_line`). 계좌가 아닌 식별값은 공백·하이픈·점을 빼고 대소문자를 무시한다('M-1001' = 'm1001'). 근거의 `usual_line`은 처음 본 표기 그대로 남긴다.
+    이유(리뷰 재현): 공백만 지워서, 13번 보낸 엄마 계좌를 숫자만 적으면 '처음 보내는 사람'이 되어 송금 급증 CAUTION + 이상 점수 0.970 → 고위험, 카드는 "엄마에게 처음 보내는 돈이에요."(거짓)였고, 정책은 엄마를 이번 거래 상대로 보고 알림에서 빼 다른 조력자에게만 고위험 알림이 갔다. 영향: 위 재현은 위험 없음(점수 0.902, 저장 표기와 같음). 20-seed eval(docs/eval) 수치는 그대로다.
+  - [변경 r4] `amount_p95`는 docstring·모델 카드의 '평소' 정의대로 평소 기준 구간(`baseline_bounds`)이 7일 미만이면 0(기준 없음)이다. 전에는 표본 5건만 있으면 구간이 짧아도 계산해, 1.5일 동안 6만 원 6건 뒤 처음 가는 가게 15만 원이 기준 18만 원에 못 미쳐 룰에 걸리지 않았다(이제 10만 원 하한). 20-seed eval 수치는 그대로다.
+  - [변경 r4] 금액: `History.append`·`compute_features`는 음수 금액이면 ValueError. 0원 거래는 이력(transactions·start)에는 남기지만 개인 기준 통계와 룰 건수(심야 반복·같은 상대·소액결제·새 가게·회선)에 넣지 않고, 0원 대상은 어느 룰에도 걸리지 않는다. 이유: 0원 심야 이체 3건이 심야 반복 HIGH가 됐다(리뷰 재현). 합성 데이터에는 0원 이하 거래가 없어 eval 수치는 그대로다.
   - [변경 r1] 같은 시각 거래 규칙을 walk()·assess_many와 맞춘다: history_before 목록에 대상이 있으면 대상보다 이른 시각 거래 + 같은 시각이면서 목록에서 대상보다 앞의 거래만 쓴다. 대상이 목록에 없으면 목록 전체를 과거 이력으로 보고 txn.ts 이하를 쓴다(walk의 context와 같은 규칙). 날짜만 있는 CSV는 모든 거래가 12:00이라 같은 시각이 흔하다.
 - `FEATURE_NAMES: list[str]` 고정 순서.
 ### rules.py
@@ -180,8 +185,10 @@ packaging/
 ### anomaly.py — 경량 AI 이상탐지
 - `class PersonalAnomalyModel`: scikit-learn `IsolationForest(n_estimators=200, contamination="auto", random_state=seed)`를 **당사자 본인의 과거 정상 기준 기간** 특징량으로 학습.
   - `fit(train_txns: list[Transaction], settings, seed=0) -> self`: 각 거래를 그 이전 이력으로 특징화해 학습(최소 30건 미만이면 `fitted=False`, score는 0.0 반환).
-  - `score(txn, history_before) -> float`: 0~1. 학습 데이터 점수 분포 대비 백분위(`1 - 학습점수 중 대상보다 이례적이지 않은 비율`)로 정규화. 높을수록 이례적.
+  - `score(txn, history_before) -> float`: 0~1. 학습 데이터 점수 분포 대비 백분위(`학습 거래 중 대상보다 덜 이례적인 거래의 비율` = `1 - 학습 거래 중 대상만큼 또는 더 이례적인 비율`)로 정규화. 높을수록 이례적(1.0이면 학습한 어떤 거래보다도 이례적).
   - `explain(txn, history_before, top_k=2) -> list[Reason]`: 특징별 학습 분포 대비 표준화 편차가 큰 순으로 `Reason(code="anomaly:<feature>", detail={...})`.
+    - [변경 r4] 학습 때 값이 한 가지뿐이던(분산 0) 연속 특징은 z를 구할 수 없고 모델 점수에도 쓰이지 않으므로 이유로 내지 않는다(z=0). 0/1 사실 특징(`new_counterparty`, `new_line`, `is_night`, `is_out`)은 분산 0이어도 값이 다르면 남긴다(±99). 학습 거래 시각이 모두 같으면(날짜만 있는 CSV, 모두 12:00) 시각 특징(`hour_sin`, `hour_cos`, `is_night`)은 이유로 내지 않는다(`time_known()`). 시각 특징 이유의 detail에는 모델 설정 기준 심야 여부 `is_night`(bool)를 담는다(카드 그림용). 이유(리뷰 재현): 날짜만 있는 CSV에서 모델 단독 카드 28장 모두 '평소와 다른 시간이에요'(z=±99)였는데, 점수는 시각을 바꿔도 같았다(237/240). 등급·점수는 그대로라 eval 수치도 그대로다.
+    - [변경 r4] scikit-learn은 `fit()`이 처음 불러온다(지연 불러오기). `import safepause.detect.engine`은 sklearn·scipy를 싣지 않고, 룰만 쓰거나 학습 전(30건 미만)이면 sklearn 없이 돈다(모바일 2단계 로딩). 실측(이 PC, 3회): engine import 1.2초·새 모듈 1,216개 → 0.1초·130개. pickle·`version` 문자열은 그대로다.
   - `version` 문자열(예: "iforest-v1-<n_train>").
 ### engine.py
 - `class RiskEngine(settings=None, seed=0)`:
@@ -200,6 +207,7 @@ packaging/
 ## 6. explain/
 ### easy_card.py
 - `render_card(assessment: RiskAssessment, txn: Transaction) -> AlertCard | None` (NONE이면 None).
+  - [변경 r4] `render_card(..., settings=None)`: AI 단독 '평소와 다른 시간' 카드의 심야 그림(moon)은 모듈 전역 `Settings()`가 아니라 근거의 심야 여부(이상탐지 시각 이유의 `detail.is_night`, `is_night` 특징 값)로 정하고, 근거에 없으면 넘겨받은 settings(없으면 기본값)로 정한다. 이유: 심야 시각을 바꾼 설정에서도 그림은 늘 23~6시 기준이었다(리뷰).
 - 쉬운 정보 원칙: 짧은 문장, 한 문장 한 내용, 어려운 말 금지(금지어 목록: 이상거래, 패턴, 탐지, 알고리즘, 모니터링, 이례, 임계, 통계). 숫자는 "30만 원"처럼 만 원 단위, 시각은 "새벽 2시".
 - 시그널별 템플릿(예): NIGHT_REPEAT_TRANSFER → title "밤에 돈을 자주 보냈어요", lines ["요즘 밤늦게 돈을 여러 번 보냈어요.", "이번 주에만 4번이에요.", "누가 시켰나요?"]; pictograms ["moon","money","question"].
 - 모든 카드 공통: question "이 돈을 정말 보내는 것이 맞나요?", choices 3개(send "그래도 보낼래요", cancel "안 보낼래요", ask_helper "조력자에게 물어볼래요"), speak_text = title + lines + question.
@@ -217,6 +225,7 @@ packaging/
 ### llm_adapter.py (선택)
 - [변경 r2] 파이썬 API로만 제공하고 화면·명령행(serve·demo·analyze)에는 연결하지 않는다. 문서는 '선택 기능(기본 꺼짐)'이 아니라 'API만 제공'으로 쓴다(켤 방법이 있는 것처럼 읽히지 않게).
 - `LocalLLMRewriter(endpoint="http://127.0.0.1:11434", model="", enabled=False)`; `rewrite(card) -> AlertCard`: enabled이고 서버 응답 시 lines만 다듬고, `readability_issues`가 생기거나 숫자가 달라지면 원본 반환. endpoint 호스트가 loopback이 아니면 ValueError. 네트워크 실패 시 원본 반환. `source="llm"`은 실제 다듬었을 때만.
+  - [변경 r4] 숫자 보존 검사(`same_numbers`)는 줄마다 비교하고, 토큰은 숫자와 뒤의 단위어 전체('3번째', '2시간', '3개월')다. '시'는 앞의 때 말까지 한 토큰('새벽2시' ≠ '오후2시'). 이유(리뷰 재현): 숫자와 바로 뒤 한 글자만 봐서 "7일 동안 이번이 3번째예요."(보내기 전) → "7일 동안 3번 보냈어요."처럼 뜻이 바뀐 문장과, 숫자를 다른 줄로 옮긴 문장이 통과했다. 남은 한계: 숫자·단위가 같은 채 '모두/이번' 같은 말만 바뀌는 경우("이번 돈까지 모두 30만 원" → "이번 돈은 30만 원")는 이 검사로 막지 못한다.
 
 ## 7. guardian/
 ### policy.py
