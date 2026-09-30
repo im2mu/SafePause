@@ -34,7 +34,10 @@ export function txnRow(item, onOpen) {
       h("span", { class: `row-amount${out ? "" : " in"}`, text: `${out ? "-" : "+"}${nf.format(t.amount)}원` }),
       h("span", { class: "row-sub", text: formatWon(t.amount) })),
   ];
-  const label = `${t.counterparty || "이름 없음"}, ${out ? "나감" : "들어옴"} ${formatWon(t.amount)}, ${LEVEL[item.level] ? LEVEL[item.level].text : ""}`;
+  const reasons = (item.signals || []).map((code) => signalLabel(item, code));
+  const label = [t.counterparty || "이름 없음", d ? formatTime(d) : "", CHANNEL_KO[t.channel] || t.channel,
+    `${out ? "나감" : "들어옴"} ${formatWon(t.amount)}`, LEVEL[item.level] ? LEVEL[item.level].text : "",
+    ...reasons, item.practice ? "보내기 연습" : ""].filter(Boolean).join(", ");
   return onOpen
     ? h("button", { type: "button", class: "row wrap", "aria-label": label, onclick: () => onOpen(item) }, body)
     : h("div", { class: "row wrap" }, body);

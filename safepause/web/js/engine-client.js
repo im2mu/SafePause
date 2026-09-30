@@ -45,6 +45,8 @@ function start() {
 
 export const engine = {
   start,
+  /** 아직 시작하지 않은 조회(GET)를 워커 줄에서 뺀다(저장·동의 같은 쓰기는 빼지 않음). */
+  cancelQueuedReads() { if (worker) worker.postMessage({ type: "cancel-reads" }); },
   get status() { return { ...status }; },
   subscribe(fn) { listeners.add(fn); fn({ ...status }); return () => listeners.delete(fn); },
   request({ method, path, body, bytes }) {

@@ -50,7 +50,12 @@ export default {
         h("p", { class: "hint", id: "pay-to-hint", text: "예: 엄마, 김*호, 새로 연 전자상가" }), payeeChips),
       h("div", { class: "field" }, h("label", { for: "pay-amount", text: "금액" }), amountInput, amountEasy,
         h("div", { class: "chips", "aria-label": "금액 더하기" }, QUICK_ADD.map((n) => h("button", {
-          type: "button", class: "chip", onclick: () => { const cur = parseKoreanAmount(amountInput.value); setAmount((Number.isFinite(cur) ? cur : 0) + n); },
+          type: "button", class: "chip", onclick: () => {
+            const text = amountInput.value.trim();
+            const cur = text ? parseKoreanAmount(text) : 0;
+            if (!Number.isFinite(cur)) { formError("먼저 금액을 숫자로 고쳐 주세요. 예: 800000 또는 80만", amountInput); return; }
+            setAmount(cur + n);
+          },
         }, icon("plus"), h("span", { text: formatWon(n) }))),
           h("button", { type: "button", class: "chip", onclick: () => { amountInput.value = ""; updateEasy(); amountInput.focus(); } }, h("span", { text: "지우기" })))),
       h("div", { class: "field" }, h("span", { class: "field-label", id: "channel-label", text: "어떻게 보내요?" }), channelSeg.el),
@@ -80,7 +85,11 @@ export default {
     function setAmount(n) { amountInput.value = nf.format(Math.min(n, MAX_AMOUNT)); updateEasy(); }
     function updateEasy() {
       const n = parseKoreanAmount(amountInput.value);
-      amountEasy.textContent = amountInput.value.trim() ? (Number.isFinite(n) ? `= ${formatWon(n)}` : "숫자로 적어 주세요. 예: 800000 또는 80만") : "";
+      const text = amountInput.value.trim();
+      if (!text) { amountEasy.textContent = ""; return; }
+      if (text.replace(/[\s,원]/g, "") === "0") { amountEasy.textContent = "0보다 큰 금액을 적어 주세요."; return; }
+      if (!Number.isFinite(n)) { amountEasy.textContent = "숫자로 적어 주세요. 예: 800000 또는 80만"; return; }
+      amountEasy.textContent = n > MAX_AMOUNT ? "금액이 너무 커요(100억 원까지)." : `= ${formatWon(n)} (${nf.format(n)}원)`;
     }
     function fillExample(ex) {
       toInput.value = ex.to;
@@ -113,8 +122,9 @@ export default {
       const to = toInput.value.trim();
       const amount = parseKoreanAmount(amountInput.value);
       if (!to) { formError("받는 사람을 적어 주세요.", toInput); return; }
+      if (amountInput.value.replace(/[\s,원]/g, "") === "0") { formError("0보다 큰 금액을 적어 주세요.", amountInput); return; }
       if (!Number.isFinite(amount) || amount <= 0) { formError("금액을 숫자로 적어 주세요. 예: 800000 또는 80만", amountInput); return; }
-      if (amount > MAX_AMOUNT) { formError("금액이 너무 커요.", amountInput); return; }
+      if (amount > MAX_AMOUNT) { formError("금액이 너무 커요(100억 원까지).", amountInput); return; }
       const req = { to, amount, channel: channelSeg.value() || "transfer", to_id: toIdInput.value.trim() };
       const time = timeSeg.value();
       if (time) req.time = time;
@@ -139,6 +149,7 @@ export default {
       const lv = LEVEL[card.level] || LEVEL.caution;
       let sheetApi = null;
       const body = h("div", { class: "sheet-body" });
+      const errorSlot = h("div");
       const foot = h("div", { class: "sheet-foot", role: "group", "aria-label": "고르기" });
 
       function helperNote() {
@@ -163,20 +174,35 @@ export default {
           h("ul", { class: "pause-lines", id: "card-lines" }, card.lines.map((line) => h("li", { text: line }))),
           h("p", { class: "pause-question", text: card.question }),
           h("div", { class: "helper-note" }, icon("helper"), h("div", null, notes.map((t) => h("p", { text: t })))),
-          speakButton(speakText, { cls: "btn block", label: "소리로 듣기" }),
-          h("p", { class: "muted center", style: "margin-top:.75rem", text: PRACTICE_NOTE }));
+          errorSlot,
+          speakButton(speakText, { cls: "btn block", label: "소리로 듣기" }));
         fill(foot, card.choices.map((c) => h("button", {
           type: "button", class: "btn big block choice-btn", "data-decision": c.decision,   // 세 선택지를 같은 모양으로(한쪽으로 이끌지 않음, S38)
           onclick: () => (c.decision === "ask_helper" ? showAsk() : choose(c.decision)),
-        }, h("span", { class: "ci" }, icon(DECISION_ICON[c.decision] === "money" ? "send" : DECISION_ICON[c.decision] || "check")), h("span", { text: c.label }))));
+        }, h("span", { class: "ci" }, icon(DECISION_ICON[c.decision] === "money" ? "send" : DECISION_ICON[c.decision] || "check")), h("span", { text: c.label }))),
+        h("p", { class: "muted center", text: PRACTICE_NOTE }));
+        fitLayout();
       }
+
+      // 칸이 넉넉할 때만 본문·선택지를 나눈다(선택지가 늘 아래에 보이게). 나눈 뒤 본문 칸이 40%(최소 240px)보다 작아지면
+      // 가로 화면·큰 글씨로 보고 카드 전체를 한 번에 스크롤한다(본문이 0px로 접히지 않게, 2차 검증 C1)
+      function fitLayout() {
+        const el = sheetApi && sheetApi.el;
+        if (!el) return;
+        el.classList.add("split");
+        const room = el.clientHeight;
+        const fits = room >= 420 && room - foot.scrollHeight >= Math.max(room * 0.4, 240);
+        el.classList.toggle("split", fits);
+      }
+      const onResize = () => fitLayout();
+      window.addEventListener("resize", onResize);
 
       function showError(err) {
         const msg = sentence(err.message || String(err));
         const box = h("div", { class: "notice red", role: "alert" }, icon("warning"), h("div", null,
           h("p", { text: `${msg} '닫기'를 누르고 다시 해 볼 수 있어요.` }),
           h("button", { type: "button", class: "btn sm", style: "margin-top:.5rem", onclick: () => { sheetApi.close(); payBtn.focus(); } }, h("span", { text: "닫기" }))));
-        body.append(box);
+        fill(errorSlot, box);   // 계약 순서: 오류·닫기는 소리로 듣기·선택지 앞
         box.querySelector("button").focus();
       }
 
@@ -207,6 +233,7 @@ export default {
             orgs.length ? h("div", { class: "notice blue" }, icon("users"), h("div", null, h("p", { text: COUNSELING_TITLE }), h("ul", null, orgs.map((o) => h("li", { text: o }))))) : null,
             speakButton(() => ["물어볼 조력자가 없어요.", ...lines, ...(orgs.length ? [COUNSELING_TITLE, ...orgs] : [])].join(" ")));
           fill(foot, back);
+          fitLayout();
           body.querySelector("#card-ask-title").focus();
           return;
         }
@@ -239,6 +266,7 @@ export default {
             },
           }, icon("helper"), h("span", { text: "체크한 사람에게 물어볼래요" })),
           back);
+        fitLayout();
         body.querySelector("#card-ask-title").focus();
       }
 
@@ -251,7 +279,7 @@ export default {
           if (askTitle) { showMain(); body.querySelector("#card-title").focus(); return; }
           foot.querySelector('[data-decision="cancel"]')?.focus();
         },
-        onClose: () => speech.stop(),
+        onClose: () => { speech.stop(); window.removeEventListener("resize", onResize); },
       });
       showMain();
       sheetApi.el.setAttribute("aria-labelledby", "card-level card-title");

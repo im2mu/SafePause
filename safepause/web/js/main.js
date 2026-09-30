@@ -49,6 +49,8 @@ export const session = {
 
 let current = null;      // {path, cleanup[], token}
 let navToken = 0;
+let navIndex = history.state && typeof history.state.sp === "number" ? history.state.sp : 0;   // history.state.sp: 기록 안 위치(저장 안 한 입력 경고에서 '계속 적을래요'를 고르면 되돌리는 데 씀)
+let restoring = false;
 
 function currentPath() {
   const m = /^#\/([a-z/-]*)/.exec(location.hash || "");
@@ -87,7 +89,15 @@ async function render(path) {
   // 저장하지 않은 입력이 있으면 떠나기 전에 묻는다
   if (current && current.path !== path && session.unsaved) {
     const ok = await session.unsaved();
-    if (!ok) { history.replaceState(null, "", `#/${current.path}`); return; }
+    if (!ok) {
+      // 뒤로 가기로 왔으면 앞으로, 링크로 왔으면 뒤로: 기록에 같은 주소가 두 번 남지 않게
+      const st = history.state;
+      restoring = true;
+      if (st && typeof st.sp === "number" && st.sp < current.idx) history.forward();
+      else history.back();
+      window.setTimeout(() => { restoring = false; }, 400);
+      return;
+    }
     session.unsaved = null;
   }
   const view = ROUTES[path] || null;
@@ -98,7 +108,9 @@ async function render(path) {
   speech.stop();
   const token = ++navToken;
   const cleanup = [];
-  current = { path, cleanup, token };
+  if (!(history.state && typeof history.state.sp === "number")) history.replaceState({ sp: ++navIndex }, "", location.hash);
+  current = { path, cleanup, token, idx: history.state.sp };
+  if (MODE === "engine") engine.cancelQueuedReads();   // 떠난 화면의 아직 시작하지 않은 조회는 워커에서 뺀다
 
   const main = $("#main");
   const noNav = Boolean(view.noNav);
@@ -120,23 +132,37 @@ async function render(path) {
     /** 늦게 온 응답을 버리는 요청. 버릴 때는 STALE을 던진다(화면은 조용히 무시). */
     async req(method, p, body, file) {
       const epoch = session.epoch;
-      const r = await api(method, p, body, file);
-      if (navToken !== token || session.epoch !== epoch) throw STALE;
+      const stale = () => navToken !== token || session.epoch !== epoch;
+      let r;
+      try {
+        r = await api(method, p, body, file);
+      } catch (e) {
+        if (stale()) throw STALE;   // 화면을 떠나 취소된 조회(499)도 여기서 조용히 버린다
+        throw e;
+      }
+      if (stale()) throw STALE;
       return r;
     },
   };
+  let rendering;
   try {
-    await view.render(ctx);
+    rendering = view.render(ctx);   // 화면 골격은 첫 await 전에 그려진다
   } catch (e) {
-    if (e === STALE) return;
-    main.append(h("div", { class: "notice red", role: "alert" }, icon("warning"),
-      h("div", { text: e instanceof ApiError ? e.message : "화면을 그리다 문제가 생겼어요. 다시 해 주세요." })));
+    rendering = Promise.reject(e);
   }
+  // 초점·스크롤은 골격을 그린 직후 한 번만(데이터가 늦게 와도 입력 중인 칸의 초점을 빼앗지 않게, 2차 검증)
   if (navToken === token) {
     const heading = main.querySelector("h1, h2, .page-title");
-    (heading && !view.noFocus ? heading : main).focus({ preventScroll: false });
+    (heading && !view.noFocus ? heading : main).focus({ preventScroll: true });
     window.scrollTo(0, 0);
     announce(view.announce || view.title || "");
+  }
+  try {
+    await rendering;
+  } catch (e) {
+    if (e === STALE || navToken !== token) return;
+    main.append(h("div", { class: "notice red", role: "alert" }, icon("warning"),
+      h("div", { text: e instanceof ApiError ? e.message : "화면을 그리다 문제가 생겼어요. 다시 해 주세요." })));
   }
 }
 
@@ -165,6 +191,7 @@ async function boot() {
   });
   window.addEventListener("hashchange", () => {
     if (!/^#\//.test(location.hash)) return;   // #main 같은 문서 안 이동은 화면을 바꾸지 않는다
+    if (restoring) return;
     render(currentPath());
   });
   engineSlot();

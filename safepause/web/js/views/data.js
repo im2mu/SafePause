@@ -18,8 +18,8 @@ export default {
 
       h("h3", { class: "section-title", text: "내보내기" }),
       h("div", { class: "list" },
-        exportRow("file", "현장 검증용 요약 (JSON)", "이름·계좌·금액·날짜 없이 거래 수와 알림 수만 담아요. 시범 사용 결과를 모을 때 본인이 동의하고 직접 전달해요.", "/api/export/validation"),
-        exportRow("download", "내 분석 결과 (CSV)", "거래마다 판단 결과를 담아요. 받는 사람 이름이 들어 있어서 나만 봐요.", "/api/export/results")),
+        exportRow("file", "현장 검증용 요약 파일", "이름·계좌·금액·날짜 없이 거래 수와 알림 수만 담아요. 시범 사용 결과를 모을 때 본인이 동의하고 직접 전달해요.", "/api/export/validation"),
+        exportRow("download", "내 분석 결과 표 파일", "거래마다 판단 결과를 담아요. 받는 사람 이름이 들어 있어서 나만 봐요.", "/api/export/results")),
       exportOut,
 
       h("h3", { class: "section-title", text: "모두 지우기" }),

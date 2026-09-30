@@ -14,7 +14,7 @@ const ITEMS = [
   { key: "counseling_referral", icon: "person", title: "상담하는 곳 알려 주기",
     lines: ["상담하는 곳을 알려 줘요.", "지역발달장애인지원센터, 장애인권익옹호기관이에요.", "이럴 때 알려 줘요."],
     bullets: ["꼭 확인할 일이 30일 동안 3번 이상 생길 때", "알릴 조력자가 모두 돈을 받는 사람일 때"],
-    after: ["보내지 않고 멈춘 것도 세요."] },
+    after: ["보내지 않고 멈춘 것도 함께 세어요."] },
 ];
 
 export default {
@@ -71,6 +71,7 @@ export default {
       if (it.key === "monitoring" && !next) ctx.session.bumpEpoch();   // 끄는 즉시 옛 분석 응답을 버린다(리뷰 H1)
       try {
         render(await ctx.req("PUT", "/api/consent", { [it.key]: next }));
+        status.replaceChildren();   // 앞서 난 오류 안내를 지운다
         const msg = next ? `${it.title}: 켰어요.` : `${it.title}: 껐어요. 바로 멈췄어요.`;
         toast(msg);
         announce(msg);
@@ -86,6 +87,7 @@ export default {
     async function changeGivenBy(value) {
       try {
         render(await ctx.req("PUT", "/api/consent", { given_by: value }));
+        status.replaceChildren();
         toast(value === "self" ? "본인이 동의했어요." : "법정대리인이 동의했어요.");
       } catch (e) {
         if (e === STALE) return;

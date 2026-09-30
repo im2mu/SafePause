@@ -1,7 +1,7 @@
 /* SafePause 앱 안 AI 엔진(웹 워커). 안드로이드 앱에서만 쓴다.
  * - Pyodide(웹어셈블리 파이썬)와 numpy·scipy·scikit-learn을 APK 안 파일에서 읽는다(인터넷 없음).
  * - 파이썬 패키지 safepause(PC판과 같은 코드)를 풀고, 저장 폴더 /spdata를 IndexedDB(IDBFS)에 연결한다.
- * - 요청은 한 번에 하나씩 처리한다(파이썬은 단일 스레드). 저장을 바꾸는 요청 뒤에는 IDBFS에 반영한다.
+ * - 요청은 한 번에 하나씩 처리한다(파이썬은 단일 스레드). 동의·지우기는 줄 맨 앞, 떠난 화면의 조회는 취소. 저장을 바꾸는 요청 뒤에는 IDBFS에 반영한다.
  * 단계: basic(가벼운 요청) → full(AI 분석). AI가 필요한 요청은 full까지 기다린다.
  */
 import { loadPyodide } from "../pyodide/pyodide.mjs";
@@ -16,7 +16,6 @@ const stage = (s, message, detail = "") => self.postMessage({ type: "stage", sta
 let py = null;
 let bridge = null;
 let fullReady = null;       // Promise: AI 패키지까지 준비
-let chain = Promise.resolve();
 
 function syncfs(populate) {
   return new Promise((resolve, reject) => py.FS.syncfs(populate, (err) => (err ? reject(err) : resolve())));
@@ -55,18 +54,14 @@ function routeKey(method, path) {
   return `${method.toUpperCase()} ${path.split("?")[0]}`;
 }
 
-async function handle(msg) {
-  try {
-    await booted;
-  } catch (e) {
-    return { status: 503, body: { detail: "AI 엔진을 켜지 못했어요. 앱을 닫았다가 다시 열어 주세요." } };
-  }
+// 동의 끄기·모두 지우기(즉시 철회, S37)는 기다리는 줄의 맨 앞에 넣는다.
+// 파이썬은 한 번에 하나만 돌므로 이미 돌고 있는 계산(예: 성능 확인)은 끝나야 하지만, 줄에 쌓인 다른 요청보다 먼저 처리된다.
+const PRIORITY = new Set(["PUT /api/consent", "POST /api/wipe"]);
+const queue = [];
+let running = false;
+
+async function run(msg) {
   const key = routeKey(msg.method, msg.path);
-  if (!BASIC.has(key)) {
-    try { await fullReady; } catch (e) {
-      return { status: 503, body: { detail: "AI 분석 부분을 켜지 못했어요. 앱을 닫았다가 다시 열어 주세요." } };
-    }
-  }
   let raw;   // undefined → 파이썬 None (JS null은 None이 아닌 jsnull로 넘어간다)
   if (msg.bytes) raw = py.toPy(msg.bytes);
   try {
@@ -79,18 +74,70 @@ async function handle(msg) {
     }
     return res;
   } catch (e) {
-    return { status: 500, body: { detail: "처리하다 문제가 생겼어요. 다시 해 주세요.", error: String(e && e.message || e).slice(0, 500) } };
+    return { status: 500, body: { detail: "처리하다 문제가 생겼어요. 다시 해 주세요.", error: String(e && e.message || e).slice(0, 500), route: key } };
   } finally {
     if (raw && typeof raw.destroy === "function") raw.destroy();
   }
 }
 
+function reply(msg, res) {
+  self.postMessage({ type: "response", id: msg.id, status: res.status, body: res.body });
+}
+
+async function pump() {
+  if (running) return;
+  const msg = queue.shift();
+  if (!msg) return;
+  running = true;
+  try {
+    reply(msg, await run(msg));
+  } catch (e) {
+    reply(msg, { status: 500, body: { detail: "처리하다 문제가 생겼어요. 다시 해 주세요." } });
+  } finally {
+    running = false;
+    pump();
+  }
+}
+
+function enqueue(msg) {
+  if (PRIORITY.has(routeKey(msg.method, msg.path))) queue.unshift(msg);
+  else queue.push(msg);
+  pump();
+}
+
+async function accept(msg) {
+  try {
+    await booted;
+  } catch (e) {
+    reply(msg, { status: 503, body: { detail: "AI 엔진을 켜지 못했어요. 앱을 닫았다가 다시 열어 주세요." } });
+    return;
+  }
+  if (!BASIC.has(routeKey(msg.method, msg.path))) {
+    // AI가 필요한 요청은 줄 밖에서 준비를 기다린다(그동안 동의·조력자 같은 가벼운 요청은 바로 처리됨)
+    try { await fullReady; } catch (e) {
+      reply(msg, { status: 503, body: { detail: "AI 분석 부분을 켜지 못했어요. 앱을 닫았다가 다시 열어 주세요." } });
+      return;
+    }
+  }
+  if (msg.cancelled) { reply(msg, { status: 499, body: { detail: "화면을 떠나 요청을 취소했어요." } }); return; }
+  enqueue(msg);
+}
+
+const waiting = new Set();   // AI 준비를 기다리는 요청(아직 줄에 넣지 않음)
+
 self.onmessage = (e) => {
   const msg = e.data || {};
+  if (msg.type === "cancel-reads") {
+    for (let i = queue.length - 1; i >= 0; i -= 1) {
+      if (queue[i].method === "GET") {
+        const [m] = queue.splice(i, 1);
+        reply(m, { status: 499, body: { detail: "화면을 떠나 요청을 취소했어요." } });
+      }
+    }
+    for (const m of waiting) if (m.method === "GET") m.cancelled = true;
+    return;
+  }
   if (msg.type !== "request") return;
-  // 요청을 한 줄로 세운다(동시에 두 요청이 저장 파일을 건드리지 않게)
-  chain = chain
-    .then(() => handle(msg))
-    .catch(() => ({ status: 500, body: { detail: "처리하다 문제가 생겼어요. 다시 해 주세요." } }))
-    .then((res) => { self.postMessage({ type: "response", id: msg.id, status: res.status, body: res.body }); });
+  waiting.add(msg);
+  accept(msg).finally(() => waiting.delete(msg));
 };

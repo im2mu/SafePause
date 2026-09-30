@@ -93,26 +93,30 @@ export function parseKoreanAmount(text) {
   const s = String(text ?? "").replace(/[\s,]/g, "").replace(/원$/, "");
   if (!s) return NaN;
   if (/^\d+$/.test(s)) return s.length > 15 ? NaN : parseInt(s, 10);
-  if (!/^(?:\d+(?:\.\d+)?|[억만천])+$/.test(s)) return NaN;   // 숫자와 단위 말고 다른 글자가 있으면 거절
-  const tokens = s.match(/\d+(?:\.\d+)?|[억만천]/g) || [];
-  let total = 0, section = 0, current = 0, lastBig = 3;       // 억=2, 만=1: 큰 단위부터 와야 한다
-  let prevWasNumber = false;
-  for (const t of tokens) {
+  if (!/^(?:\d+(?:\.\d+)?|[억만천백십])+$/.test(s)) return NaN;   // 숫자와 단위 말고 다른 글자가 있으면 거절
+  const tokens = s.match(/\d+(?:\.\d+)?|[억만천백십]/g) || [];
+  const SMALL = { 천: 1000, 백: 100, 십: 10 };
+  let total = 0, section = 0, current = null, lastBig = 3, smallUnitSeen = false;   // 억=2, 만=1: 큰 단위부터
+  for (let i = 0; i < tokens.length; i += 1) {
+    const t = tokens[i];
     if (/\d/.test(t)) {
-      if (prevWasNumber) return NaN;
+      if (current !== null) return NaN;                       // 숫자 두 개가 붙어 옴
       current = parseFloat(t);
-      prevWasNumber = true;
+      if (t.includes(".") && !(tokens[i + 1] && /[억만천백십]/.test(tokens[i + 1]))) return NaN;   // 단위 없는 소수(1.5원?) 거절
       continue;
     }
-    prevWasNumber = false;
-    if (t === "천") { section += (current || 1) * 1000; current = 0; continue; }
+    if (SMALL[t]) { section += (current ?? 1) * SMALL[t]; current = null; smallUnitSeen = true; continue; }
     const big = t === "억" ? 2 : 1;
     if (big >= lastBig) return NaN;                            // "3만 2억"처럼 순서가 틀리면 거절
-    section += current;
+    section += current ?? 0;
     total += (section || 1) * (big === 2 ? 1e8 : 1e4);
-    section = 0; current = 0; lastBig = big;
+    section = 0; current = null; lastBig = big; smallUnitSeen = false;
   }
-  total += section + current;
+  if (lastBig === 2 && smallUnitSeen && current === null) {
+    total += section * 1e4;                                    // "1억5천" = 1억 5천만(말할 때 '만'을 빼는 습관)
+  } else {
+    total += section + (current ?? 0);
+  }
   if (!Number.isFinite(total) || total <= 0) return NaN;
   return Math.round(total);
 }

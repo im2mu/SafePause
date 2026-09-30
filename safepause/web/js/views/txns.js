@@ -14,7 +14,7 @@ export default {
     const { main, go } = ctx;
     const summarySlot = h("div", null, skeleton(1));
     const statusSlot = h("div", { role: "status" });
-    const listSlot = h("div", { class: "list", "aria-live": "polite" });
+    const listSlot = h("div", { class: "list" });
     const moreBtn = h("button", { type: "button", class: "btn block", hidden: true });
     let filter = "all";
     let offset = 0;
@@ -22,7 +22,7 @@ export default {
     let loadSeq = 0;
 
     const chips = h("div", { class: "chips", role: "group", "aria-label": "거래 보기" },
-      [["all", "전체"], ["caution", "확인해요"], ["high", "꼭 확인해요"]].map(([v, t]) => h("button", {
+      [["all", "전체"], ["caution", "걱정되는 것"], ["high", "꼭 확인할 것"]].map(([v, t]) => h("button", {
         type: "button", class: "chip", "aria-pressed": v === filter ? "true" : "false", "data-v": v,
         onclick: () => {
           filter = v;
@@ -111,11 +111,20 @@ export default {
       ], { label: "거래 자세히" });
     }
 
+    // 저장된 거래를 통째로 바꾸기 전에 묻는다(리뷰 M8). 건수를 못 읽으면 건너뛰지 않고 '바뀔 수 있어요'로 묻는다(2차 검증)
+    async function storedCount() {
+      try {
+        return (await ctx.req("GET", "/api/data/summary")).count;
+      } catch (e) {
+        if (e === STALE) throw e;
+        return null;
+      }
+    }
     async function confirmReplace(count) {
-      if (!count) return true;
+      if (count === 0) return true;
       return confirmSheet({
         title: "지금 거래가 바뀌어요",
-        lines: [`저장된 거래 ${nf.format(count)}건은 지워지고, 새 거래로 바뀌어요.`, "계속할까요?"],
+        lines: [count === null ? "저장된 거래가 있으면 지워지고, 새 거래로 바뀌어요." : `저장된 거래 ${nf.format(count)}건은 지워지고, 새 거래로 바뀌어요.`, "계속할까요?"],
         confirmText: "네, 바꿀래요", cancelText: "아니요",
       });
     }
@@ -138,12 +147,13 @@ export default {
             onclick: (e) => busy(e.currentTarget, async () => {
               const n = parseInt(seed.value || "1", 10);
               const body = { persona: persona.value, seed: Number.isFinite(n) && n >= 0 ? Math.min(n, 1000000) : 1, scenarios: mix.checked };
-              const s = await ctx.req("GET", "/api/data/summary").catch(() => ({ count: 0 }));
-              if (!(await confirmReplace(s.count))) return;
+              let count;
+              try { count = await storedCount(); } catch (e2) { return; }
+              if (!(await confirmReplace(count)) || !ctx.alive()) return;
               try {
                 const r = await ctx.req("POST", "/api/data/sample", body);
                 const mixed = Object.values(r.scenario_labels || {}).reduce((a, b) => a + b, 0);
-                const msg = `${r.persona_name}의 가상 거래 ${nf.format(r.count)}건을 불러왔어요.` + (r.scenarios ? ` 걱정되는 거래 ${mixed}건을 섞었어요.` : "");
+                const msg = `${r.persona_name} 연습용 거래 ${nf.format(r.count)}건을 불러왔어요(진짜 거래가 아니에요).` + (r.scenarios ? ` 걱정되는 거래 ${mixed}건을 섞었어요.` : "");
                 close();
                 toast(msg);
                 announce(msg);
@@ -160,7 +170,7 @@ export default {
     }
 
     function openUpload() {
-      const file = h("input", { class: "sr-only", id: "upload-file", type: "file", accept: ".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel" });
+      const file = h("input", { class: "sr-only", id: "upload-file", type: "file", tabindex: "-1", accept: ".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel" });
       const fileName = h("span", { class: "muted", text: "아직 고르지 않았어요" });
       file.addEventListener("change", () => { fileName.textContent = file.files && file.files[0] ? file.files[0].name : "아직 고르지 않았어요"; });
       const mapping = h("textarea", { class: "input", id: "upload-mapping", rows: "3", spellcheck: "false", autocapitalize: "off", autocorrect: "off",
@@ -168,10 +178,10 @@ export default {
       const report = h("div", { "aria-live": "polite" });
       openSheet((close) => [
         h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: "내 거래내역 파일 올리기" }),
-        h("p", { class: "sheet-sub", text: "은행 앱에서 내려받은 거래내역 파일(CSV)을 올려요. 파일은 이 기기 밖으로 나가지 않아요." }),
+        h("p", { class: "sheet-sub", text: "은행 앱에서 내려받은 거래내역 파일을 올려요. 파일은 이 기기 밖으로 나가지 않아요." }),
         h("div", { class: "notice" }, icon("info"), h("div", null,
           h("p", { text: "은행 파일 모양은 따로 확인하지 못했어요." }),
-          h("p", { text: "엑셀 파일이면 엑셀에서 'CSV UTF-8'로 저장한 뒤 올려 주세요." }))),
+          h("p", { text: "엑셀 파일이면 엑셀에서 '다른 이름으로 저장 → CSV UTF-8'로 저장한 뒤 올려 주세요(보호자·도우미)." }))),
         h("div", { class: "field" },
           h("span", { class: "field-label", text: "파일" }),
           h("label", { for: "upload-file", class: "btn weak block", role: "button", tabindex: "0",
@@ -188,8 +198,9 @@ export default {
               const f = file.files && file.files[0];
               if (!f) { fill(report, h("p", { class: "error-text", role: "alert", text: "먼저 파일을 골라 주세요." })); return; }
               if (f.size > MAX_UPLOAD_BYTES) { fill(report, h("p", { class: "error-text", role: "alert", text: "파일이 너무 커요(5MB까지)." })); return; }
-              const s = await ctx.req("GET", "/api/data/summary").catch(() => ({ count: 0 }));
-              if (!(await confirmReplace(s.count))) return;
+              let count;
+              try { count = await storedCount(); } catch (e2) { return; }
+              if (!(await confirmReplace(count)) || !ctx.alive()) return;
               fill(report, h("p", { class: "muted", text: "읽는 중이에요…" }));
               try {
                 const r = await ctx.req("POST", UPLOAD_PATH, undefined, { blob: f, name: f.name, mapping: mapping.value.trim() });
