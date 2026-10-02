@@ -48,6 +48,7 @@ async function viaHttp(method, path, body, file) {
     const form = new FormData();
     form.append("file", file.blob, file.name || "upload.csv");
     if (file.mapping) form.append("mapping", file.mapping);
+    if (file.mode) form.append("mode", file.mode);   // replace(모두 바꾸기, 기본) | append(이어 붙이기)
     opts.body = form;
   } else if (body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -82,6 +83,7 @@ async function viaEngine(method, path, body, file) {
   if (file) {
     bytes = new Uint8Array(await file.blob.arrayBuffer());
     payload = { mapping: file.mapping || "" };
+    if (file.mode) payload.mode = file.mode;   // 엔진 router는 본문 mode를 읽는다
   }
   const r = await engine.request({ method, path, body: payload, bytes });
   if (r.status >= 400) {
@@ -91,10 +93,12 @@ async function viaEngine(method, path, body, file) {
   return r.body;
 }
 
-/** api("GET", "/api/consent") / api("PUT", "/api/consent", {...}) / api("POST", UPLOAD, undefined, {blob, name, mapping}) */
+/** api("GET", "/api/consent") / api("PUT", "/api/consent", {...}) / api("POST", UPLOAD, undefined, {blob, name, mapping, mode}) */
 export function api(method, path, body, file) {
   return MODE === "engine" ? viaEngine(method, path, body, file) : viaHttp(method, path, body, file);
 }
 
 export const UPLOAD_PATH = "/api/data/upload";
+/** 올리는 방법: replace(모두 바꾸기, 기본) | append(이어 붙이기, 겹친 거래는 한 번만). 화면은 이 값으로 고르기 창을 보일지 정한다. */
+export const UPLOAD_MODES = ["replace", "append"];
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;

@@ -1,6 +1,9 @@
 /* SafePause 아이콘. 외부 파일·CDN 없이 인라인 SVG로 그린다.
- * PICTO: 쉬운 말 카드 픽토그램(64x64, 기존 v0.1 그림 그대로). UI: 화면용 선 아이콘(24x24, 굵기 2, 둥근 끝).
- * v0.3: 신호용 sig-*(무엇을 알릴까요·거래 표시), 연결·연락·설정용 아이콘을 더했다. 이름 목록은 docs/v03_frontend_api.md. */
+ * PICTO: 쉬운 말 카드 픽토그램(64x64, 기존 v0.1 그림 그대로). 돈 보내기 확인 카드 본문의 큰 그림(ui.picto)에만 쓴다.
+ * UI: 화면용 선 아이콘(24x24, 굵기 2, 둥근 끝). ui.icon(name)은 늘 이것을 쓴다.
+ * v0.3: 신호용 sig-*(무엇을 알릴까요·거래 표시), 연결·연락·설정용 아이콘을 더했다.
+ * v0.3 수정(D4): PICTO 이름(check·warning·stop·person·helper·money·moon·phone·question·ear·store)도 선 버전을 UI에 두어,
+ * 등급 배지·저장 버튼·받는 사람 줄이 같은 선 굵기·크기로 그려진다. 이름 목록은 docs/v03_frontend_api.md. */
 export const PICTO = {
  "check": "<circle cx=\"32\" cy=\"32\" r=\"26\"/><path d=\"M19 33l9 9 18-19\"/>",
  "ear": "<path d=\"M22 28a14 14 0 1 1 28 0c0 7-5 10-8 13s-3 6-4 9a8 8 0 0 1-12 3\"/><path d=\"M30 28a6 6 0 0 1 12 0c0 3-2 5-4 6\"/><path d=\"M12 18c-4 6-4 16 0 22\" stroke-width=\"3.5\"/>",
@@ -70,5 +73,16 @@ export const UI = {
  "settings": "<path d=\"M4 7h10M18 7h2M4 17h2M10 17h10\"/><circle cx=\"16\" cy=\"7\" r=\"2\"/><circle cx=\"8\" cy=\"17\" r=\"2\"/>",
  "chevron-down": "<path d=\"M5 9l7 7 7-7\"/>",
  "minus": "<path d=\"M5 12h14\"/>",
- "check-line": "<path d=\"M5 12.5l4.5 4.5L19 7.5\"/>"
+ "check-line": "<path d=\"M5 12.5l4.5 4.5L19 7.5\"/>",
+ "check": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M8 12.3l2.8 2.8 5.2-5.6\"/>",
+ "warning": "<path d=\"M10.3 4.2a2 2 0 0 1 3.4 0l7.6 13.3A2 2 0 0 1 19.6 20.5H4.4a2 2 0 0 1-1.7-3Z\"/><path d=\"M12 9.5v4.5\"/><circle cx=\"12\" cy=\"17\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/>",
+ "stop": "<path d=\"M8.3 2.5h7.4l5.8 5.8v7.4l-5.8 5.8H8.3l-5.8-5.8V8.3Z\"/><path d=\"M12 7.5v5.5\"/><circle cx=\"12\" cy=\"16.3\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/>",
+ "person": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4.5 21c0-4.3 3.4-7.5 7.5-7.5s7.5 3.2 7.5 7.5\"/>",
+ "helper": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c0-3.6 2.9-6 6.5-6 1.6 0 3 .5 4.1 1.3\"/><circle cx=\"17\" cy=\"8.5\" r=\"2.8\"/><path d=\"M15 19l2 2 4.5-4.5\"/>",
+ "money": "<rect x=\"2.5\" y=\"6\" width=\"19\" height=\"12\" rx=\"2\"/><circle cx=\"12\" cy=\"12\" r=\"2.5\"/><path d=\"M6 9.5v.01M18 14.5v.01\"/>",
+ "moon": "<path d=\"M20 14A8.5 8.5 0 1 1 10 4a6.8 6.8 0 0 0 10 10Z\"/>",
+ "phone": "<rect x=\"6.5\" y=\"2.5\" width=\"11\" height=\"19\" rx=\"2.5\"/><path d=\"M10.5 18h3\"/>",
+ "question": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1 1-1.1 1.8v.5\"/><circle cx=\"12\" cy=\"17\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/>",
+ "ear": "<path d=\"M6.5 9.5a5.5 5.5 0 0 1 11 0c0 2.8-1.9 4-3 5.1-1 1-1.3 2.3-1.7 3.5a3.2 3.2 0 0 1-5 1.4\"/><path d=\"M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.2-.8 2-1.6 2.4\"/>",
+ "store": "<path d=\"M4 9.5 5.5 4h13L20 9.5\"/><path d=\"M4 9.5c0 1.5 1.2 2.5 2.7 2.5s2.6-1 2.6-2.5c0 1.5 1.2 2.5 2.7 2.5s2.7-1 2.7-2.5c0 1.5 1.1 2.5 2.6 2.5S20 11 20 9.5\"/><path d=\"M5.5 12v8.5h13V12\"/><path d=\"M10 20.5v-5h4v5\"/>"
 };

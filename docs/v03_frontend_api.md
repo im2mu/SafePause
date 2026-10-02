@@ -4,7 +4,8 @@
 설계서 `docs/v03_spec.md`가 기준이고, 여기에는 공용 함수·CSS 클래스·아이콘·경로·ctx를 정확히 적는다.
 돈 보내기(보내기 전 확인 → 내 은행 앱)는 `docs/v03_spec_money.md`가 기준이다(0절 송금 기능 없음을 고친 문서). 이 문서의 1.5절·5절·7절·14절에 화면 쪽을 적었다.
 
-- 공용 파일(화면 기반 담당): `index.html`, `js/main.js`, `js/api.js`, `js/ui.js`, `js/components.js`, `js/format.js`, `js/labels.js`, `js/icons.js`, `js/speech.js`, `js/native.js`, `js/engine-client.js`, `js/views/connect.js`, `engine/worker.mjs`, `css/app.css`, `tests/test_static_ui.py`.
+- **2026-10-03 수정(적대적 검증 145건 반영)**: 결정·계약은 `docs/v03_fixplan.md`가 이 문서보다 우선한다. 이 문서의 15절에 화면 공용 계약(새 함수·상수·CSS)을 예시와 함께 모았다.
+- 공용 파일(화면 기반 담당): `index.html`, `js/main.js`, `js/api.js`, `js/ui.js`, `js/components.js`, `js/format.js`, `js/labels.js`, `js/icons.js`, `js/speech.js`, `js/native.js`, `js/engine-client.js`, `js/views/connect.js`, `engine/worker.mjs`, `css/app.css`, `icons/`(파비콘 `logo.svg`), `tests/test_static_ui.py`.
 - 화면 파일(화면 담당): `js/views/*.js`(connect.js 빼고), `css/views/{home,txns,notify,money,more}.css`, `js/charts.js`(홈 담당이 새로 만듦).
 - 공용 모듈에 필요한 것이 생기면 직접 고치지 말고 화면 기반 담당(총괄)에게 요청한다.
 
@@ -23,9 +24,10 @@
 | `#/more/helpers` | `views/helpers.js` | 전체 | |
 | `#/more/counselors` | `views/counselors.js` | 전체 | 새 화면 |
 | `#/more/settings` | `views/settings.js` | 전체 | 새 화면 |
-| `#/more/eval` | `views/eval.js` | 전체 | 보호자·심사용 |
+| `#/more/eval` | `views/eval.js` | 전체 | 조력자·기관용 |
 | `#/more/export` | `views/export.js` | 전체 | 새 화면(옛 data.js의 내보내기) |
 | `#/more/about` | `views/about.js` | 전체 | |
+| `#/more/guide` | `views/guide.js` | 전체 | 사용법 안내(첫 실행 1단계 소개를 다시 보기, 동의 단계 없음). 공용 담당이 최소 화면을 만들었고 전체·설정 담당이 채운다 |
 | `#/onboarding` | `views/onboarding.js` | 없음 | |
 
 옛 경로는 자동으로 옮긴다: `#/more/data` → `#/more/consent`, `#/more/notices` → `#/alerts?tab=sent`.
@@ -45,9 +47,11 @@
 | `#/send?mode=notify` | 알림 보내기 탭 | send.js → notify.js |
 | `#/send?txn=<거래 id>` | 알림 보내기 탭 + 그 거래를 미리 고름(mode가 없어도 txn·to가 있으면 알림 보내기) | notify.js |
 | `#/send?to=counselors` | 알림 보내기 탭 + 상담하는 곳 목록을 펼쳐 둠 | notify.js |
-| `#/send?mode=notify&txn=<id>&helper=<조력자 id>` | 돈 보내기의 물어볼래요에서 넘어옴: 그 조력자만 미리 체크 | notify.js |
-| `#/alerts?tab=cards\|flags\|sent` | 걱정되는 거래 / 담은 거래 / 보낸 알림 탭 | alerts.js |
-| `#/txns?open=upload\|sample` | 파일 올리기 / 연습용 거래 시트를 바로 엶 | txns.js (connect.js가 보냄) |
+| `#/send?mode=notify&txn=<id>&helper=<조력자 id>&ask=1&channel=sms\|email` | 돈 보내기의 물어볼래요 → [문자로 물어보기]·[메일로 물어보기]: 그 조력자만 미리 체크, 묻는 글, 그 방법을 먼저 고름. 저장하지 않은 확인 거래는 `checkedItem(id)`로 미리 고르고 suggest에 `pending`으로 넘긴다 | notify.js |
+| `#/send?mode=notify&resend=<보낸 알림 id>` | 보낸 알림의 다시 보내기: 그 기록의 받는 사람·글·거래로 채움(고치지 않으면 떠날 때 묻지 않음) | notify.js |
+| `#/alerts?tab=cards\|flags\|sent` | 걱정되는 거래 / 담은 거래 / 보낸 알림 탭(옛 이름 `risky`·`flagged`도 받음) | alerts.js |
+| `#/txns?q=<이름>&period=all\|1m\|3m` | 내 거래 이름 검색·기간(홈 많이 보낸 곳 TOP 3가 보냄) | txns.js |
+| `#/txns?open=upload\|sample\|bank\|card\|phone` | 파일 올리기 / 연습용 거래 / 은행·카드·휴대폰 결제 연결(준비 중) 시트를 바로 엶 | txns.js (connect.js가 보냄) |
 
 ```js
 const txnId = ctx.params.get("txn");          // 없으면 null
@@ -139,7 +143,10 @@ import { h, fill, append, setText, splitSentences, $, $$, icon, picto, toast, an
 - `openSheet(build(close) => nodes, {label, dismissible, className, onClose(reason), initialFocus, onEscape})` → `{close, el}`. 배경은 inert, 안드로이드 뒤로 가기로 닫힘.
   - 바텀시트 손잡이는 `.sheet::before`로 자동으로 그려진다(600px 이상은 가운데 창).
   - 제목은 `h("h2", {class: "sheet-title focus-target", tabindex: "-1", text})`, 버튼 묶음은 `.sheet-actions`.
-- `confirmSheet({title, lines, confirmText, cancelText, danger})` → `Promise<boolean>`. 취소에 먼저 초점.
+- 시트를 닫으면 초점은 **연 버튼**으로 돌아간다. 그 버튼이 없어졌거나(다시 그림) 꺼져 있거나 inert 안이면 아직 열린 위 시트의 `.focus-target`, 시트가 없으면 `#main`으로 간다. 초점이 body로 빠지지 않는다(FE-04·FN-07).
+- 시트가 열려 있는 동안 Tab은 시트 안에서만 돈다. 초점이 시트 밖(body 등)에 있으면 Tab 한 번에 시트 첫 항목으로 끌어온다.
+- 시트 안의 소리로 듣기는 시트를 닫으면 멈춘다(`speakButton`이 버튼이 화면에서 떨어지는 것을 보고 멈춤, 화면 쪽 코드 필요 없음).
+- `confirmSheet({title, lines, confirmText, cancelText, danger})` → `Promise<boolean>`. 취소에 먼저 초점. 닫히면 위 규칙대로 초점이 돌아간다.
 - **`comingSoonSheet({icon, title, lines, steps?, action?, extra?})`**: 준비 중 기능 안내. "준비 중" 배지와 "정식 버전에서 열려요."가 자동으로 붙는다.
   - `steps: [{title, sub?, options?: ["3개월", ...]}]` → 번호 붙은 비활성 단계.
   - `action: "연결하기"` → "연결하기(준비 중)" 비활성 버튼.
@@ -161,32 +168,41 @@ const tabs = segTabs([
 ```
 
 - `getPref("font")` → `"m"|"l"|"xl"`, `getPref("theme")` → `"auto"|"light"|"dark"`. `setPref(name, value)`는 저장(localStorage, 실패해도 적용)하고 바로 적용한다. settings.js는 이것만 부른다(main.js가 시작할 때 `applyPrefs()`).
+  - 안드로이드 앱에서는 `applyPrefs`가 `SafePauseNative.setThemeMode(theme)`도 불러 위아래 시스템 막대 색을 앱 설정에 맞춘다(AND-04, 함수가 없는 옛 APK는 건너뜀).
   - 글자: 보통 125%, 크게 140%(`html[data-font="l"]`), 아주 크게 160%(`html[data-font="xl"]`).
   - 화면 모드: 자동(속성 없음), 밝게(`:root[data-theme="light"]`), 어둡게(`:root[data-theme="dark"]`).
-- `toast(msg, "error"?)`, `announce(msg)`, `busy(btn, async fn)`(두 번 누름 방지), `skeleton(n)`, `emptyState(icon, title, text)`.
-- `icon(name, cls?)`: UI 선 아이콘(24) 또는 PICTO(64). `picto(name)`: 쉬운 말 카드 그림.
+- `toast(msg, "error"?)`: 문장이 여럿이면 한 문장에 한 줄(안쪽 `p` → `span.sent`, C4). 문장 수만큼 조금 더 오래 보인다.
+- `announce(msg)`, `skeleton(n)`, `emptyState(icon, title, text)`.
+- `busy(btn, async fn)`: 두 번 누름 방지. **`disabled`를 쓰지 않고** `aria-busy="true"`·`aria-disabled="true"`를 건다(누른 버튼이 꺼지면 초점이 body로 빠지기 때문). 보이는 모양은 CSS(`.btn[aria-disabled="true"]`, 돌림표)가 맡는다. 하는 중에 또 누르면 `undefined`를 돌려주고 아무것도 하지 않는다.
+- `icon(name, cls?)`: **늘 선 아이콘(24 viewBox, 굵기 2)**. `check`·`warning`·`stop`·`person` 같은 픽토그램 이름도 선 버전으로 그린다(D4). 없는 이름은 빈 `span.ic`.
+- `picto(name)`: 64 큰 그림. 돈 보내기 확인 카드 본문(`money.js`의 `.pictos`)에만 쓴다(테스트가 확인).
 
 ## 3. components.js
 
 ```js
-import { levelBadge, flaggedBadge, txnRow, txnAmount, txnSignals, subParts, whenParts, dateHead, flagButton, menuRow,
-  speakButton, alertCard, errorNotice, learnedText, saveFile, soonBadge } from "../components.js";
+import { levelBadge, flaggedBadge, flagBadge, reviewBadge, notifiedBadge, checkedBadge, txnRow, txnAmount, txnSignals,
+  subParts, whenParts, dateHead, flagButton, reviewButton, menuRow, speakButton, noVoiceNote, alertCard, aiExplain,
+  errorNotice, learnedText, saveFile, soonBadge } from "../components.js";
 ```
 
 | 함수 | 설명 |
 |---|---|
 | `levelBadge(level)` | 괜찮아요·확인해요·꼭 확인해요 배지 |
-| `flaggedBadge()` | 담음 배지(책갈피 아이콘) |
+| `flaggedBadge()` | 담음 배지(책갈피 아이콘, 글은 `FLAG_TEXT.badge`) |
+| `flagBadge(item)` / `reviewBadge(item)` / `notifiedBadge(item)` | 그 상태면 배지 요소, 아니면 `null`(그대로 append해도 됨). 담음(`item.flagged`) / 내가 확인함(`item.reviewed`) / 알렸어요(10월 3일)(`item.notified_at`) |
 | `txnAmount(t)` | `"-50,000원"`(나감) / `"+50,000원"`(들어옴). 금액은 이것 하나만 쓴다(R21) |
 | `txnSignals(item)` | `[{code, icon, text}]` 명사형 신호 이름. AI만 다르다고 본 거래는 `{code:"anomaly", icon:"sparkle", text:"평소와 다른 거래"}` |
-| `txnRow(item, onOpen?)` | 거래 한 줄(토스 목록 모양): 이름과 금액 한 줄 → 시각·방법 → 등급 + 명사형 신호 + 담음 배지(`item.flagged`). 금액은 한 번. onOpen이 있으면 버튼(누르면 거래 시트) |
+| `txnRow(item, onOpen?)` | 거래 한 줄(토스 목록 모양): 이름과 금액 한 줄 → 시각·방법 → 등급 + 명사형 신호 + 담음·내가 확인함·알렸어요·보내기 전 확인 배지. 금액은 한 번. onOpen이 있으면 버튼(누르면 거래 시트) |
 | `subParts(parts, cls?)` | 작은 글 조각 줄(`시각 · 방법` 등). 조각 안에서는 줄을 바꾸지 않고, 줄이 바뀐 조각 앞 가운뎃점은 숨긴다(점이 줄 끝에 매달리거나 `카드 / 결제`로 끊기지 않게). 기본 클래스 `row-sub` |
 | `whenParts(ts)` | `["2026년 6월 27일 (토)", "새벽 4시 41분"]`: subParts에 날짜·시각을 따로 넣을 때 |
 | `dateHead(ts)` | 날짜 머리 |
-| `flagButton(ctx, item, {cls, onChange(flagged, count)})` | 알림 목록에 담기 ↔ 담기 취소 토글(POST /api/flags, /api/flags/remove). 담으면 토스트 "알림 탭에 담았어요." `item.flagged`도 바꾼다 |
-| `menuRow({icon, tone, title, sub, href \| onclick, soon, end})` | 전체 탭·설정의 한 줄. `soon: true`면 준비 중 배지. 준비 중 항목은 `onclick: () => comingSoonSheet({...})` |
-| `speakButton(getText, {label, stopLabel, cls})` | 소리로 듣기 ↔ 멈추기 토글(aria-pressed). 한 번에 하나만 읽고 끝나면 원래대로. 음성이 없으면 null(그대로 append해도 됨) |
-| `alertCard(item, {actions})` | 쉬운 말 카드(그림·등급·제목·줄·소리 토글). `actions`에 [알리기]·[담기] 버튼을 넣는다. `item.flagged`면 담음 배지 |
+| `flagButton(ctx, item, {cls, onChange(flagged, count)})` | 알림 목록에 담기 ↔ 담기 취소 토글(POST /api/flags, /api/flags/remove, 글은 `FLAG_TEXT`). 담으면 토스트 "알림 탭에 담았어요.", 빼면 "담은 거래에서 뺐어요." `item.flagged`도 바꾼다. 알림 카드의 작은 버튼도 이것을 쓴다(`{cls: "btn sm"}`). 하는 동안 `disabled`를 쓰지 않는다(초점 유지) |
+| `reviewButton(ctx, item, {cls, onChange(reviewed, count)})` | 내가 한 거예요 ↔ 확인 취소 토글(POST /api/reviews, /api/reviews/remove, 글은 `REVIEW_TEXT`). `item.reviewed`도 바꾼다. 탐지 등급은 그대로다 |
+| `menuRow({icon, tone, title, sub, href \| onclick, soon, end})` | 전체 탭·설정의 한 줄. `soon: true`면 준비 중 배지를 **제목 바로 아래 고정 줄**(`.menu-soon`)에 붙인다(L15). 준비 중 항목은 `onclick: () => comingSoonSheet({...})` |
+| `speakButton(getText, {label, stopLabel, cls})` | 소리로 듣기 ↔ 멈추기 토글(aria-pressed). 한 번에 하나만 읽고 끝나면 원래대로. **버튼이 화면에서 떨어지거나 `[hidden]` 안에 들어가면(탭 바꾸기·패널 다시 그리기·시트 닫기) 읽기를 멈춘다**(MutationObserver, D1·FE-09). 화면 쪽은 `speech.stop()`을 부르지 않아도 된다. 음성이 없다고 확정되면 null, 아직 준비 중이면 버튼을 만들고 CSS가 숨겼다가 준비되면 보인다(D10) |
+| `noVoiceNote(cls?)` | 음성 없음 안내 `p.voice-note`. 음성이 없다고 확정됐을 때만 보이고 준비 중·준비됨이면 숨는다(CSS). `speech.available()`로 미리 고르지 말고 그대로 넣는다 |
+| `alertCard(item, {actions})` | 쉬운 말 카드(그림·등급·제목·줄·소리 토글). 머리 그림은 신호 선 아이콘(`SIGNAL_ICON`, 내 거래 표시와 같은 그림). 카드 줄이 이미 같은 금액을 말하면 머리 줄 금액을 빼고(C10), 줄은 `li > p`(한 문장 한 줄)·`keepUnits`(168만 원이 끊기지 않게). `actions`에 [알리기]·`flagButton`·[자세히]를 넣는다. 담음·내가 확인함·알렸어요 배지는 자동 |
+| `aiExplain(item, {heading})` | 왜 걱정되나요 두 갈래 `section.ai-explain`: 약속(규칙)으로 본 것(명사형 신호) + AI가 본 것(`item.ai`가 있을 때만: 평소 내 거래와 다른 정도 상위 N% · 평소와 가장 다른 점 한 줄 · AI만 찾은 거래 표시, 모델이 없으면 배우는 중 문장). `heading` 기본 3(시트 제목 h2 아래) |
 | `errorNotice(err, go)` | 오류 상자(동의 오류면 동의 켜러 가기) |
 | `saveFile(name, mime, text)` | 앱은 시스템 저장 창, PC는 내려받기 → `"saved"|"cancelled"|"error"` |
 
@@ -207,6 +223,16 @@ h("div", { class: "sheet-actions" },
 
 | `CHECKED_TEXT`, `checkedBadge()` | 돈 보내기에서 확인하고 내 거래 끝에 적은 거래(`item.practice`)의 배지 보내기 전 확인. `txnRow`·거래 시트·알림 보내기 거래 줄이 쓴다 |
 
+```js
+// txns.js 거래 시트: 상태 배지 + 왜 걱정되나요 + 담기·내가 한 거예요
+h("div", { class: "sheet-head" }, levelBadge(item.level), flagBadge(item), reviewBadge(item), notifiedBadge(item)),
+aiExplain(item),                                   // item.ai가 없으면 약속(규칙)만
+h("div", { class: "sheet-actions" }, flagButton(ctx, item), reviewButton(ctx, item, { cls: "btn weak big block" }), …)
+
+// alerts.js 카드: 담기 문구를 따로 만들지 않는다
+alertCard(item, { actions: [알리기링크, flagButton(ctx, item, { cls: "btn sm" }), 자세히버튼] });
+```
+
 지운 것: `practicePill`(연습 화면 띠).
 
 ### 3.1 charts.js (홈 돈 흐름 차트, SVG 직접 그림)
@@ -226,7 +252,11 @@ h("div", { class: "sheet-actions" },
 |---|---|
 | `deviceWord()` | 앱·휴대폰 브라우저 → `"이 휴대폰"`, 그 밖 → `"이 컴퓨터"`. `${deviceWord()} 안에서만 살펴봐요.` (127.0.0.1·이 기기 직접 쓰지 않기) |
 | `moneyText(n, sign?)` | `moneyText(50000)` → `"50,000원"`, `moneyText(50000, "-")` → `"-50,000원"`, `moneyText(-7900)` → `"-7,900원"` |
-| `formatWon(n)` | 쉬운 말 금액 `"5만 원"`. 목록·표에는 쓰지 않는다(차트 눈금·문장용) |
+| `formatWon(n)` | 쉬운 말 금액 `"5만 원"`(천 원·만 원 단위 반올림). 목록·표·입력 미리 보기에는 쓰지 않는다(차트 눈금·문장용) |
+| `amountPreview(n)` | 입력 금액 미리 보기: 정확한 원 단위 하나 `amountPreview(3500)` → `"3,500원"`. 0 이하·숫자 아님은 `""`. 반올림한 만 원 표기를 `=`로 붙이지 않는다(RF-4·C10) |
+| `bandLabel(band, {range})`, `BANDS` | 시간대 이름(앱 시각 표기와 같음): dawn `새벽`(밤 12시~아침 6시) · morning `오전`(아침 6시~낮 12시) · day `낮`(낮 12시~저녁 6시) · evening `저녁·밤`(저녁 6시~밤 12시). `bandLabel("dawn", {range: true})` → `"새벽(밤 12시~아침 6시)"` |
+| `keepUnits(text)` | 화면에 보이는 글에서 숫자 + 원·시각·날짜 사이 빈칸을 줄을 바꾸지 않는 빈칸으로(`168만 원`, `오후 3시`, `4시 41분`, `6월 27일`이 줄 끝에서 끊기지 않게, C13·L8·L9). 문자·메일로 보낼 글·소리로 읽을 글에는 쓰지 않는다 |
+| `breakableEmail(text)` | 보이는 메일 주소에서 `@` 앞에서만 줄을 바꿀 수 있게 한다(`example.co / m` 방지). `span.email-text`와 같이 쓴다. 메일 앱 주소에는 원래 값 |
 | `formatMonth("2026-06", full?)` | `"6월"` / `"2026년 6월"` |
 | `formatTime(d)` | `"새벽 4시 41분"` |
 | `formatDate(d)`, `formatShortDate(d)`, `formatWhen(ts)`, `formatDay(ts)`, `parseTs(ts)`, `dayKey(ts)` | 날짜·시각 |
@@ -251,7 +281,8 @@ import { isApp, isMobile, capabilities, openExternal, smsUri, mailtoUri, telUri,
 | `mailtoUri(emails[], subject, body)` | `"mailto:a@b.kr,c@d.kr?subject=…&body=…"` |
 | `telUri(number)` | `"tel:16448295"`(전화를 걸지 않고 다이얼 화면만) |
 | `canPickContact()` | 연락처에서 고르기를 쓸 수 있으면 true(PC면 false → 버튼 숨김) |
-| `pickContact("phone" \| "email")` | `Promise<{name, value} \| null>`(취소·실패는 null). 권한 없이 한 건만 |
+| `pickContact("phone" \| "email")` | `Promise<{name, value} \| null>`. 권한 없이 한 건만. **창이 열려 있는 동안 다시 부르면 새 창을 열지 않고**(앞 창의 결과는 앞 호출이 받음) 토스트 "연락처 창이 이미 열려 있어요. 그 창에서 골라 주세요."와 함께 null(IA-5·AND-08). 못 열었거나 읽지 못했으면 토스트 "연락처를 불러오지 못했어요. 직접 적어 주세요."와 함께 null. 취소는 안내 없이 null |
+| `lastPickResult()` | 마지막 pickContact 결과 `"ok" \| "cancelled" \| "busy" \| "failed" \| "unsupported"`(null이 왜 왔는지 알아야 할 때) |
 | `copyText(text)` | `Promise<boolean>` |
 | `canListApps()` | 설치된 앱 목록을 읽고 열 수 있으면 true(안드로이드 앱만, 부를 때 `window.SafePauseNative`의 `listApps`·`openApp`을 확인). PC·휴대폰 브라우저·옛 앱은 false |
 | `listApps()` | `[{package, label}]`(앱이 정한 순서: 한글 가나다 → 영문 → 그 밖). 브리지의 JSON 글을 읽고, 패키지 이름 모양이 아닌 것·겹친 것은 뺀다. 이름은 한 줄 80글자까지(MainActivity와 같은 한도). 동기 호출이라 시트를 열 때 한 번만 부른다. 못 쓰면 빈 목록 |
@@ -281,7 +312,9 @@ canPickContact() ? h("button", { type: "button", class: "btn sm weak", onclick: 
 
 ## 6. speech.js
 
-- `available()`: 기기 한국어 음성이 있으면 true. `onAvailability(fn)`.
+- `available()`: 기기 한국어 음성이 있으면 true. `onAvailability(fn)`(돌려준 함수로 구독 해제).
+- `voiceStatus()`: `"ready"`(쓸 수 있음) · `"pending"`(음성 목록·TTS 엔진 준비 중, 브라우저는 3초·앱은 10초까지 기다림) · `"none"`(없음으로 확정). 같은 값을 `html[data-voice]`에 적고, CSS가 준비 전에는 `.speak-btn`을 숨기고 `.voice-note`(·옛 `.mn-novoice`)는 none일 때만 보인다(D10: 음성이 늦게 와도 화면이 저절로 맞춰짐).
+- `noVoiceNote()`: `${deviceWord()}에 한국어 음성이 없어서 소리로 듣기 버튼을 숨겼어요. …`(C7, 이 기기 하드코딩 없음). `NO_VOICE_NOTE`는 처음 불러올 때 이것으로 정한 옛 이름(문자열). 화면은 `components.noVoiceNote()`를 쓴다.
 - `speak(text, {onEnd})` → 시작하면 true. 읽던 것이 있으면 멈추고 그 onEnd를 부른다.
 - `stop()`: 멈추고 onEnd를 부른다(화면을 옮길 때 main.js가 부름).
 - `isSpeaking()`.
@@ -299,13 +332,17 @@ canPickContact() ? h("button", { type: "button", class: "btn sm weak", onclick: 
 | `signalLabel(item, code)` | 중립 이름까지 고려한 이름 |
 | `CHANNEL_KO`, `CHANNEL_ICON` | 결제 방법 이름·아이콘(bank, card, sig-phone-pay, sig-sim, cash) |
 | `CHANNEL_CHART` | 결제 방법 → 차트 색 번호 1~5(`.c1`~`.c5`). 이체 1, 카드 2, 휴대폰 결제 3, 휴대폰 요금 4, 그 밖 5 |
-| `LEVEL` | none/caution/high → `{text, icon, cls}` |
+| `LEVEL` | none/caution/high → `{text, icon, cls}`. 아이콘 `check`·`warning`·`stop`은 선 아이콘(원 체크·삼각 느낌표·팔각 느낌표) |
+| `FLAG_TEXT` | `{button: "알림 목록에 담기", undo: "담기 취소", toast: "알림 탭에 담았어요.", removed: "담은 거래에서 뺐어요.", list: "담은 거래", badge: "담음"}`. 담기 글은 이것만 쓴다(목록·탭 이름도 `FLAG_TEXT.list`) |
+| `REVIEW_TEXT` | `{button: "내가 한 거예요", undo: "확인 취소", badge: "내가 확인함", toast: "내가 한 거래로 표시했어요.", removedToast: "내가 확인한 표시를 지웠어요.", note: "걱정되는 거래 수에서 뺐어요."}` |
+| `NOTIFIED_TEXT` | `"알렸어요"`(배지 `알렸어요(10월 3일)`은 `notifiedBadge`가 만든다) |
+| `AI_TEXT` | `aiExplain`의 글: `title` 왜 걱정되나요? · `rules` 약속(규칙)으로 본 것 · `rulesNone` · `ai` AI가 본 것 · `aiLearning` 거래가 30건보다 적어 AI는 아직 배우는 중이에요. · `aiOnly` · `aiNone` · `diffLabel` 평소 내 거래와 다른 정도 |
 | `COUNSELOR_KINDS`, `COUNSELOR_KIND_KO`, `COUNSELOR_KIND_ICON` | 상담하는 곳 종류(발달장애인지원센터·장애인권익옹호기관·경찰·금융 상담·그 밖의 곳) |
 | `NOTICE_CHANNEL_KO`, `NOTICE_CHANNEL_ICON` | 보낸 알림 방법(문자 chat·메일 mail·전화 call·복사 copy) |
 | `MODE_KO`, `COUNSELING_TITLE`, `PERSONAS` | 그대로 |
 | `DECISION_ICON` | 안전 정지 카드 선택지 아이콘 `{send: "send", cancel: "stop", ask_helper: "helper"}`(돈 보내기) |
 | `PAY_CHANNELS` | 돈 보내기의 방법 `[{value, label, icon}]`: 계좌 이체 · 가게에서 결제 · 휴대폰 결제 |
-| `EXAMPLES` | 돈 보내기의 예시로 해 보기(심사·시연용) 3개 |
+| `EXAMPLES` | 돈 보내기의 예시로 해 보기 3개 `{key, label, parts, to, amount, channel, time}`. `label`의 금액·시각 안 빈칸과 가운뎃점 앞은 `\u00a0`(줄 끝에서 `80만 / 원`, `오후 / 3시`로 끊기지 않게). 조각으로 그리려면 `subParts(ex.parts)`. 칩 글을 찾는 검사 스크립트는 `textContent.replace(/\s/g, " ")`로 비교한다 |
 
 지운 것(송금 연습): `PRACTICE_NOTE`(연습 문구는 쓰지 않음), `DONE_KO`, `DECISION_KO`, `ASK_NOBODY_KO`.
 
@@ -331,9 +368,9 @@ openCardConnect(ctx, { onUpload: openUpload, onSample: openSample });
 - 사람·곳: `users` `user-check`(본인 확인) `building`(상담하는 곳) `headset`(고객센터) `shield`
 - 설정·도움: `settings` `text-size` `moon-sun` `lock` `toggle` `help` `info` `link` `code` `refresh`
 - 편집: `plus` `minus` `edit` `copy` `trash` `check-line` `sparkle`
-- 로고: `logo`(팔각형 + 멈춤 막대). 막대는 `.brand-mark` 안에서만 보인다(`.logo-bars`).
-- 쉬운 말 카드 그림(PICTO, 64): `check` `ear` `helper` `money` `moon` `person` `phone` `question` `stop` `store` `warning`.
-  `icon("check")`처럼 UI에 없는 이름은 PICTO로 그린다.
+- 로고: `logo`(팔각형 + 멈춤 막대). 막대는 `.brand-mark` 안에서만 보인다(`.logo-bars`). 브라우저 탭 아이콘은 같은 모양의 `icons/logo.svg`(파란 둥근 사각, 흰 팔각형, 파란 두 막대, D9).
+- 픽토그램 이름의 선 버전(D4): `check`(원 체크) `warning`(삼각 느낌표) `stop`(팔각 느낌표) `person` `helper` `money` `moon`(채우지 않은 달) `phone` `question` `ear` `store`. `icon()`은 늘 이 선 버전을 쓴다.
+- 쉬운 말 카드 큰 그림(PICTO, 64, `picto(name)`): `check` `ear` `helper` `money` `moon` `person` `phone` `question` `stop` `store` `warning`. 돈 보내기 확인 카드 본문에만 쓴다.
 
 ## 10. CSS
 
@@ -365,6 +402,24 @@ openCardConnect(ctx, { onUpload: openUpload, onSample: openSample });
 | 차트 | `.chart`(svg 안 `text` `.grid` `.bar` `.bar.muted` `.flag-dot`) `.c1`~`.c5`(→ `--c`) `.stack > i`(비율 띠, 2px 틈) `.hbar` `.hbar-top` `.hbar-track > i` `.legend`(`li` `.swatch` `.grow` `b` `.pct`) |
 | 표 | `.table-wrap`(좁은 화면은 카드 모양) |
 | 로고 | `.brand` `.brand-mark` `.brand-name` |
+| 줄바꿈 | `.nowrap`(숫자 + 단위 조각) `.email-text`(`breakableEmail`과 같이) |
+| 소리 | `.speak-btn`(speakButton이 붙임) `.voice-note`(noVoiceNote) — `html[data-voice]`로 보이고 숨음 |
+| 상태 배지 | `.badge.ok-line`(내가 확인함) |
+| 왜 걱정되나요 | `.ai-explain` `.ae-head` `.ae-group` `.ae-ai` `.ae-title` `.ae-list` `.ae-diff` `.ae-diff-value` `.ae-only` |
+| 메뉴 | `.menu-soon`(준비 중 배지 줄) `.menu-row.is-soon` |
+
+### 10.3 공용 배치 규칙(2026-10-03, 큰 글씨·좁은 화면·가로 화면)
+
+- 글 줄바꿈(L8): `p, li, .sent`는 `text-wrap: pretty`(마지막 줄 한두 글자 방지), 배지·칩·버튼·제목·탭은 `text-wrap: balance`. `textarea.input`은 `word-break: keep-all; overflow-wrap: break-word`.
+- 아래 탭(L3·L6): 휴대폰 폭에서 탭 칸 높이·여백·간격에 px 상한(글자 200%에서도 이름이 탭 안에). 320폭에서는 탭 사이를 넓히고 이름 안 빈칸을 좁힌다.
+- 안내 상자(L4): `.notice` 여백·아이콘·`ul` 들여쓰기에 화면 폭 상한. 글 칸이 9글자보다 좁아지면(아주 큰 글씨) 아이콘이 글 위 줄로 올라간다(`.notice > svg + * { flex: 1 1 9em }`, 컨테이너 쿼리를 쓰지 않음: 글자 배율을 나중에 바꾸면 옛 배율로 판단하는 브라우저가 있음). 안내 상자 안 첫 글 묶음은 하나의 요소(div·p·ul)로 넣는다.
+- 머리글 제목(L4): 두 줄까지 보인다(잘림 줄임표 대신).
+- 표 숫자(L9): 좁은 화면 카드 모양 표에서 `td.num` 값은 끊지 않고 칸 이름(`data-label`)만 줄을 바꾼다.
+- 고르기 묶음(L10): 카드 밖 `.segmented` 바탕은 페이지 바탕보다 진하다(고르지 않은 칸도 버튼으로 보임).
+- 스위치(L11): 보이는 크기가 작아져도 누르는 자리는 `::before`로 48px 이상.
+- 가로·짧은 화면(L14, 높이 480px 이하): 아래 탭은 그림·이름 한 줄(높이 최대 60px), `.cta-bar`는 따라오지 않음, 시트는 화면 높이를 거의 다 쓴다.
+- 하는 중 버튼: `.btn[aria-disabled="true"]`는 꺼진 모양, `[aria-busy]`는 돌림표(ui.busy·담기 버튼).
+- 엔진 띠: `.engine-bar svg`는 1.25rem(FE-12), 글은 `p`(문장마다 한 줄).
 
 ```js
 // 비율 띠 + 범례(색만으로 구별하지 않게 이름·금액·%를 늘 같이)
@@ -379,7 +434,9 @@ h("ul", { class: "legend" }, rows.map((r) => h("li", { class: `c${CHANNEL_CHART[
 
 - 따옴표('…', "…", ‘…’, “…”)로 낱말·화면 이름을 감싸지 않는다. `'동의'에서` → `동의 화면에서`.
 - 한 문장은 한 줄(p의 text로 넣으면 자동). 문장마다 마침표.
-- 쓰지 않는 문구: 막지 않아요, 결정은 내가 해요, AI 혼자서는, 연습 화면, 실제로 돈이 나가지 않아요, 보내지 않고 멈춘 것, 연습용 정답, (가려서 저장해요), 127.0.0.1, 안전 정지(앱 이름은 SafePause).
+- 쓰지 않는 문구: 막지 않아요, 결정은 내가 해요, 결정은 본인이 해요, AI 혼자서는, 연습 화면, 실제로 돈이 나가지 않아요, 보내지 않고 멈춘 것, 연습용 정답, (가려서 저장해요), 127.0.0.1, 안전 정지(앱 이름은 SafePause), 심사·시연용, 이 기기(장소는 `deviceWord()`). 당사자 화면에 제안서라는 말도 쓰지 않는다.
+- 담기 글은 `FLAG_TEXT`, 내가 한 거예요 글은 `REVIEW_TEXT`만 쓴다(화면마다 다른 토스트 금지).
+- 토스트·띠·li·표 칸도 한 문장 한 줄이다(토스트는 `toast`가 나눔, li 안 설명은 `h("li", null, h("p", {text}))`).
 - 당사자 화면 금지어: 이상거래·패턴·탐지·알고리즘·모니터링·이례·임계·통계·고위험·푸시·당사자님·단독 주의. 푸시 대신 휴대폰 알림.
 - 신호 이름은 명사형(labels.js), `~보내기`로 끝나지 않는다.
 - 금액은 목록·표에서 `moneyText`만. 장소는 `deviceWord()`.
@@ -410,6 +467,7 @@ h("ul", { class: "legend" }, rows.map((r) => h("li", { class: `c${CHANNEL_CHART[
 - money.js: 카드 규칙(`initialFocus: "#card-title"`, `dismissible: false`, `card.choices.map`, `aria-labelledby` `card-level card-title`, Esc는 안 보낼래요로, `fitLayout`, `parseKoreanAmount`, 오류 칸이 소리로 듣기 앞). check·decide·payees는 money.js만 부른다.
 - 직접 이체 없음: 비밀번호·인증 번호 입력칸(`type: "password"`, one-time-code 등), 이체 API, `intent:` 주소가 없다.
 - 실제 은행·카드사·간편결제 이름과 패키지 이름이 화면 글에 없다(`BANK_NAMES`, `BANK_PACKAGES`).
+- 2026-10-03 더한 검사: 금지 문구(결정은 본인이 해요·심사·시연용·이 기기), 선 아이콘 체계(`test_line_icon_system`), 파비콘(`test_favicon_matches_logo`), 담기·내가 한 거예요 용어(`test_flag_and_review_terms`, 알림 카드 포함 `test_flag_terms_same_on_every_screen`), 공용 계약 이름(`test_shared_contract_exports`), 금액 미리 보기(`test_amount_preview_not_rounded`: money.js가 `= ${formatWon(` 대신 `amountPreview(`), 예시 칩 줄바꿈 없는 빈칸, 음성 늦게 준비, busy·시트 초점, 토스트·엔진 띠 한 문장 한 줄, 연락처 창 하나, 엔진 기본 요청·FIFO, 큰 글씨 공용 배치.
 - 화면 확인: `python scratchpad/tools/webcheck.py --routes … --setup sample --out <폴더>`(360x780, `--font 2`, `--desktop`, `--dark`), errors가 빈 목록이어야 한다.
 
 ## 13. 백엔드 API 빠른 참조(설계서 3절, 실제 구현 기준)
@@ -420,27 +478,39 @@ h("ul", { class: "legend" }, rows.map((r) => h("li", { class: `c${CHANNEL_CHART[
 | `PUT /api/helpers` | 목록 전체(`phone`, `email` 원본 포함) → 저장된 목록 |
 | `GET /api/counselors` | `{items: [{id, name, kind, phone, email, memo, active}], presets: [{kind, name, phone, email, memo}]}` |
 | `PUT /api/counselors` | 목록 전체 → `{items}` (이름 1~30자, 메모 0~100자, 20곳까지) |
-| `GET /api/transactions?level=all\|caution\|high&limit&offset` | 항목에 `flagged: bool` |
+| `GET /api/transactions?level=all\|caution\|high\|flagged&limit&offset&q&since&until` | 항목에 `flagged`·`reviewed`·`notified_at`·`ai`. 최상위 `summary`(탐지 등급별 수, 그대로)·`open_summary`(내가 확인한 것을 뺀 수)·`reviewed_count`·`matched` |
 | `GET /api/flags` | `{items: [{txn_id, created_at, item}]}`(최근 담은 것부터, 거래 살펴보기 동의 필요) |
 | `POST /api/flags` / `POST /api/flags/remove` | `{txn_id}` → `{ok, count}`. 없는 거래는 404 "그 거래를 찾지 못했어요." |
-| `POST /api/notices/record` | `{channel: sms\|email\|call\|copy, recipients: [{kind: helper\|counselor, id, name}], txn_ids, message}` → 기록 1건 |
-| `GET /api/notices` | `{items: [kind "auto" 또는 "manual" 기록], delivery_note}` |
-| `GET /api/insights` | 돈 흐름 분석(months·this_month·prev_month·channels·time_bands·top_payees·flagged_total) |
-| `GET /api/cards?limit=` | 쉬운 말 카드 |
+| `POST /api/notices/record` | `{channel: sms\|email\|call\|copy, recipients: [{kind: helper\|counselor, id, name}], txn_ids, message}` → 기록 1건(recipients에 id도 남음) |
+| `POST /api/notices/remove` | `{id}` → `{ok, count}`. 직접 보낸 기록만, 그 밖은 404 "그 알림 기록을 찾지 못했어요." |
+| `GET /api/notices` | `{items: [kind "auto"(적어 둔 기록, 아직 안 보냄) 또는 "manual"(직접 보낸 기록)], delivery_note}` |
+| `POST /api/reviews` / `POST /api/reviews/remove` | `{txn_id}` → `{ok, count}`(내가 한 거예요 ↔ 확인 취소). 앞쪽만 거래 살펴보기 동의 필요 |
+| `POST /api/transactions/remove-checked` | `{txn_id}`(live- 확인 기록만) → `{ok, count}`. 그 밖은 400 "보내기 전 확인 기록만 지울 수 있어요." |
+| `GET /api/insights` | 돈 흐름 분석(as_of·months·this_month·prev_month·compare·channels·time_bands·top_payees·flagged_total·checked_excluded). 보내기 전 확인 기록은 모든 수치에서 뺀다 |
+| `GET /api/cards?limit=` | 쉬운 말 카드 `{total, open, reviewed, items, …}`(open은 내가 확인한 것을 뺀 수) |
+| `GET /api/export/summary` | `{filename, mime: "text/plain", text, note}` 조력자·기관용 한 장(이름·계좌 없음) |
+| `POST /api/data/upload` | 파일 + `mode: replace\|append` → `{source, mode, added, duplicates, report, summary, levels, ai_only}`. `.csv .txt .xlsx` |
+| `POST /api/data/sample` | `{persona, seed, scenarios}`(기본 worker·10) → `{…, levels, ai_only}` |
 | `GET /api/payees` | 최근 계좌로 보낸 사람 이름 `{items}`(돈 보내기 칩) |
 | `POST /api/safepause/check` | `{to, amount, channel, to_id, time?}` → `{pending, assessment, card, notify_plan_preview, ask_helper_preview, ts_note}` |
 | `POST /api/safepause/decide` | `{pending, decision: send\|cancel\|ask_helper, helper_ids?}` → `{decision, added_to_history, pending, assessment, notify_plan, notices_recorded, result_title, result_lines, delivery_note, ts_note}` |
-| `POST /api/notify/suggest` | `{txn_ids}` → `{helpers: [{id, name, suggested, conflict, reason}], counselors: [{id, name, suggested}], counseling_due}` |
+| `POST /api/notify/suggest` | `{txn_ids, pending?}` → `{helpers: [{id, name, suggested, conflict, reason}], counselors: [{id, name, suggested}], counseling_due, counseling_reason: "repeat"\|"conflict"\|""}`. 상담하는 곳은 suggested여도 화면이 저절로 체크하지 않는다(`?to=counselors`일 때만) |
 
-앱(엔진 모드)에서는 동의·조력자·상담하는 곳·알림 기록·지우기가 AI 준비 전에도 바로 처리된다(worker.mjs BASIC). 담은 거래·돈 흐름 분석·거래 목록, 돈 보내기의 check·decide·payees, 받는 사람 추천(suggest)은 거래 판단(numpy)이 필요해 AI 준비가 끝난 뒤 온다(worker.mjs BASIC에 넣지 않는다, 테스트가 확인).
+계약의 자세한 내용은 `docs/v03_spec.md` 3.7절과 `docs/v03_fixplan.md` 3절을 본다.
+
+파일 올리기는 `api("POST", UPLOAD_PATH, undefined, {blob, name, mapping, mode})`로 부른다. api.js가 PC에서는 multipart 칸 `mode`, 앱 엔진에서는 본문 `mode`로 넘기고, `UPLOAD_MODES`(`["replace", "append"]`)를 내보낸다. txns.js는 이 값이 있을 때만 이어 붙이기·모두 바꾸기 고르기 창을 보인다.
+
+앱(엔진 모드)에서는 동의·조력자·상담하는 곳·알림 기록(기록·지우기)·내가 한 거예요(표시·취소)·확인 기록 지우기·모두 지우기가 AI 준비 전에도 바로 처리된다(worker.mjs BASIC, 파이썬 쪽 시험 `test_new_light_routes_do_not_load_numpy`).
+AI 부분(numpy·scikit-learn)만 못 켜면 `engine.status`가 `{stage: "error", fatal: false}`이고 기본 요청은 계속 처리된다(AI가 필요한 요청만 503, FE-03). 파이썬을 켜지 못하면 `fatal: true`로 모든 요청이 503이다. 동의 바꾸기·모두 지우기(우선 요청)는 줄 앞쪽에 들어가되 우선 요청끼리는 온 순서대로 처리된다(FE-05). 담은 거래·돈 흐름 분석·거래 목록, 돈 보내기의 check·decide·payees, 받는 사람 추천(suggest)은 거래 판단(numpy)이 필요해 AI 준비가 끝난 뒤 온다(worker.mjs BASIC에 넣지 않는다, 테스트가 확인).
 
 ## 14. 돈 보내기·내 은행 앱(money.js·bankapp.js, css/views/money.css)
 
 - money.js(`export default {title, render}`, 보내기 탭이 부름)
-  - 입력: 받는 사람(최근 보낸 사람 칩, `GET /api/payees`), 금액(`parseKoreanAmount`, `= 30만 원 (300,000원)`, 0·100억 원 한도는 그 자리에서), 방법(`PAY_CHANNELS`), 자세히(보낼 시각 지금·오후 3시·밤 11시·새벽 2시, 계좌번호)
+  - 입력: 받는 사람(최근 보낸 사람 칩, `GET /api/payees`), 금액(`parseKoreanAmount`, 아래 줄은 `amountPreview(n)` 정확한 원 단위 하나 `300,000원`(2026-10-03 RF-4: 반올림한 `= 30만 원` 표기는 쓰지 않음), 0·100억 원 한도는 그 자리에서), 방법(`PAY_CHANNELS`), 자세히(보낼 시각 지금·오후 3시·밤 11시·새벽 2시, 계좌번호)
   - 오류는 틀린 칸 바로 아래(받는 사람 `#pay-to-error`, 금액 `#pay-amount-easy`), 서버 오류는 확인 버튼 위(`#pay-error`)
   - `POST /api/safepause/check` → 카드(안전 정지 카드 규칙은 파일 머리 주석) 또는 걱정 없음 결과 → `POST /api/safepause/decide`
-  - 결과: 보낼래요 → 요약 + `bankAppActions()` + 필수 문장, 안 보낼래요 → 보내지 않았어요, 물어볼래요 → [알림 보내기로 문자·메일 보내기](`#/send?mode=notify&txn=…&helper=…`)
+  - 걱정되는 점이 없으면(카드 없음) decide를 부르지 않고 걱정되는 점이 없어요 결과만 보인다(계좌 이체일 때만 은행 앱 열기)
+  - 결과: 보낼래요 → 요약 + `bankAppActions()`(계좌 이체일 때만) + 필수 문장, 안 보낼래요 → 보내지 않았어요 + [알림 보내기로 문자·메일 보내기](카드가 있었을 때), 물어볼래요 → 제목 조력자에게 물어봐요 + [문자로 물어보기]·[메일로 물어보기](`#/send?mode=notify&txn=…&helper=…&ask=1&channel=…`, 할 수 있는 방법만)
   - 결과 제목: 보낼래요·안 보낼래요는 decide의 `message`(계좌 이체 `내 은행 앱에서 보내 주세요.`·`보내지 않았어요.`, 가게·휴대폰 결제 `결제는 직접 해 주세요.`·`결제하지 않았어요.`), 물어볼래요는 `result_title`·`result_lines`. 서버 응답이 없는 동의 꺼짐 결과만 화면 표(SEND_TITLE, 같은 글)를 쓴다
   - 거래 살펴보기 동의가 꺼져 있으면 확인하지 않은 결과 + 은행 앱 + 동의 켜러 가기
   - `checkedItem(id)`: 이 창에서 확인한 거래 항목(물어볼래요는 거래 이력에 적지 않으므로 notify.js가 이것으로 미리 고른다. `unsaved: true`면 suggest의 txn_ids에서 뺀다)
@@ -454,3 +524,41 @@ h("ul", { class: "legend" }, rows.map((r) => h("li", { class: `c${CHANNEL_CHART[
   - `bankAppSettings()`: 앱 설정의 내 은행 앱(고르기·바꾸기·지우기). 동의 화면의 모두 지우기는 `clearBankApp()`도 부른다
 - notify.js 받는 사람 추천: 거래를 고르거나 바꿀 때 `POST /api/notify/suggest {txn_ids}` → 추천 배지·미리 체크(본인이 바꾼 사람은 그대로), 돈을 받은 조력자는 체크를 풀고 `이 거래에서 돈을 받은 사람이에요. 다른 사람에게 알리는 게 좋아요.`, 그래도 체크하면 보내기 전에 확인 시트. 추천을 못 받으면 추천 없이
 - CSS(money.css): `.send-tabs` `.send-panel` `.mn-must` `.mn-form` `.mn-more` `.amount-easy`(`.bad`) `.pause` `.pause-head` `.pictos` `.pause-title` `.pause-question` `.helper-note` `.choice-btn` `.sheet.split`(`.sheet-body` `.sheet-foot`) `.result-hero`(`.stop` `.ask`) `.result-lines` `.result-notes` `.mn-summary` `.mn-must-line` `.ba-*`
+
+## 15. 2026-10-03 화면 공용 계약 요약(수정 계획 2절)
+
+화면 담당은 아래 이름만 쓴다. 공용 모듈에 더 필요한 것이 있으면 공용 담당에게 요청한다.
+
+| 위치 | 이름 | 쓰는 법 |
+|---|---|---|
+| components.js | `aiExplain(item)` | 거래 시트·알림 카드 자세히의 왜 걱정되나요. `item.ai`가 없으면 약속(규칙)만 |
+| components.js | `reviewBadge(item)` · `notifiedBadge(item)` · `flagBadge(item)` | 상태면 배지, 아니면 null |
+| components.js | `flagButton(ctx, item, opts)` · `reviewButton(ctx, item, opts)` | 담기·내가 한 거예요 토글(글·토스트는 FLAG_TEXT·REVIEW_TEXT) |
+| components.js | `speakButton(getText, opts)` · `noVoiceNote()` | 자동 정지·음성 늦게 준비 처리 포함 |
+| labels.js | `FLAG_TEXT` · `REVIEW_TEXT` · `NOTIFIED_TEXT` · `AI_TEXT` | 문구 상수 |
+| format.js | `amountPreview(n)` · `bandLabel(band)` · `keepUnits(text)` · `breakableEmail(text)` | 금액 미리 보기·시간대 이름·줄바꿈 |
+| native.js | `pickContact(kind)` · `lastPickResult()` | 중복 호출 방지·실패 안내 |
+| ui.js | `openSheet` · `confirmSheet` · `busy` | 닫힌 뒤 연 버튼으로 초점, busy 중에도 초점 유지 |
+| speech.js | `voiceStatus()` | ready·pending·none, `html[data-voice]` |
+
+```js
+// money.js 금액 칸 아래 줄(RF-4): 정확한 원 단위 하나
+setText(amountEasy, amountPreview(n));            // "3,500원" (= 4천 원 같은 반올림 표기 없음)
+
+// home.js 시간대 막대 이름(1-E)
+items = d.time_bands.map((b) => ({ label: bandLabel(b.band), sub: BANDS[b.band].range, … }));
+
+// helpers.js·counselors.js 연락처에서 불러오기(IA-5): 두 번 눌러도 앞 창의 결과가 들어온다
+const c = await pickContact("phone");
+if (c) { phone.value = c.value; if (!name.value) name.value = c.name; }   // null이면 안내는 native.js가 이미 띄움
+
+// 목록에 보이는 메일(L8)
+h("span", { class: "row-sub email-text", text: breakableEmail(helper.email_masked) });
+
+// 화면에 보이는 긴 글 속 금액·시각(C13·L8)
+h("p", { text: keepUnits(line) });
+```
+
+- 같은 화면 안에서 패널을 바꿀 때 `speech.stop()`을 따로 부를 필요가 없다(버튼이 떨어지면 멈춤). 패널을 `hidden`으로 숨겨도 멈춘다.
+- 음성 없음 안내는 `noVoiceNote()`를 그대로 넣는다(옛 `speech.available() ? null : h("p", {class: "mn-novoice", …})`도 CSS로 맞게 보이지만 새 코드는 noVoiceNote).
+- 준비 중 메뉴는 `menuRow({soon: true, …})`만 쓰면 배지 자리가 같다(직접 만든 메뉴 줄은 `.menu-soon` 줄을 제목 아래에 둔다).

@@ -1,5 +1,7 @@
 {
   "total": 20,
+  "open": 20,
+  "reviewed": 0,
   "items": [
     {
       "card": {
@@ -38,7 +40,16 @@
         "night_repeat_transfer",
         "payee_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 97.7,
+        "top_feature": "7일 동안 같은 상대에게 간 돈이 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -75,7 +86,16 @@
       "signals": [
         "multi_line_telecom"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 97.7,
+        "top_feature": "처음 보는 휴대폰 번호였어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -114,7 +134,16 @@
         "night_repeat_transfer",
         "payee_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 97.7,
+        "top_feature": "7일 동안 같은 상대에게 간 돈이 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -153,7 +182,16 @@
         "night_repeat_transfer",
         "payee_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "평소에 잘 쓰지 않던 밤 시간이었어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -190,7 +228,16 @@
       "signals": [
         "multi_line_telecom"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "처음 보는 휴대폰 번호였어요.",
+        "only_ai": false,
+        "raised": true
+      }
     },
     {
       "card": {
@@ -228,7 +275,16 @@
       "signals": [
         "micropay_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "7일 동안 같은 상대에게 간 돈이 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -266,7 +322,16 @@
       "signals": [
         "micropay_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "7일 동안 같은 상대에게 간 돈이 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -304,7 +369,16 @@
       "signals": [
         "micropay_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "7일 동안 같은 상대에게 간 돈이 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -342,7 +416,16 @@
       "signals": [
         "micropay_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "7일 동안 같은 방법으로 돈을 쓴 횟수가 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": true
+      }
     },
     {
       "card": {
@@ -380,7 +463,16 @@
       "signals": [
         "micropay_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "7일 동안 같은 방법으로 돈을 쓴 횟수가 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": true
+      }
     },
     {
       "card": {
@@ -418,7 +510,16 @@
       "signals": [
         "micropay_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "7일 동안 같은 방법으로 돈을 쓴 횟수가 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": true
+      }
     },
     {
       "card": {
@@ -456,7 +557,16 @@
       "signals": [
         "new_merchant_high_value"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "처음 거래한 상대였어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -494,7 +604,16 @@
       "signals": [
         "new_merchant_high_value"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 95.4,
+        "top_feature": "처음 거래한 상대였어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -532,7 +651,16 @@
       "signals": [
         "new_merchant_high_value"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 95.4,
+        "top_feature": "처음 거래한 상대였어요.",
+        "only_ai": false,
+        "raised": true
+      }
     },
     {
       "card": {
@@ -570,7 +698,16 @@
       "signals": [
         "payee_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "7일 동안 같은 방법으로 돈을 쓴 횟수가 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -608,7 +745,16 @@
       "signals": [
         "payee_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "7일 동안 같은 방법으로 돈을 쓴 횟수가 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -646,7 +792,16 @@
       "signals": [
         "payee_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "7일 동안 같은 방법으로 돈을 쓴 횟수가 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -684,7 +839,16 @@
       "signals": [
         "payee_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 96.9,
+        "top_feature": "7일 동안 같은 방법으로 돈을 쓴 횟수가 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": false
+      }
     },
     {
       "card": {
@@ -722,7 +886,16 @@
       "signals": [
         "payee_surge"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 95.4,
+        "top_feature": "7일 동안 같은 방법으로 돈을 쓴 횟수가 평소보다 많았어요.",
+        "only_ai": false,
+        "raised": true
+      }
     },
     {
       "card": {
@@ -760,7 +933,16 @@
       "signals": [
         "new_merchant_high_value"
       ],
-      "flagged": false
+      "flagged": false,
+      "reviewed": false,
+      "notified_at": null,
+      "ai": {
+        "fitted": true,
+        "percentile": 0.0,
+        "top_feature": null,
+        "only_ai": false,
+        "raised": false
+      }
     }
   ],
   "counseling": {

@@ -2,44 +2,68 @@
  * - 안드로이드 앱: 기기 TTS(SafePauseNative.speak). 다 읽거나 멈추면 앱이 window.__safepauseSpeechDone()을 부른다.
  * - PC 브라우저: Web Speech API의 localService 한국어 음성(끝나면 onend).
  * 상태 관리: 한 번에 하나만 읽는다. 새로 읽기 시작하거나 stop()하면 앞의 것은 끝난 것으로 보고 onEnd를 부른다.
- * 쓸 음성이 없으면 소리로 듣기 버튼을 만들지 않는다(available() = false).
+ * 음성 준비 상태(D10): voiceStatus() = "ready"(쓸 수 있음) | "pending"(아직 준비 중) | "none"(이 기기에 없음으로 확정).
+ *  - html[data-voice]에 같은 값을 적는다. CSS가 준비 전에는 소리로 듣기 버튼(.speak-btn)을 숨기고,
+ *    음성 없음 안내(.voice-note)는 없음으로 확정됐을 때만 보인다. 그래서 음성 목록이 늦게 와도 화면이 맞게 바뀐다.
+ *  - 쓸 음성이 없다고 확정되면 소리로 듣기 버튼을 만들지 않는다(components.speakButton이 null).
  */
+import { deviceWord } from "./format.js";
+
 const native = window.SafePauseNative;
 const webSpeech = !native && "speechSynthesis" in window && typeof window.SpeechSynthesisUtterance === "function";
+const WEB_WAIT_MS = 3000;        // 브라우저 음성 목록을 기다리는 시간(그 뒤에도 없으면 없음으로 본다)
 let koVoice = null;
+let settled = !native && !webSpeech;   // 더 기다리지 않음(있거나 없음이 정해짐)
 const listeners = new Set();
+
+function publish() {
+  const st = voiceStatus();
+  try { document.documentElement.dataset.voice = st; } catch (e) { /* 문서가 없으면 건너뜀 */ }
+  for (const fn of listeners) { try { fn(st === "ready"); } catch (e) { /* 화면 쪽 오류는 무시 */ } }
+}
 
 function pickVoice() {
   if (!webSpeech) return;
   let voices = [];
   try { voices = window.speechSynthesis.getVoices() || []; } catch (e) { voices = []; }
   koVoice = voices.find((v) => v.localService === true && /^ko/i.test(v.lang || "")) || null;
-  for (const fn of listeners) fn(available());
+  if (koVoice) settled = true;
+  publish();
 }
 
 if (webSpeech) {
   pickVoice();
   if (typeof window.speechSynthesis.addEventListener === "function") window.speechSynthesis.addEventListener("voiceschanged", pickVoice);
   else window.speechSynthesis.onvoiceschanged = pickVoice;
+  window.setTimeout(() => { if (!settled) { settled = true; publish(); } }, WEB_WAIT_MS);
 }
 
 let nativePoll = 0;
 if (native) {
-  // TTS 엔진 준비는 비동기다: 준비되면 한 번 알린다
+  // TTS 엔진 준비는 비동기다: 준비되면(또는 10초를 기다려도 안 되면) 한 번 알린다
   const check = () => {
     let s = "none";
     try { s = native.ttsStatus(); } catch (e) { s = "none"; }
     if (s === "pending" && nativePoll < 40) { nativePoll += 1; window.setTimeout(check, 250); return; }
-    for (const fn of listeners) fn(available());
+    settled = true;
+    publish();
   };
   window.setTimeout(check, 250);
 }
+publish();
 
 export function available() {
   if (native) { try { return native.ttsStatus() === "ready"; } catch (e) { return false; } }
   return Boolean(webSpeech && koVoice);
 }
 
+/** "ready" | "pending" | "none". pending은 음성 목록·TTS 엔진이 아직 준비 중이라는 뜻이다. */
+export function voiceStatus() {
+  if (available()) return "ready";
+  return settled ? "none" : "pending";
+}
+
+/** 준비 상태가 바뀔 때 fn(available)을 부른다. 돌려주는 함수를 부르면 구독을 끝낸다. */
 export function onAvailability(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 
 // ---- 지금 읽는 것 -------------------------------------------------------------------
@@ -117,4 +141,9 @@ export function stop() {
   finish(entry);
 }
 
-export const NO_VOICE_NOTE = "이 기기에 한국어 음성이 없어서 소리로 듣기 버튼을 숨겼어요. 인터넷으로 글을 보내는 음성은 쓰지 않아요.";
+/** 음성이 없을 때의 안내(장소 말은 deviceWord). 화면은 components.noVoiceNote()를 쓰면 준비 상태에 맞춰 보이고 숨는다. */
+export function noVoiceNote() {
+  return `${deviceWord()}에 한국어 음성이 없어서 소리로 듣기 버튼을 숨겼어요. 인터넷으로 글을 보내는 음성은 쓰지 않아요.`;
+}
+// 옛 이름(문자열). 처음 불러올 때 장소 말을 정한다(앱·휴대폰 브라우저는 이 휴대폰, PC는 이 컴퓨터)
+export const NO_VOICE_NOTE = noVoiceNote();

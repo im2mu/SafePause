@@ -1,6 +1,7 @@
 /* 화면 도우미: DOM 만들기, 아이콘, 토스트, 시트(대화상자), 알림 읽기, 앱 설정(글자 크기·화면 모드).
  * - 서버·엔진이 준 글(받는 사람 이름 등)은 모두 textContent로 넣는다(HTML로 해석하지 않음 → XSS 차단).
- * - 시트는 열 때 배경을 inert로 만들고, 닫을 때 초점을 되돌린다. 열린 시트는 안드로이드 뒤로 가기로 닫힌다.
+ * - 시트는 열 때 배경을 inert로 만들고, 닫을 때 초점을 연 버튼으로 되돌린다(그 버튼이 없어졌으면 위 시트 제목·본문). 열린 시트는 안드로이드 뒤로 가기로 닫힌다.
+ * - 시트 안의 소리로 듣기는 시트를 닫으면 멈춘다(components.speakButton이 버튼이 화면에서 떨어지는 것을 보고 멈춤).
  * - 설명 글(p)은 한 문장에 한 줄씩 보인다: h("p", {text})가 문장 끝에서 나눠 span.sent로 넣는다(data-nosplit이면 그대로).
  */
 import { PICTO, UI } from "./icons.js";
@@ -86,14 +87,17 @@ function svgFrom(markup, viewBox, cls, stroke) {
   return svg;
 }
 
-/** 화면용 선 아이콘(24x24). */
+/**
+ * 화면용 선 아이콘(24x24, 굵기 2). 이름이 UI에 없으면 빈 자리(span.ic)를 돌려준다.
+ * check·warning·stop·person 같은 픽토그램 이름도 UI의 선 버전으로 그린다(D4: 선 아이콘 체계 하나).
+ */
 export function icon(name, cls = "") {
-  const markup = UI[name] || PICTO[name];
+  const markup = UI[name];
   if (!markup) return h("span", { class: "ic", "aria-hidden": "true" });
-  return UI[name] ? svgFrom(markup, "0 0 24 24", cls, "2") : svgFrom(markup, "0 0 64 64", cls, "4");
+  return svgFrom(markup, "0 0 24 24", cls, "2");
 }
 
-/** 쉬운 말 카드 픽토그램(64x64, v0.1 그림). */
+/** 쉬운 말 카드 픽토그램(64x64, v0.1 그림). 돈 보내기 확인 카드 본문의 큰 그림에만 쓴다. */
 export function picto(name, cls = "picto") {
   const markup = PICTO[name];
   return markup ? svgFrom(markup, "0 0 64 64", cls, "4") : null;
@@ -109,12 +113,14 @@ export function announce(message) {
 
 // ---- 토스트 -----------------------------------------------------------------
 let toastTimer = 0;
+/** 잠깐 보이는 알림 글. 문장이 여럿이면 한 문장에 한 줄(p → span.sent, C4). 문장 수만큼 조금 더 오래 보인다. */
 export function toast(message, kind = "") {
   const root = $("#toast-root");
   if (!root) return;
   window.clearTimeout(toastTimer);
-  fill(root, h("div", { class: `toast ${kind}`.trim(), role: kind === "error" ? "alert" : "status", text: message }));
-  toastTimer = window.setTimeout(() => root.replaceChildren(), kind === "error" ? 5200 : 3200);
+  const n = splitSentences(message).length;
+  fill(root, h("div", { class: `toast ${kind}`.trim(), role: kind === "error" ? "alert" : "status" }, h("p", { text: message })));
+  toastTimer = window.setTimeout(() => root.replaceChildren(), (kind === "error" ? 5200 : 3200) + Math.max(0, n - 1) * 1500);
 }
 
 // ---- 시트(아래에서 올라오는 창; 넓은 화면은 가운데 창) -------------------------------
@@ -124,6 +130,28 @@ function setInert(on) {
   for (const el of $$("#app > *:not(#sheet-root)")) {
     if (on) { el.setAttribute("inert", ""); el.setAttribute("aria-hidden", "true"); } else { el.removeAttribute("inert"); el.removeAttribute("aria-hidden"); }
   }
+}
+
+/** 초점을 줄 수 있는 상태인지(붙어 있고, 꺼지지 않았고, 숨겨지지 않음). */
+function focusable(el) {
+  return Boolean(el && el !== document.body && el.isConnected && typeof el.focus === "function"
+    && !el.disabled && !el.closest("[inert]") && !el.closest("[hidden]"));
+}
+
+/**
+ * 시트를 닫은 뒤 초점을 돌려줄 곳(FE-04·FN-07): 연 버튼 → (그 버튼이 없어졌거나 꺼졌으면) 아직 열린 위 시트의 제목 → 본문.
+ * 초점이 body로 빠지지 않게 한다.
+ */
+function restoreFocus(returnFocus) {
+  if (focusable(returnFocus)) { returnFocus.focus(); return; }
+  const top = openSheets[openSheets.length - 1];
+  if (top) {
+    const t = $(".focus-target", top.el) || top.el;
+    t.focus({ preventScroll: true });
+    return;
+  }
+  const main = $("#main");
+  if (main) main.focus({ preventScroll: true });
 }
 
 /**
@@ -152,7 +180,9 @@ export function openSheet(build, opts = {}) {
     if (!openSheets.length) { setInert(false); document.body.style.overflow = ""; }
     document.removeEventListener("keydown", onKey, true);
     if (typeof opts.onClose === "function") opts.onClose(reason);
-    if (returnFocus && returnFocus.isConnected && typeof returnFocus.focus === "function") returnFocus.focus();
+    // onClose가 다른 시트를 열었으면 그 시트가 초점을 가진다
+    if (openSheets.length && openSheets[openSheets.length - 1].el.contains(document.activeElement)) return;
+    restoreFocus(returnFocus);
   }
 
   function onKey(e) {
@@ -166,8 +196,10 @@ export function openSheet(build, opts = {}) {
     if (e.key !== "Tab") return;
     const items = $$("button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex='-1'].focus-target", sheet)
       .filter((x) => x.offsetParent !== null || x === document.activeElement);
-    if (!items.length) return;
+    if (!items.length) { e.preventDefault(); sheet.focus(); return; }
     const first = items[0], last = items[items.length - 1];
+    // 초점이 시트 밖(body 등)에 있으면 시트 안으로 끌어온다(본문으로 바로 가기 링크로 나가지 않게, FE-04)
+    if (!sheet.contains(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); return; }
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
@@ -213,14 +245,18 @@ export function confirmSheet({ title, lines = [], confirmText, cancelText = "아
   });
 }
 
-/** 버튼을 잠시 '하는 중' 상태로. */
+/**
+ * 버튼을 잠시 하는 중 상태로(두 번 누름 방지). disabled를 쓰지 않는다: 누른 버튼이 꺼지면 초점이 body로 빠지고,
+ * 그 안에서 연 확인 시트가 닫힐 때 초점을 돌려줄 곳이 없어진다(FE-04·FN-07). 대신 aria-busy·aria-disabled로 막는다.
+ */
 export async function busy(btn, fn) {
   if (!btn) return fn();
   if (btn.getAttribute("aria-busy") === "true") return undefined;   // 두 번 누름 방지
   btn.setAttribute("aria-busy", "true");
-  btn.disabled = true;
+  btn.setAttribute("aria-disabled", "true");
   try { return await fn(); } finally {
-    if (btn.isConnected) { btn.removeAttribute("aria-busy"); btn.disabled = false; }
+    btn.removeAttribute("aria-busy");
+    btn.removeAttribute("aria-disabled");
   }
 }
 
@@ -307,7 +343,7 @@ export function segTabs(items, active, onChange, { label = "보기", controls = 
   return { el, set };
 }
 
-// ---- 앱 설정: 글자 크기·화면 모드(이 기기에만 저장) -------------------------------------
+// ---- 앱 설정: 글자 크기·화면 모드(이 휴대폰·이 컴퓨터에만 저장) ---------------------------------
 const PREFS = {
   font: { key: "safepause.font", values: ["m", "l", "xl"], fallback: "m" },        // 보통·크게·아주 크게
   theme: { key: "safepause.theme", values: ["auto", "light", "dark"], fallback: "auto" },   // 자동·밝게·어둡게
@@ -343,4 +379,9 @@ export function applyPrefs(over = {}) {
     const darkMedia = /dark/.test(meta.getAttribute("media") || "");
     meta.setAttribute("content", theme === "auto" ? THEME_BG[darkMedia ? "dark" : "light"] : THEME_BG[theme]);
   }
+  // 안드로이드 앱: 앱 설정의 밝게·어둡게가 기기 설정과 달라도 위아래 시스템 막대 색을 맞춘다(AND-04, 옛 APK에는 함수가 없음)
+  try {
+    const native = window.SafePauseNative;
+    if (native && typeof native.setThemeMode === "function") native.setThemeMode(theme);
+  } catch (e) { /* 막대 색만 못 맞춘다 */ }
 }

@@ -408,6 +408,8 @@ def test_check_safe_payment_stores_nothing(client: TestClient) -> None:
     p = r["pending"]
     assert p["id"] == "live-00001" and p["direction"] == "out"
     assert p["counterparty_id"] == "900-0101-100001"          # 예전에 보낸 계좌를 이어 씀
+    # v0.3 수정 계획 A: 저장된 거래가 45일보다 오래됐으면 마지막 실제 거래 날짜에 고른 시각, 그 시각이 마지막 거래보다
+    # 이르면 다음 날(실제 거래 사이에 끼지 않게). 확인을 거듭해도 더 밀리지 않는다
     assert p["ts"] > sample["last_ts"] and p["ts"].endswith("T15:00:00")
     # 저장하지 않음
     assert client.get("/api/data/summary").json()["count"] == sample["count"]
@@ -496,7 +498,8 @@ def test_decide_send_is_never_blocked(client: TestClient) -> None:
     assert latest["kind"] == "auto"
     assert latest["helper_name"] == "엄마" and latest["txn_id"] == "live-00003"
     assert latest["level"] == "high"
-    assert "결정은" in latest["message"] and "이야기해 주세요" in latest["message"]
+    # 당사자 화면에 보이는 적어 둔 기록 글에는 결정 문장을 넣지 않는다(v0.3 수정 RF-11)
+    assert "결정은" not in latest["message"] and "이야기해 주세요" in latest["message"]
 
     txns = client.get("/api/transactions").json()["items"]
     practice = [it for it in txns if it["practice"]]
@@ -552,7 +555,7 @@ def test_ask_helper_records_notice_on_request(client: TestClient) -> None:
     d = decide(client, {"to": "엄마", "amount": 50_000, "time": "15:00"}, "ask_helper")
     assert d["added_to_history"] is False
     assert d["notices_recorded"] == 1
-    assert d["message"] == "엄마에게 물어볼게요."
+    assert d["message"] == "엄마에게 물어봐요."
     notice = client.get("/api/notices").json()["items"][0]
     assert notice["helper_name"] == "엄마" and "함께 확인" in notice["message"]
     assert client.get("/api/data/summary").json()["count"] == sample_count
@@ -584,7 +587,7 @@ def test_conflicted_helper_is_excluded(client: TestClient) -> None:
     plan = r["notify_plan_preview"]
     assert plan["excluded_conflict"] == ["a"]
     assert [n["helper_id"] for n in plan["notices"]] == ["b"]
-    assert plan["note_to_person"] == "김*호는 돈을 받는 사람이에요. 그래서 센터 선생님에게만 알려 드릴게요."
+    assert plan["note_to_person"] == "김*호는 돈을 받는 사람이에요. 그래서 센터 선생님에게만 알릴 수 있어요."
     decide(client, night(ts=r["pending"]["ts"]), "send")
     notices = client.get("/api/notices").json()["items"]
     assert notices and {n["helper_id"] for n in notices} == {"b"}
@@ -744,6 +747,7 @@ def test_wipe_removes_everything(client: TestClient, home: Path) -> None:
     assert client.put("/api/counselors", json=[{"name": "센터"}]).status_code == 200
     first = client.get("/api/transactions", params={"limit": 1}).json()["items"][0]["txn"]["id"]
     assert client.post("/api/flags", json={"txn_id": first}).status_code == 200
+    assert client.post("/api/reviews", json={"txn_id": first}).status_code == 200
 
     r = client.post("/api/wipe")
     assert r.status_code == 200
@@ -920,7 +924,7 @@ def test_ts_note_when_practice_date_moves(client: TestClient) -> None:
     set_consent(client, monitoring=True)
     r = check(client, {"to": "엄마", "amount": 50_000})        # '지금 시각'
     assert r["pending"]["ts"][:10] != NOW.date().isoformat()
-    assert "마지막 날에 이어서" in r["ts_note"]
+    assert "저장된 거래 끝에 이어서 적어요" in r["ts_note"]
     r2 = check(client, {"to": "엄마", "amount": 50_000, "ts": NOW.isoformat()})
     assert r2["ts_note"] == ""
 
@@ -1151,12 +1155,12 @@ def test_ask_step_marks_auto_notified_helpers_and_notes_are_exact(client: TestCl
     # 화면이 체크를 풀 수 없는 자동 알림 대상까지 보낸 경우: 두 사람 모두에게 물어봄
     both = client.post("/api/safepause/decide", json={
         "pending": r["pending"], "decision": "ask_helper", "helper_ids": ["mom", "dad"]}).json()
-    assert both["notify_plan"]["note_to_person"] == "엄마, 아빠에게 물어볼게요."
+    assert both["notify_plan"]["note_to_person"] == "엄마, 아빠에게 물어봐요."
     # API로 엄마만 고른 경우: 아빠는 자동 알림. 안내에 엄마가 두 번 나오지 않는다
     r2 = check(client, night())
     only_mom = client.post("/api/safepause/decide", json={
         "pending": r2["pending"], "decision": "ask_helper", "helper_ids": ["mom"]}).json()
-    assert only_mom["notify_plan"]["note_to_person"] == "엄마에게 물어볼게요. 아빠에게도 알려 드릴게요."
+    assert only_mom["notify_plan"]["note_to_person"] == "엄마에게 물어봐요. 아빠에게도 알릴 수 있게 적어 두었어요."
     assert sorted(n["helper_id"] for n in only_mom["notify_plan"]["notices"]) == ["dad", "mom"]
 
 

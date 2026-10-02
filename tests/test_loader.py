@@ -885,8 +885,18 @@ def test_header_error_says_which_column_is_missing() -> None:
 
 # ---- 9. 파일 종류 판별, UTF-16 ---------------------------------------------------------------------
 
+def _zip_without_workbook() -> bytes:
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("word/document.xml", "<document/>")
+    return buf.getvalue()
+
+
 @pytest.mark.parametrize("data, fragment", [
-    (b"PK\x03\x04" + b"\x00" * 30, "엑셀 파일(.xlsx)"),
+    (b"PK\x03\x04" + b"\x00" * 30, "엑셀 파일(.xlsx)을 읽지 못했어요"),     # 손상된 xlsx(zip)
+    (_zip_without_workbook(), "엑셀(.xlsx)이 아닌 압축 파일"),                  # .docx 같은 다른 zip
     (bytes.fromhex("D0CF11E0A1B11AE1") + b"\x00" * 30, "엑셀 파일(.xls)"),
     (b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj\n", "PDF 파일은 읽지 못해요"),
     (b"\x89PNG\r\n\x1a\n" + b"\x00" * 30, "사진(이미지) 파일은 읽지 못해요"),
@@ -897,8 +907,10 @@ def test_header_error_says_which_column_is_missing() -> None:
 def test_non_csv_files_get_matching_guidance(data: bytes, fragment: str) -> None:
     with pytest.raises(LoaderError) as e:
         load_csv(data)
-    assert fragment in str(e.value) and "CSV UTF-8" in str(e.value)
-    assert "인코딩" not in str(e.value)
+    # v0.3 수정 AUG-02: 엑셀(.xlsx)은 바로 읽으므로 PDF·사진은 엑셀이나 CSV로 내려받으라고 안내한다
+    message = str(e.value)
+    assert fragment in message and ("CSV UTF-8" in message or "엑셀(.xlsx)이나 CSV" in message or ".csv나 .xlsx" in message)
+    assert "인코딩" not in message
 
 
 def test_html_text_input_is_rejected() -> None:

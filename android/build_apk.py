@@ -9,6 +9,8 @@
 서명 키: --keystore를 주지 않으면 android/signing/release.jks를 쓰고, 없으면 새로 만든다.
 키 비밀번호는 같은 폴더의 keystore.properties에 적는다(저장소에 올리지 않음, .gitignore).
 같은 키로 서명해야 기기에 설치된 앱을 지우지 않고 새 버전으로 업데이트할 수 있다.
+비밀번호는 명령줄 인자로 넘기지 않는다(같은 기기의 다른 프로세스가 명령줄을 읽을 수 있음).
+keytool·apksigner에는 그 명령의 환경 변수(SP_KS_PASS)로만 넘긴다.
 """
 from __future__ import annotations
 
@@ -27,6 +29,8 @@ MIN_SDK = 26
 TARGET_SDK = 35
 # 이미 압축된 파일은 다시 압축하지 않는다(빌드 시간·읽기 속도)
 NO_COMPRESS = ("whl", "zip", "png", "woff2")
+# 서명 키 비밀번호를 넘기는 환경 변수 이름(keytool -storepass:env, apksigner --ks-pass env:)
+PASS_ENV = "SP_KS_PASS"
 
 
 def run(cmd: list[str], **kw) -> None:
@@ -42,6 +46,11 @@ def tool(sdk: Path, name: str) -> Path:
     raise SystemExit(f"build-tools에서 {name}을 찾지 못했어요: {bt}")
 
 
+def pass_env(password: str, base: dict[str, str] | None = None) -> dict[str, str]:
+    """서명 명령에만 줄 환경: 비밀번호를 PASS_ENV에 담는다(명령줄·화면 출력에는 나오지 않음)."""
+    return {**(base if base is not None else os.environ), PASS_ENV: password}
+
+
 def ensure_keystore(jdk: Path, ks: Path) -> tuple[Path, str]:
     props = ks.with_name("keystore.properties")
     if ks.exists() and props.exists():
@@ -51,8 +60,8 @@ def ensure_keystore(jdk: Path, ks: Path) -> tuple[Path, str]:
     password = secrets.token_urlsafe(24)
     run([jdk / "bin" / "keytool", "-genkeypair", "-keystore", ks, "-storetype", "PKCS12",
          "-alias", "safepause", "-keyalg", "RSA", "-keysize", "3072", "-validity", "10000",
-         "-storepass", password, "-keypass", password,
-         "-dname", "CN=SafePause, OU=SafePause, O=SafePause, C=KR"])
+         "-storepass:env", PASS_ENV, "-keypass:env", PASS_ENV,
+         "-dname", "CN=SafePause, OU=SafePause, O=SafePause, C=KR"], env=pass_env(password))
     props.write_text(f"storeFile={ks.name}\nkeyAlias=safepause\nstorePassword={password}\n", "utf-8")
     print(f"  새 서명 키를 만들었어요: {ks} (비밀번호는 {props.name})")
     return ks, password
@@ -116,9 +125,9 @@ def build(sdk: Path, jdk: Path, www: Path, out: Path, *, debug: bool, version_co
         ks, password = ensure_keystore(jdk, keystore)
         out.parent.mkdir(parents=True, exist_ok=True)
         run([apksigner, "sign", "--ks", ks, "--ks-key-alias", "safepause",
-             "--ks-pass", f"pass:{password}", "--key-pass", f"pass:{password}",
+             "--ks-pass", f"env:{PASS_ENV}", "--key-pass", f"env:{PASS_ENV}",
              "--v1-signing-enabled", "false", "--v2-signing-enabled", "true", "--v3-signing-enabled", "true",
-             "--out", out, aligned], env=env)
+             "--out", out, aligned], env=pass_env(password, env))
         run([apksigner, "verify", "--min-sdk-version", MIN_SDK, out], env=env)
     idsig = out.with_name(out.name + ".idsig")
     if idsig.exists():

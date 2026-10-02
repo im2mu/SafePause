@@ -1,7 +1,7 @@
 /* 동의: 세 가지를 따로 켜고 끄며, 끄면 바로 멈춘다(S18·S37 즉시 철회). 맨 아래에 모두 지우기.
  * 거래 살펴보기를 끄거나 모두 지울 때는 화면 데이터 세대를 올려, 요청 중이던 옛 거래 목록이 다시 그려지지 않게 한다(리뷰 H1). */
-import { h, icon, fill, toast, announce, skeleton, busy, confirmSheet } from "../ui.js";
-import { formatWhen, deviceWord } from "../format.js";
+import { h, icon, fill, setText, toast, announce, skeleton, busy, confirmSheet } from "../ui.js";
+import { formatWhen, deviceWord, keepUnits } from "../format.js";
 import { errorNotice } from "../components.js";
 import { STALE } from "../api.js";
 import { clearBankApp } from "./bankapp.js";
@@ -9,16 +9,23 @@ import { clearBankApp } from "./bankapp.js";
 const ITEMS = [
   { key: "monitoring", icon: "chart", title: "거래 살펴보기",
     lines: ["내 거래를 살펴보고 걱정되는 거래를 찾아요.", `살펴보는 일은 ${deviceWord()} 안에서만 해요.`] },
+  // 실제 동작: 알릴 때가 되면 알림 보내기에서 그 조력자를 미리 골라 두고 적어 둔다. 보내기는 본인이 문자·메일 앱에서 누른다
   { key: "helper_alerts", icon: "users", title: "조력자에게 알리기",
-    lines: ["꼭 확인할 거래가 생기면 내가 고른 조력자에게 알려요.", "이 스위치를 꺼도 알림 보내기에서 직접 알릴 수 있어요."],
+    lines: ["꼭 확인할 거래가 생기면 내가 고른 조력자에게 알릴 수 있게 골라 둬요.", "보내기는 내가 눌러요.",
+      "이 스위치를 꺼도 알림 보내기에서 직접 알릴 수 있어요."],
     link: { href: "#/more/helpers", icon: "users", text: "조력자 정하기" } },
+  // 상담하는 곳으로 저절로 가는 것은 없다(C2): 알릴 때가 되면 알림 탭 띠와 알림 보내기 추천으로 알려 준다
   { key: "counseling_referral", icon: "building", title: "상담하는 곳에 알려 주기",
-    lines: ["상담하는 곳에 알려 줘요.", "이럴 때 알려 줘요."],
+    lines: ["상담하는 곳에 알려 줘요.", "알릴 때가 되면 알려 드려요. 보내기는 내가 눌러요."],
+    bulletsHead: "알릴 때는 이래요.",
     bullets: ["꼭 확인할 일이 30일 동안 3번 이상 생길 때", "알릴 조력자가 모두 돈을 받는 사람일 때"],
     link: { href: "#/more/counselors", icon: "building", text: "상담하는 곳 정하기" } },
 ];
-// 모두 지우기에서 함께 지워지는 것
-const WIPED = ["동의한 것", "조력자", "상담하는 곳", "거래", "담은 거래", "보낸 알림 기록", "내 은행 앱"];
+// 모두 지우기에서 함께 지워지는 것(서버 파일 + 이 휴대폰 브라우저 저장소의 내 은행 앱·알림에 쓰는 내 이름)
+// 서버 저장 파일(store.STORE_FILES)마다 하나 이상: 거래·담은 거래·내가 확인한 거래(reviews)·돈 보내기 확인 기록(decisions, IA-7)·알림 기록
+const WIPED = ["동의한 것", "조력자", "상담하는 곳", "거래", "담은 거래", "내가 확인한 거래", "돈 보내기 확인 기록", "보낸 알림 기록", "내 은행 앱", "알림에 쓰는 내 이름"];
+// 알림 보내기에서 적은 내 이름(수정 계획 1-B, notify.js와 같은 열쇠)
+const MY_NAME_KEY = "safepause.myName";
 
 export default {
   title: "동의",
@@ -63,6 +70,7 @@ export default {
               sw),
             h("div", { class: "consent-body" },
               h("div", { id: descId }, it.lines.map((t) => h("p", { text: t })),
+                it.bulletsHead ? h("p", { class: "consent-bullets-head", text: it.bulletsHead }) : null,
                 it.bullets ? h("ul", { class: "consent-bullets" }, it.bullets.map((b) => h("li", { text: b }))) : null),
               it.link ? h("a", { class: "btn sm weak consent-link", href: it.link.href }, icon(it.link.icon), h("span", { text: it.link.text })) : null));
         }));
@@ -73,7 +81,7 @@ export default {
       }
       for (const it of ITEMS) switches[it.key].setAttribute("aria-checked", c[it.key] ? "true" : "false");
       for (const r of givenBy.querySelectorAll("input")) r.checked = r.value === (c.given_by || "self");
-      updated.textContent = c.updated_at ? `마지막으로 바꾼 때: ${formatWhen(c.updated_at)}` : "아직 아무것도 켜지 않았어요. 모두 꺼져 있어요.";
+      setText(updated, c.updated_at ? keepUnits(`마지막으로 바꾼 때: ${formatWhen(c.updated_at)}`) : "아직 아무것도 켜지 않았어요. 모두 꺼져 있어요.");   // 문장마다 한 줄(C5)
     }
 
     async function toggle(it, sw) {
@@ -120,7 +128,8 @@ export default {
         const r = await ctx.req("POST", "/api/wipe");
         ctx.session.consent = null;
         try { sessionStorage.removeItem("safepause.onboard.later"); } catch (e) { /* 무시 */ }
-        clearBankApp();   // 이 기기에 기억한 내 은행 앱도 함께 잊는다
+        clearBankApp();   // 이 휴대폰에 기억한 내 은행 앱도 함께 잊는다
+        try { localStorage.removeItem(MY_NAME_KEY); } catch (e) { /* 무시 */ }   // 알림에 쓰는 내 이름도
         fill(wipeOut, h("div", { class: "notice green", role: "status" }, icon("check"), h("p", { text: r.message })));
         toast(r.message);
         announce(r.message);

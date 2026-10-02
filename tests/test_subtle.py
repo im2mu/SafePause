@@ -383,7 +383,7 @@ def test_report_notes_unreadable_subtle_json(tmp_path, standard_small) -> None:
     (tmp_path / "eval_results_subtle.json").write_text("{broken", encoding="utf-8")
     report.write_report(standard_small, tmp_path)
     md = (tmp_path / "eval_report.md").read_text(encoding="utf-8")
-    assert "eval_results_subtle.json을(를) 읽지 못해" in md
+    assert "eval_results_subtle.json 파일을 읽지 못해" in md
 
 
 def test_change_text_states_zero_difference() -> None:

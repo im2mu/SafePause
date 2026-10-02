@@ -1,13 +1,15 @@
 /* 안드로이드 앱 전용: 앱 안 파이썬 엔진(Pyodide)을 웹 워커에서 돌리고 요청을 주고받는다.
  * 준비 단계: loading → basic(동의·조력자·상담하는 곳·알림 기록 등 가벼운 요청 가능) → full(AI 분석까지 가능) / error.
  * 화면은 기본 단계부터 쓸 수 있고, AI가 필요한 요청은 워커 안에서 full 단계가 될 때까지 기다린다.
+ * error에는 fatal이 붙는다(FE-03). fatal(파이썬을 켜지 못함)이면 모든 요청을 바로 503으로 돌려준다.
+ * AI 부분만 못 켰으면(fatal false) 요청을 워커에 넘긴다: 동의 끄기·모두 지우기 같은 기본 요청은 처리되고, AI가 필요한 요청만 503이다.
  * PC(로컬 서버)에서는 이 모듈을 쓰지 않는다(워커를 만들지 않음).
  */
 const listeners = new Set();
 let worker = null;
 let seq = 0;
 const pending = new Map();
-const status = { stage: "idle", message: "", detail: "" };
+const status = { stage: "idle", message: "", detail: "", fatal: false };
 
 function emit() { for (const fn of listeners) { try { fn({ ...status }); } catch (e) { /* 화면 쪽 오류는 무시 */ } } }
 
@@ -23,6 +25,7 @@ function start() {
       status.stage = m.stage;
       status.message = m.message || "";
       status.detail = m.detail || "";
+      status.fatal = m.stage === "error" && Boolean(m.fatal);
       emit();
       return;
     }
@@ -37,6 +40,7 @@ function start() {
     status.stage = "error";
     status.message = "AI 엔진을 켜지 못했어요";
     status.detail = (e && e.message) || "";
+    status.fatal = true;
     emit();
     for (const [, p] of pending) p.resolve({ status: 503, body: { detail: "AI 엔진을 켜지 못했어요. 앱을 닫았다가 다시 열어 주세요." } });
     pending.clear();
@@ -51,7 +55,7 @@ export const engine = {
   subscribe(fn) { listeners.add(fn); fn({ ...status }); return () => listeners.delete(fn); },
   request({ method, path, body, bytes }) {
     start();
-    if (status.stage === "error") {
+    if (status.stage === "error" && status.fatal) {
       return Promise.resolve({ status: 503, body: { detail: "AI 엔진을 켜지 못했어요. 앱을 닫았다가 다시 열어 주세요." } });
     }
     const id = ++seq;

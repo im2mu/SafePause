@@ -9,6 +9,9 @@
   - 돈 보내기는 SafePause가 하지 않는다. 확인 카드 뒤에 본인이 고른 은행 앱을 열기만 하고, 이체는 그 앱에서 사람이 한다.
     내 은행 앱 고르기는 홈 화면에 아이콘이 있는 앱(MAIN·LAUNCHER)만 본다. QUERY_ALL_PACKAGES는 쓰지 않는다.
   - queries는 안드로이드 11+ 패키지 가시성 규칙: 열 앱이 있는지 미리 확인하는 데 쓴다.
+  - launchMode는 singleTop: 연락처·파일·저장 창은 이 앱의 작업(task) 안에 쌓이므로, singleTask였을 때처럼
+    홈 화면 아이콘으로 돌아올 때 그 창들이 닫히지 않게 한다. 같은 작업에 화면이 둘 생기는 경우는
+    MainActivity.onCreate가 막는다(작업의 맨 아래가 아닌데 런처 인텐트로 열리면 바로 닫음).
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="kr.safepause.mobile">
@@ -71,7 +74,7 @@
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|smallestScreenSize|uiMode|fontScale|density"
             android:exported="true"
-            android:launchMode="singleTask"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

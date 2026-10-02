@@ -3,6 +3,8 @@
  * - 브라우저: 메일·전화는 링크로 열고, 문자는 휴대폰 브라우저에서만 연다. 연락처는 브라우저가 지원할 때만 고른다.
  * 화면은 이 모듈만 부르고 브리지를 직접 부르지 않는다(옛 앱에 없는 함수는 false·null로 돌아온다).
  */
+import { toast } from "./ui.js";
+
 const bridge = () => window.SafePauseNative || null;
 const ALLOWED = /^(sms|smsto|mailto|tel):/i;
 
@@ -31,7 +33,7 @@ function browserContacts() {
 }
 
 /**
- * 이 기기에서 할 수 있는 일.
+ * 이 휴대폰(또는 컴퓨터)에서 할 수 있는 일.
  * {app, mobile, sms, email, call, contacts, apps, tts}
  * - sms: 문자 앱을 열 수 있음(앱·휴대폰 브라우저). PC는 false.
  * - apps: 설치된 앱 목록에서 내 은행 앱을 고르고 열 수 있음(안드로이드 앱만, canListApps()와 같음).
@@ -109,16 +111,33 @@ export function telUri(number) {
 }
 
 // ---- 연락처에서 고르기 ---------------------------------------------------------------
-let pending = null;   // {kind, resolve}: 앱 연락처 창 결과를 기다리는 중
+// 한 번에 한 창만 연다(IA-5·AND-08): 창이 열려 있는 동안 다시 누르면 새 창을 열지 않고(앞 창의 결과를 지키고) 안내만 한다.
+let pending = null;       // {kind, resolve, timer}: 연락처 창 결과를 기다리는 중
+let lastPick = "none";    // 마지막 결과: ok | cancelled | busy | failed | unsupported
+const PICK_WAIT_MS = 5 * 60 * 1000;   // 결과가 끝내 오지 않으면(앱이 창을 잃음) 이 시간 뒤 기다림을 푼다
+export const PICK_TEXT = {
+  busy: "연락처 창이 이미 열려 있어요. 그 창에서 골라 주세요.",
+  failed: "연락처를 불러오지 못했어요. 직접 적어 주세요.",
+};
 
-window.__safepauseContactPicked = (raw) => {
+function finishPick(value, reason) {
   const p = pending;
   pending = null;
-  if (!p) return;
+  if (!p) return false;
+  window.clearTimeout(p.timer);
+  lastPick = reason;
+  if (reason === "failed") toast(PICK_TEXT.failed, "error");
+  p.resolve(value);
+  return true;
+}
+
+window.__safepauseContactPicked = (raw) => {
   let r = raw;
   if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) { r = null; } }
-  if (!r || r.cancelled || !r.value) { p.resolve(null); return; }
-  p.resolve({ name: String(r.name || ""), value: String(r.value) });
+  if (!r) { finishPick(null, "failed"); return; }
+  if (r.cancelled) { finishPick(null, "cancelled"); return; }
+  if (r.error || !r.value) { finishPick(null, "failed"); return; }
+  finishPick({ name: String(r.name || ""), value: String(r.value) }, "ok");
 };
 
 /** 연락처에서 고르기를 쓸 수 있으면 true(못 쓰면 화면은 버튼을 숨긴다). */
@@ -128,31 +147,50 @@ export function canPickContact() {
   return browserContacts();
 }
 
+/** 마지막 pickContact의 결과: "ok" | "cancelled" | "busy" | "failed" | "unsupported" (null이 왜 왔는지 화면이 알 때 씀). */
+export function lastPickResult() { return lastPick; }
+
 /**
  * 휴대폰 연락처에서 한 사람의 번호(kind "phone") 또는 메일(kind "email")을 고른다.
- * 돌려주는 값: Promise<{name, value} | null>(취소·못 씀이면 null). 연락처 전체를 읽지 않는다.
+ * 돌려주는 값: Promise<{name, value} | null>. 연락처 전체를 읽지 않는다.
+ * - 취소하면 null(안내 없음).
+ * - 창이 이미 열려 있으면 두 번째 호출은 새 창을 열지 않고 안내 토스트와 함께 null(앞 창의 결과는 앞 호출이 받는다).
+ * - 못 열었거나 읽지 못했으면 안내 토스트와 함께 null. 이유는 lastPickResult()로 알 수 있다.
  */
 export function pickContact(kind) {
   const k = kind === "email" ? "email" : "phone";
   const n = bridge();
+  if (pending) {
+    lastPick = "busy";
+    toast(PICK_TEXT.busy);
+    return Promise.resolve(null);
+  }
   if (n && typeof n.pickContact === "function") {
-    if (pending) { pending.resolve(null); pending = null; }   // 앞서 연 창의 결과는 버린다
     return new Promise((resolve) => {
-      pending = { kind: k, resolve };
+      const entry = { kind: k, resolve, timer: 0 };
+      pending = entry;
+      entry.timer = window.setTimeout(() => { if (pending === entry) finishPick(null, "failed"); }, PICK_WAIT_MS);
       let started;
       try { started = n.pickContact(k); } catch (e) { started = false; }
-      if (started === false && pending && pending.resolve === resolve) { pending = null; resolve(null); }
+      if (started === false && pending === entry) finishPick(null, "failed");
     });
   }
   if (!n && browserContacts()) {
-    return navigator.contacts.select(["name", k === "email" ? "email" : "tel"], { multiple: false })
-      .then((list) => {
-        const c = list && list[0];
-        const values = c ? (k === "email" ? c.email : c.tel) || [] : [];
-        return values[0] ? { name: String((c.name || [])[0] || ""), value: String(values[0]) } : null;
-      })
-      .catch(() => null);
+    return new Promise((resolve) => {
+      const entry = { kind: k, resolve, timer: 0 };
+      pending = entry;
+      navigator.contacts.select(["name", k === "email" ? "email" : "tel"], { multiple: false })
+        .then((list) => {
+          const c = list && list[0];
+          if (!c) { finishPick(null, "cancelled"); return; }
+          const values = (k === "email" ? c.email : c.tel) || [];
+          if (!values[0]) { finishPick(null, "failed"); return; }
+          finishPick({ name: String((c.name || [])[0] || ""), value: String(values[0]) }, "ok");
+        })
+        .catch(() => finishPick(null, "failed"));
+    });
   }
+  lastPick = "unsupported";
   return Promise.resolve(null);
 }
 

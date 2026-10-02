@@ -15,7 +15,7 @@
 .tx-model svg { width: 1.2rem; height: 1.2rem; flex: none; margin-top: .2rem; color: var(--primary); }
 .tx-model p { flex: 1; min-width: 0; }
 
-/* ---- 거래 불러오기 4칸(좁은 화면·큰 글씨는 한 줄에 하나) ---- */
+/* ---- 거래 불러오기 5칸: 연결 3칸(준비 중)·파일 올리기 + 연습용 거래(한 줄 전체). 좁은 화면·큰 글씨는 한 줄에 하나 ---- */
 .tx-import { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(7.25rem, 100%), 1fr)); gap: .5rem; margin-bottom: .75rem; }
 .tx-tile {
   display: flex; flex-direction: column; align-items: flex-start; gap: .45rem; min-height: 2.4rem; min-width: 0;
@@ -28,8 +28,34 @@
   background: var(--primary-weak); color: var(--primary); flex: none;
 }
 .tx-tile-icon svg { width: min(1.35rem, 6.5vw); height: min(1.35rem, 6.5vw); }
+.tx-tile-text { display: flex; flex-direction: column; align-items: flex-start; gap: .45rem; flex: 1 1 auto; min-width: 0; max-width: 100%; }
 .tx-tile-title { font-weight: 700; line-height: 1.35; max-width: 100%; }
 .tx-tile-sub { color: var(--text-3); line-height: 1.35; margin-top: auto; font-variant-numeric: tabular-nums; }
+/* 연습용 거래: 한 줄 전체, 그림 옆에 글(큰 글씨에서는 글이 그림 아래 줄로) */
+.tx-tile.wide { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; }
+.tx-tile.wide .tx-tile-text { flex: 1 1 9rem; gap: .15rem; }
+.tx-tile.wide .tx-tile-sub { margin-top: 0; }
+
+/* ---- 찾기: 이름 검색 + 기간 칩 + 걸러 보기 칩 + 지금 거른 내용 ---- */
+.tx-finder { margin-bottom: .25rem; }
+.tx-find-card { padding-top: 1rem; padding-bottom: .6rem; margin-bottom: .75rem; }
+.tx-search { margin-bottom: .75rem; }
+.tx-search-row { position: relative; display: flex; align-items: center; }
+.tx-search-input { flex: 1 1 auto; min-width: 0; padding-right: 3rem; }
+.tx-search-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }   /* 지우기 버튼은 하나만 */
+.tx-search-clear { position: absolute; right: .15rem; top: 50%; transform: translateY(-50%); }
+.tx-search-clear svg { width: 1.25rem; height: 1.25rem; }
+.tx-period .field-label { margin-bottom: .3rem; }
+.tx-period-chips { padding-bottom: .4rem; }
+.tx-filter-note {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; margin: 0 0 .75rem; padding: .75rem min(.9rem, 3.5vw);
+  border-radius: var(--r-m); background: var(--surface-2); color: var(--text-2);
+}
+.tx-filter-note[hidden] { display: none; }
+.tx-filter-note > p { flex: 1 1 12rem; min-width: 0; font-weight: 600; }
+.tx-filter-note .btn { flex: none; }
+.tx-off { padding-top: 1.75rem; }
+.tx-off .btn { margin-top: .9rem; }
 
 /* ---- 걸러 보기 칩·목록 ---- */
 .tx-chips { padding-top: 0; }
@@ -39,6 +65,7 @@
 .chip[aria-pressed="true"] .chip-count { color: inherit; opacity: .8; }
 .tx-retry { margin-bottom: .75rem; }
 .tx-more { margin-bottom: .75rem; }
+.tx-more-status:not(:empty) { margin-top: .75rem; }   /* 더 보기 실패: 목록 아래 오류 + 다시 불러오기(FE-01) */
 
 /* ---- 거래 시트: 이름·배지 한 줄, 큰 금액, 사실 상자, 이유 상자 ---- */
 .tx-head { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; margin-bottom: .25rem; }
@@ -58,6 +85,14 @@
 .tx-reason-main { flex: 1; min-width: 0; }
 .tx-reason-main b { display: block; font-weight: 700; }
 .tx-reason-main .muted { margin-top: .1rem; }
+/* 왜 걱정되나요(components.aiExplain) 안 신호 줄: 이름 아래 쉬운 설명 한 줄 */
+.tx-sheet .ae-list li.tx-ae-li { align-items: flex-start; }
+.tx-sheet .ae-list li.tx-ae-li > svg { margin-top: .2rem; }
+.tx-ae-main { display: grid; gap: .1rem; flex: 1 1 auto; min-width: 0; }
+.tx-ae-easy { font-weight: 400; }
+.tx-ai-link { margin-top: .5rem; }
+.tx-review-note { margin: -.15rem .25rem .1rem; }
+.tx-reviewed { margin-top: .5rem; color: var(--text-2); }
 
 /* ---- 파일 올리기 시트: 올릴 수 있는 파일 표시 ---- */
 .tx-exts-box { margin-bottom: 1rem; }
@@ -70,3 +105,14 @@
 .tx-ext svg { width: 1rem; height: 1rem; flex: none; }
 .tx-ext.off { background: var(--bg-sub); color: var(--text-3); border-color: var(--line); border-style: dashed; }
 .tx-exts-box > .muted { margin-top: -.4rem; }
+
+/* ---- 새 파일 넣는 방법 고르기(이어 붙이기·모두 바꾸기, AUG-03) ---- */
+.tx-modes { display: grid; gap: .5rem; }
+.tx-modes li { padding: .8rem min(.9rem, 4vw); border-radius: var(--r-m); background: var(--surface-2); }
+.tx-modes b { display: block; margin-bottom: .2rem; }
+.tx-modes p { color: var(--text-2); }
+
+/* ---- 올린 결과(AUG-07): 읽은 수·걱정되는 거래 요약·안내·알림에서 보기 ---- */
+.tx-result-main { flex: 1 1 auto; min-width: 0; }
+.tx-result-sum { margin-top: .4rem; font-weight: 700; }
+.tx-result .notice-action { margin-top: .6rem; }

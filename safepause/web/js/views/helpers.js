@@ -1,7 +1,8 @@
 /* 조력자: 내가 믿는 사람. 누구에게, 언제, 무엇을 알릴지 내가 정한다(S22·S37).
- * 휴대폰 번호·이메일 원본은 이 기기에만 저장한다(문자·메일 앱을 열 때 씀). 목록에는 가린 번호·메일만 보인다.
+ * 휴대폰 번호·이메일 원본은 이 휴대폰(이 컴퓨터)에만 저장한다(문자·메일 앱을 열 때 씀). 목록에는 가린 번호·메일만 보인다.
+ * v0.2에서 옮겨 온 가린 연락처(원본 없음)는 서버가 지킨다. 지우려면 시트에서 옛 연락처 지우기를 고른다(clear_contact, BE-8).
  * 한 사람씩 시트에서 고치고 저장하기를 누를 때만 저장한다. 저장하지 않은 입력이 있으면 닫기 전에 묻는다(리뷰 M2). */
-import { h, icon, fill, openSheet, confirmSheet, busy, toast, announce, skeleton, emptyState } from "../ui.js";
+import { h, icon, fill, setText, openSheet, confirmSheet, busy, toast, announce, skeleton, emptyState } from "../ui.js";
 import { errorNotice, menuRow } from "../components.js";
 import { SIGNALS, SIGNAL_KO, SIGNAL_ICON } from "../labels.js";
 import { canPickContact, pickContact } from "../native.js";
@@ -28,8 +29,8 @@ export default {
       h("p", { class: "page-sub", text: "조력자는 내가 믿는 사람이에요. 누구에게, 언제 알릴지 내가 정해요." }),
       consentNote, listSlot, addBtn, status,
       h("div", { class: "notice helper-rule" }, icon("info"), h("div", null,
-        h("p", { text: "조력자가 돈을 받는 사람이면 그 조력자에게는 알리지 않아요." }),
-        h("p", { text: "그때는 다른 조력자나 상담하는 곳에 알려요." }))),
+        h("p", { text: "조력자가 돈을 받는 사람이면 그 조력자에게는 알리지 않게 골라 둬요." }),
+        h("p", { text: "그때는 다른 조력자나 상담하는 곳에 알릴 수 있어요." }))),
       h("div", { class: "list" },
         menuRow({ icon: "building", tone: "blue", title: "상담하는 곳도 정하기", sub: "센터·기관에도 알릴 수 있어요.", href: "#/more/counselors" })));
 
@@ -91,6 +92,9 @@ export default {
       allBox.addEventListener("change", () => sigBoxes.forEach((b) => { b.disabled = allBox.checked; if (allBox.checked) b.checked = false; }));
       const active = h("input", { type: "checkbox", checked: hp.active !== false, "aria-describedby": "hp-active-hint" });
       const err = h("p", { class: "error-text", role: "alert", hidden: true });
+      // v0.2에서 옮겨 온 가린 연락처(원본 없음): 보여 주기만 하고, 지울 때만 clear_contact를 보낸다(BE-8)
+      const legacy = isNew || hp.phone || hp.email ? "" : [hp.phone_masked, hp.email_masked].filter(Boolean).join(" · ");
+      const clearLegacy = legacy ? h("input", { type: "checkbox", "aria-describedby": "hp-legacy-hint" }) : null;
       let dirty = false;
       const markDirty = () => { dirty = true; };
 
@@ -110,7 +114,7 @@ export default {
       }
       const fieldErr = (input, p, msg) => {
         input.setAttribute("aria-invalid", msg ? "true" : "false");
-        p.textContent = msg || "";
+        setText(p, msg || "");
         p.hidden = !msg;
       };
       phone.addEventListener("input", () => fieldErr(phone, phoneErr, ""));
@@ -129,6 +133,10 @@ export default {
             h("div", { class: "field-head" }, h("label", { for: "hp-email", text: "이메일" }), pickBtn("email", email, () => fieldErr(email, emailErr, ""))),
             email, emailErr,
             h("p", { class: "hint", text: "번호나 메일이 있어야 문자·메일로 알릴 수 있어요." })),
+          legacy ? h("div", { class: "card flat legacy-contact" },
+            h("p", { class: "strong" }, h("span", { text: "옛 연락처: " }), h("span", { class: "tnum", text: legacy })),
+            h("p", { class: "hint", id: "hp-legacy-hint", text: "예전 버전에서 가려서 옮겨 온 연락처예요. 가려져 있어서 이 연락처로는 문자·메일을 보낼 수 없어요. 위에 번호나 메일을 새로 적어 주세요." }),
+            h("label", { class: "check-row" }, clearLegacy, h("span", { class: "grow", text: "옛 연락처 지우기" }))) : null,
           h("div", { class: "field" }, h("label", { for: "hp-ids", text: "이 사람의 계좌번호·이름" }), ids,
             h("p", { class: "hint", id: "hp-ids-hint", text: "쉼표나 줄바꿈으로 나눠 적어요. 받는 사람이 여기 적은 계좌번호나 이름과 같으면, 이번에는 이 조력자에게 알리지 않아요." })),
           h("fieldset", { class: "field form-group" },
@@ -151,16 +159,17 @@ export default {
                 const ph = phone.value.trim();
                 const em = email.value.trim();
                 err.hidden = true;
-                if (!nm) { err.textContent = "이름을 적어 주세요."; err.hidden = false; name.focus(); return; }
+                if (!nm) { setText(err, "이름을 적어 주세요."); err.hidden = false; name.focus(); return; }
                 if (ph && (!PHONE_OK.test(ph) || !/\d/.test(ph))) { fieldErr(phone, phoneErr, "전화번호는 숫자로 적어 주세요."); phone.focus(); return; }
                 if (em && !EMAIL_OK.test(em)) { fieldErr(email, emailErr, "이메일 모양이 아니에요."); email.focus(); return; }
                 const all = allBox.checked;
                 const sc = all ? [] : sigBoxes.filter((b) => b.checked).map((b) => b.value);
-                if (!all && !sc.length) { err.textContent = "알릴 것을 하나 이상 골라 주세요."; err.hidden = false; allBox.focus(); return; }
+                if (!all && !sc.length) { setText(err, "알릴 것을 하나 이상 골라 주세요."); err.hidden = false; allBox.focus(); return; }
                 const item = {
                   id: hp.id || null, name: nm, relation: relation.value.trim(), phone: ph, email: em,
                   identifiers: ids.value.split(/[,\n]/).map((s) => s.trim()).filter(Boolean),
                   min_level: levelCaution.checked ? "caution" : "high", signal_scope: sc, active: active.checked,
+                  ...(clearLegacy && clearLegacy.checked && !ph && !em ? { clear_contact: true } : {}),
                 };
                 const next = helpers.map(toPayload);
                 if (isNew) next.push(item); else next[index] = item;
@@ -173,21 +182,22 @@ export default {
                   announce("조력자를 저장했어요.");
                 } catch (e2) {
                   if (e2 === STALE) return;
-                  err.textContent = e2.message; err.hidden = false;
+                  setText(err, e2.message); err.hidden = false;
                 }
               }),
             }, icon("check"), h("span", { text: "저장하기" })),
             isNew ? null : h("button", {
               type: "button", class: "btn danger-weak big block",
               onclick: async () => {
-                const ok = await confirmSheet({ title: `${hp.name}을(를) 뺄까요?`, lines: ["조력자 목록에서 빠져요."], confirmText: "네, 뺄래요", danger: true });
+                const who = withObject(hp.name);
+                const ok = await confirmSheet({ title: who ? `${who} 뺄까요?` : "이 조력자를 뺄까요?", lines: who ? ["조력자 목록에서 빠져요."] : [hp.name, "조력자 목록에서 빠져요."], confirmText: "네, 뺄래요", danger: true });
                 if (!ok) return;
                 try {
                   await save(helpers.filter((_, i) => i !== index).map(toPayload));
                   dirty = false; ctx.session.unsaved = null;
                   close();
                   toast("조력자를 뺐어요.");
-                } catch (e2) { if (e2 !== STALE) { err.textContent = e2.message; err.hidden = false; } }
+                } catch (e2) { if (e2 !== STALE) { setText(err, e2.message); err.hidden = false; } }
               },
             }, icon("trash"), h("span", { text: "이 조력자 빼기" })),
             h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => tryClose() })));
@@ -228,6 +238,20 @@ export default {
 
 function levelText(hp) {
   return hp.min_level === "caution" ? "확인할 때도 알림" : "꼭 확인할 때만 알림";
+}
+
+/**
+ * 이름 뒤에 받침에 맞는 을·를을 붙인다(C11: 을(를) 표기 대신). withObject("엄마") → "엄마를", withObject("경찰 (금융사기 신고)") → "경찰 (금융사기 신고)를".
+ * 끝의 괄호·기호는 건너뛰고 마지막 한글(또는 숫자)로 정한다. 영어 등으로 끝나 알 수 없으면 null(부르는 쪽이 다른 말로 쓴다).
+ */
+const DIGIT_BATCHIM = { 0: true, 1: true, 2: false, 3: true, 4: false, 5: false, 6: true, 7: true, 8: true, 9: false };
+export function withObject(name) {
+  const s = String(name || "").trim();
+  const m = s.match(/([가-힣0-9])[\s)\]}.,·]*$/);
+  if (!m) return null;
+  const ch = m[1];
+  const batchim = /[0-9]/.test(ch) ? DIGIT_BATCHIM[ch] : (ch.charCodeAt(0) - 0xac00) % 28 !== 0;
+  return `${s}${batchim ? "을" : "를"}`;
 }
 
 // 저장 요청 모양(서버 HelperIn): 가린 표시(phone_masked 등)는 보내지 않는다

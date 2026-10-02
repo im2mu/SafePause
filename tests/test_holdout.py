@@ -211,7 +211,7 @@ def test_report_holdout_overlap_and_missing_in_sample(tmp_path, four) -> None:
     (tmp_path / "eval_results_holdout.json").write_text("{broken", encoding="utf-8")
     report.write_report(four["std"], tmp_path)
     md = (tmp_path / "eval_report.md").read_text(encoding="utf-8")
-    assert "eval_results_holdout.json을(를) 읽지 못해" in md and "## 7." not in md
+    assert "eval_results_holdout.json 파일을 읽지 못해" in md and "## 7." not in md
 
 
 # ---------------------------------------------------------------------------

@@ -227,10 +227,16 @@ export function columnChart(items, opts = {}) {
   let lastSize = null;
   function draw(W, m) {
     lastSize = [W, m];
+    // 막대에 초점이 있었으면(키보드로 고른 뒤 화면 돌림·폭·글자 크기가 바뀜) 다시 그린 뒤 고른 막대로 초점을 돌려준다(FE-13)
+    const hadFocus = interactive && root.contains(document.activeElement);
     const slot = W / Math.max(1, items.length);
     const fits = items.every((it) => Math.max(m.width(it.label, 600), it.sub ? m.width(it.sub) : 0) <= slot - 4);
     wrap.classList.toggle("rows", !fits);
     if (fits) drawColumns(W, m); else drawRows(W, m);
+    if (hadFocus) {
+      const g = root.querySelector(`[data-i="${selected}"]`);
+      if (g) g.focus({ preventScroll: true });
+    }
   }
   const watcher = responsive(wrap, draw, onCleanup);
 
@@ -242,9 +248,10 @@ export function columnChart(items, opts = {}) {
     if (lastSize) draw(...lastSize); else watcher.redraw();
     if (focus) {
       const g = root.querySelector(`[data-i="${next}"]`);
-      if (g) g.focus();
+      if (g && document.activeElement !== g) g.focus();
     }
-    if (changed && interactive) onSelect(next);
+    // 이미 고른 막대를 다시 눌러도(누르기·Enter) 알려 준다: 화면은 누른 뒤에야 그달 글을 보인다(D6)
+    if (interactive && (changed || focus)) onSelect(next);
   }
 
   if (interactive) {

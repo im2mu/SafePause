@@ -34,7 +34,7 @@ INCLUDE_FILES: tuple[str, ...] = (
 # 개인 데이터가 들 수 있는 이름(허용한 폴더 안이어도 뺀다). safepause/store.py STORE_FILES와 같게 둔다
 PRIVATE_FILE_NAMES = frozenset({
     "consent.json", "helpers.json", "transactions.json", "decisions.json", "notices.json", "counselors.json",
-    "flags.json", "serve.lock",
+    "flags.json", "reviews.json", "serve.lock",
 })
 PRIVATE_FILE_GLOBS: tuple[str, ...] = ("file_eval_*", ".sp-*", "*.lock",
                                        "*.jks", "*.keystore", "keystore.properties", "*.apk", "*.idsig")   # 서명 키·빌드 결과는 넣지 않음

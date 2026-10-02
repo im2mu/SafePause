@@ -38,13 +38,14 @@ PERSON_COMMON = ["js/main.js", "js/ui.js", "js/components.js", "js/labels.js", "
                  "js/speech.js", "js/views/connect.js"]
 EASY_FORBIDDEN = [*FORBIDDEN_WORDS, "이상거래", "패턴", "탐지", "알고리즘", "모니터링", "이례", "임계", "통계",
                   "고위험", "푸시", "당사자님"]
-# 설계서 7절: 화면에 쓰지 않는 문구(송금 연습 흔적·불필요한 안내·접속 주소)
-BANNED_PHRASES = ["막지 않아요", "결정은 내가 해요", "AI 혼자서는", "연습 화면", "실제로 돈이 나가지 않아요",
-                  "보내지 않고 멈춘 것", "연습용 정답", "(가려서 저장해요)", "127.0.0.1", "안전 정지"]
+# 설계서 7절·수정 계획 1-G: 화면에 쓰지 않는 문구(송금 연습 흔적·불필요한 안내·접속 주소·심사용 표기·장소 하드코딩)
+BANNED_PHRASES = ["막지 않아요", "결정은 내가 해요", "결정은 본인이 해요", "AI 혼자서는", "연습 화면",
+                  "실제로 돈이 나가지 않아요", "보내지 않고 멈춘 것", "연습용 정답", "(가려서 저장해요)", "127.0.0.1",
+                  "안전 정지", "심사·시연용", "이 기기"]
 VIEW_ROUTES = {"home": "home.js", "txns": "txns.js", "send": "send.js", "alerts": "alerts.js", "more": "more.js",
                "more/consent": "consent.js", "more/helpers": "helpers.js", "more/counselors": "counselors.js",
                "more/settings": "settings.js", "more/eval": "eval.js", "more/export": "export.js",
-               "more/about": "about.js", "onboarding": "onboarding.js"}
+               "more/about": "about.js", "more/guide": "guide.js", "onboarding": "onboarding.js"}
 
 
 def _string_literals(js: str) -> list[tuple[str, str]]:
@@ -382,7 +383,9 @@ def test_bank_app_rules() -> None:
 def test_alert_and_notify_rules() -> None:
     # 소리 버튼 토글(R4): 누르면 재생 ↔ 멈추기, 한 번에 하나, 끝나면 원래대로(앱 끝남 알림 연결)
     comp = (JS / "components.js").read_text(encoding="utf-8")
-    assert 'aria-pressed' in comp and "speech.stop()" in comp and "onEnd: () => paint(false)" in comp
+    assert 'aria-pressed' in comp and "speech.stop()" in comp and "paint(false); } })" in comp
+    # 버튼이 화면에서 떨어지거나 숨겨지면(탭 바꾸기·패널 다시 그리기·시트 닫기) 읽기를 멈춘다(D1·FE-09)
+    assert "new MutationObserver" in comp and "!speaking.isConnected" in comp and 'closest("[hidden]")' in comp
     speech = (JS / "speech.js").read_text(encoding="utf-8")
     assert "window.__safepauseSpeechDone" in speech and "export function isSpeaking" in speech
     # 알림 탭: 쉬운 말 카드마다 알리기(→ 알림 보내기)
@@ -450,3 +453,177 @@ def test_eval_reference_matches_submitted_numbers() -> None:
             assert got["txn_high_recall"] == v["confusion"]["high"]["recall"]
             assert got["normal_high_rate"] == v["normal"]["high_rate"]
             assert got["control_monthly_alerts"] == v["control"]["monthly_alerts"]
+
+
+# ---- v0.3 수정 계획(docs/v03_fixplan.md 2절 화면 공용 계약) ---------------------------------------
+def _ui_icons() -> tuple[dict, dict]:
+    icons = (JS / "icons.js").read_text(encoding="utf-8")
+    ui = json.loads(re.search(r"export const UI = (\{.*?\});", icons, re.S).group(1))
+    picto = json.loads(re.search(r"export const PICTO = (\{.*?\});", icons, re.S).group(1))
+    return ui, picto
+
+
+def test_line_icon_system() -> None:
+    # D4: 화면 아이콘은 한 체계(24 viewBox, 굵기 2)다. 픽토그램 이름(check·warning·stop·person …)도 선 버전이 있고,
+    # ui.icon()은 64 그림으로 넘어가지 않는다. 큰 픽토그램(picto)은 돈 보내기 확인 카드 본문에만 쓴다.
+    ui, picto = _ui_icons()
+    for name in picto:
+        assert name in ui, f"선 아이콘이 없는 그림 이름: {name}"
+    ui_js = (JS / "ui.js").read_text(encoding="utf-8")
+    icon_fn = ui_js[ui_js.index("export function icon("):ui_js.index("export function picto(")]
+    assert "PICTO" not in icon_fn and '"0 0 64 64"' not in icon_fn
+    labels = (JS / "labels.js").read_text(encoding="utf-8")
+    level = re.search(r"export const LEVEL = \{(.*?)\};", labels, re.S).group(1)
+    for name in re.findall(r'icon: "([a-z-]+)"', level):
+        assert name in ui, name
+    comp = (JS / "components.js").read_text(encoding="utf-8")
+    assert "picto(" not in comp                      # 알림 카드 머리 그림도 신호 선 아이콘
+    card = comp[comp.index("export function alertCard"):comp.index("function topText")]
+    assert "txnSignals(" in card and "icon(headIcon)" in card
+    users = sorted(n for n, t in ALL_JS.items() if re.search(r"\bpicto\(", t) and not n.startswith("pyodide/"))
+    assert users == ["js/ui.js", "js/views/money.js"], users
+
+
+def test_favicon_matches_logo() -> None:
+    # D9: 브라우저 탭 아이콘은 머리글 로고(팔각형 + 두 막대)와 같은 그림
+    assert '<link rel="icon" href="icons/logo.svg" type="image/svg+xml">' in INDEX
+    svg = (WEB / "icons" / "logo.svg").read_text(encoding="utf-8")
+    assert "M16 15v6M20 15v6" in svg and 'rx="10.8"' in svg and "<rect" in svg
+
+
+def test_flag_and_review_terms() -> None:
+    # 수정 계획 1-G·2절: 담기 용어 하나(버튼 알림 목록에 담기·담기 취소, 토스트 알림 탭에 담았어요., 목록 담은 거래, 배지 담음)
+    labels = (JS / "labels.js").read_text(encoding="utf-8")
+    flag = re.search(r"export const FLAG_TEXT = \{(.*?)\};", labels, re.S).group(1)
+    for pair in ('button: "알림 목록에 담기"', 'undo: "담기 취소"', 'toast: "알림 탭에 담았어요."', 'list: "담은 거래"',
+                 'badge: "담음"'):
+        assert pair in flag, pair
+    review = re.search(r"export const REVIEW_TEXT = \{(.*?)\};", labels, re.S).group(1)
+    for pair in ('button: "내가 한 거예요"', 'undo: "확인 취소"', 'badge: "내가 확인함"', 'toast: "내가 한 거래로 표시했어요."',
+                 'note: "걱정되는 거래 수에서 뺐어요."'):
+        assert pair in review, pair
+    comp = (JS / "components.js").read_text(encoding="utf-8")
+    assert "FLAG_TEXT.button" in comp and "FLAG_TEXT.toast" in comp and "REVIEW_TEXT.button" in comp
+
+
+def test_flag_terms_same_on_every_screen() -> None:
+    # RF-10·C3: 화면마다 다른 담기 문구를 쓰지 않는다(알림 카드도 flagButton 또는 FLAG_TEXT)
+    for name, js in ALL_JS.items():
+        if name.startswith("pyodide/"):
+            continue
+        text = _visible_text(js)
+        for old in ("담은 거래에 넣었어요", "알림 목록에서 뺐어요"):
+            assert old not in text, (name, old)
+    alerts = _read_view("alerts.js")
+    assert "flagButton(" in alerts or "FLAG_TEXT" in alerts
+    assert 'text.textContent = on ? "담음" : "담기"' not in alerts
+
+
+def test_shared_contract_exports() -> None:
+    # 수정 계획 2절: 화면 담당은 이 이름만 쓴다
+    comp = (JS / "components.js").read_text(encoding="utf-8")
+    for fn in ("aiExplain(item", "reviewBadge(item)", "notifiedBadge(item)", "flagBadge(item)", "reviewButton(ctx, item",
+               "noVoiceNote(", "speakButton(getText"):
+        assert f"export function {fn}" in comp, fn
+    explain = comp[comp.index("export function aiExplain"):comp.index("export function errorNotice")]
+    assert "AI_TEXT.rules" in explain and "AI_TEXT.ai" in explain and "AI_TEXT.aiLearning" in explain and "item.ai" in explain
+    labels = (JS / "labels.js").read_text(encoding="utf-8")
+    assert 'aiLearning: "거래가 30건보다 적어 AI는 아직 배우는 중이에요."' in labels
+    fmt = (JS / "format.js").read_text(encoding="utf-8")
+    assert "export function amountPreview" in fmt and "export function bandLabel" in fmt and "export function keepUnits" in fmt
+    for band, label in (("dawn", "새벽"), ("morning", "오전"), ("day", "낮"), ("evening", "저녁·밤")):
+        assert f'{band}: {{ label: "{label}"' in fmt, band
+    preview = fmt[fmt.index("export function amountPreview"):fmt.index("export const BANDS")]
+    assert "moneyText(" in preview and "formatWon" not in preview   # 정확한 원 단위 하나(반올림 금액을 = 로 붙이지 않음)
+
+
+def test_amount_preview_not_rounded() -> None:
+    # RF-4·C10: 돈 보내기 금액 칸 아래 줄은 amountPreview(정확한 원 단위)만 쓰고, 반올림한 만 원 표기를 = 로 붙이지 않는다
+    money = _read_view("money.js")
+    assert "= ${formatWon(" not in money
+    assert "amountPreview(" in money
+
+
+def test_examples_keep_units_together() -> None:
+    # C13·D8: 예시 칩의 금액·시각 안 빈칸은 줄을 바꾸지 않는 빈칸
+    labels = (JS / "labels.js").read_text(encoding="utf-8")
+    block = re.search(r"export const EXAMPLES = \[(.*?)\];", labels, re.S).group(1)
+    for label in re.findall(r'label: "([^"]+)"', block):
+        assert not re.search(r"\d[만천억]? 원", label) and not re.search(r"(오후|새벽|밤|오전) \d", label), label
+
+
+def test_speech_waits_for_voice() -> None:
+    # D10: 음성 준비가 늦어도 화면이 맞게 바뀐다(html[data-voice] + CSS), 안내의 장소 말은 deviceWord(C7)
+    speech = (JS / "speech.js").read_text(encoding="utf-8")
+    assert "export function voiceStatus" in speech and "dataset.voice" in speech and "deviceWord()" in speech
+    assert 'html:not([data-voice="ready"]) .speak-btn' in CSS and 'html:not([data-voice="none"]) .voice-note' in CSS
+
+
+def test_focus_is_kept_on_busy_and_sheet_close() -> None:
+    # FE-04·FN-07: 하는 중 버튼은 disabled가 아니라 aria-disabled(초점 유지), 시트를 닫으면 연 버튼 → 위 시트 → 본문으로 초점
+    ui = (JS / "ui.js").read_text(encoding="utf-8")
+    busy = ui[ui.index("export async function busy"):ui.index("export function skeleton")]
+    assert "disabled = true" not in busy and 'setAttribute("aria-disabled", "true")' in busy
+    assert "function restoreFocus" in ui and "restoreFocus(returnFocus)" in ui
+    assert "!sheet.contains(document.activeElement)" in ui      # Tab이 시트 밖으로 나가지 않게
+    comp = (JS / "components.js").read_text(encoding="utf-8")
+    assert "btn.disabled = true" not in comp
+    assert '.btn[aria-disabled="true"]' in CSS
+
+
+def test_toast_and_engine_bar_one_sentence_per_line() -> None:
+    # C4: 토스트·엔진 띠도 문장마다 한 줄(p의 text → span.sent)
+    ui = (JS / "ui.js").read_text(encoding="utf-8")
+    toast = ui[ui.index("export function toast"):ui.index("// ---- 시트")]
+    assert 'h("p", { text: message })' in toast
+    main = (JS / "main.js").read_text(encoding="utf-8")
+    bar = main[main.index("function engineSlot"):main.index("// ---- 시작")]
+    assert 'h("p", { text: lines.join(" ") })' in bar and 'h("span", { text: err' not in bar
+    assert ".engine-bar svg {" in CSS                            # FE-12: 경고 아이콘 크기
+
+
+def test_contact_pick_single_window() -> None:
+    # IA-5·AND-08: 연락처 창이 열려 있는 동안 다시 부르면 새 창을 열지 않고(앞 창 결과를 지킴) 안내와 함께 null
+    native = (JS / "native.js").read_text(encoding="utf-8")
+    pick = native[native.index("export function pickContact"):native.index("// ---- 내 은행 앱")]
+    assert "if (pending) {" in pick and "toast(PICK_TEXT.busy)" in pick
+    assert "pending.resolve(null); pending = null;" not in native   # 앞 창의 결과를 버리지 않는다
+    assert "연락처를 불러오지 못했어요." in native
+
+
+def test_engine_basic_after_ai_failure_and_fifo() -> None:
+    # FE-03: AI 부분만 못 켜도 기본 요청(동의 끄기·모두 지우기)은 처리. FE-05: 우선 요청끼리는 온 순서대로
+    worker = (WEB / "engine" / "worker.mjs").read_text(encoding="utf-8")
+    assert "queue.unshift(" not in worker and "queue.splice(i, 0, msg)" in worker
+    assert 'stage("error", "AI 분석 부분을 켜지 못했어요", String(e && e.message || e), false)' in worker
+    client = (JS / "engine-client.js").read_text(encoding="utf-8")
+    assert 'status.stage === "error" && status.fatal' in client
+
+
+def test_common_layout_rules_for_large_text() -> None:
+    # L3·L4·L9·L10·L11·L14·L8: 큰 글씨·좁은 화면·가로 화면 공용 규칙
+    assert ".bottom-nav .nav-item { min-height: 0;" in CSS                       # L3 아래 탭 이름이 잘리지 않게
+    assert ".notice svg { width: min(1.375rem, 6vw)" in CSS                       # L4 안내 상자 아이콘 상한
+    assert ".notice > svg + * { flex: 1 1 9em;" in CSS                           # L4 아주 큰 글씨: 아이콘을 글 위 줄로
+    assert ".table-wrap td.num::before { white-space: normal;" in CSS            # L9 숫자는 끊지 않고 칸 이름만 줄바꿈
+    assert ".switch::before {" in CSS and "max(100%, 48px)" in CSS               # L11 스위치 누르는 자리 48px
+    assert "@media (max-height: 480px) and (max-width: 899px)" in CSS            # L14 가로 화면
+    assert "text-wrap: pretty" in CSS and "text-wrap: balance" in CSS            # L8 한두 글자 줄
+
+
+def test_integration_contracts_2026_10_03() -> None:
+    # 통합 점검: 백엔드·안드로이드가 만든 계약을 화면 공용 파일이 실제로 쓰는지
+    api = (JS / "api.js").read_text(encoding="utf-8")
+    assert 'form.append("mode", file.mode)' in api and "payload.mode = file.mode" in api   # 이어 붙여 올리기(AUG-03): PC·앱 모두
+    assert 'export const UPLOAD_MODES = ["replace", "append"]' in api                    # txns.js가 고르기 창을 보이는 조건
+    worker = (WEB / "engine" / "worker.mjs").read_text(encoding="utf-8")
+    basic = re.search(r"const BASIC = new Set\(\[(.*?)\]\);", worker, re.S).group(1)
+    for key in ("POST /api/reviews", "POST /api/reviews/remove", "POST /api/notices/remove",
+                "POST /api/transactions/remove-checked"):
+        assert f'"{key}"' in basic, key    # AI 패키지 없이 처리(test_v03_fixplan 가벼운 경로 시험)
+    ui = (JS / "ui.js").read_text(encoding="utf-8")
+    assert 'typeof native.setThemeMode === "function"' in ui                             # AND-04: 앱 설정 화면 모드 → 시스템 막대
+    consent = _read_view("consent.js")
+    assert '"내가 확인한 거래"' in consent and '"돈 보내기 확인 기록"' in consent          # IA-7: reviews.json·decisions.json도 지움
+    java = (ROOT / "android" / "src" / "kr" / "safepause" / "mobile" / "MainActivity.java").read_text(encoding="utf-8")
+    assert '"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"' in java  # 앱 파일 고르기 창에서 .xlsx 선택

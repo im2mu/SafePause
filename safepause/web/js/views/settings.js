@@ -1,10 +1,11 @@
-/* 앱 설정: 글자 크기·화면 모드는 고르는 즉시 바뀌고 이 기기에 저장된다(ui.setPref → html[data-font]·[data-theme]).
- * 내 은행 앱(돈 보내기에서 확인한 뒤 열 앱)은 고르기·바꾸기·지우기(bankapp.js).
- * 휴대폰 알림 받기·앱 잠금은 정식 버전 기능이라 준비 중 안내만 연다. */
-import { h, icon, fill, toast, announce, comingSoonSheet, getPref, setPref } from "../ui.js";
+/* 앱 설정: 글자 크기·화면 모드는 고르는 즉시 바뀌고 이 휴대폰(이 컴퓨터)에 저장된다(ui.setPref → html[data-font]·[data-theme]).
+ * 내 은행 앱(돈 보내기에서 확인한 뒤 열 앱)은 고르기·바꾸기·지우기(bankapp.js). 전체 탭의 내 은행 앱 줄은 ?part=bank로 연다(IA-8).
+ * 휴대폰 알림 받기·앱 잠금은 정식 버전 기능이라 준비 중 안내만 연다(안내 글은 more.js openSoon 한 곳, AUG-14). */
+import { h, icon, fill, toast, announce, getPref, setPref } from "../ui.js";
 import { menuRow } from "../components.js";
 import { deviceWord } from "../format.js";
 import { bankAppSettings } from "./bankapp.js";
+import { openSoon } from "./more.js";
 
 const FONTS = [
   { value: "m", label: "보통", cls: "fs-m" },
@@ -36,6 +37,7 @@ export default {
       toast(msg);
       announce(msg);
     });
+    const bankTitle = h("h3", { class: "section-title focus-target", id: "pref-bank-title", tabindex: "-1", text: "돈 보내기" });
 
     fill(ctx.main,
       h("h2", { class: "page-title", tabindex: "-1", text: "앱 설정" }),
@@ -49,17 +51,21 @@ export default {
       h("div", { class: "card pref-card" }, theme,
         h("p", { class: "muted", text: `자동은 ${deviceWord()} 설정을 따라요.` })),
 
-      h("h3", { class: "section-title", text: "돈 보내기" }),
+      bankTitle,
       bankAppSettings(),
 
       h("h3", { class: "section-title", text: "알림·보안" }),
       h("div", { class: "list" },
-        menuRow({ icon: "bell", title: "휴대폰 알림 받기", soon: true, onclick: () => comingSoonSheet({
-          icon: "bell", title: "휴대폰 알림 받기",
-          lines: ["꼭 확인할 거래가 생기면 휴대폰 알림으로 알려 줘요.", "알림을 누르면 그 거래 카드가 바로 열려요."], action: "켜기" }) }),
-        menuRow({ icon: "lock", title: "앱 잠금", soon: true, onclick: () => comingSoonSheet({
-          icon: "lock", title: "앱 잠금",
-          lines: ["앱을 열 때 잠금을 풀어야 열려요.", "지문이나 비밀번호로 열 수 있어요."], action: "켜기" }) })));
+        menuRow({ icon: "bell", title: "휴대폰 알림 받기", soon: true, onclick: () => openSoon("phoneAlert") }),
+        menuRow({ icon: "lock", title: "앱 잠금", soon: true, onclick: () => openSoon("appLock") })));
+
+    // 전체 탭의 내 은행 앱 줄에서 왔으면 그 자리로 옮긴다(main.js가 첫 제목에 초점을 준 다음에)
+    if (ctx.params.get("part") === "bank") {
+      await new Promise((r) => window.setTimeout(r, 0));
+      if (!ctx.alive()) return;
+      bankTitle.scrollIntoView({ block: "start" });
+      bankTitle.focus({ preventScroll: true });
+    }
   },
 };
 

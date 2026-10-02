@@ -29,7 +29,8 @@
       "night_repeat_transfer": 3,
       "payee_surge": 8
     },
-    "ai_only": 0
+    "ai_only": 0,
+    "reviewed_ok": 0
   },
   "decisions": {},
   "helper_notices": 0,

@@ -905,7 +905,7 @@ def _load_partner(path: Path, intensity: str, split: str = IN_SAMPLE
     except (OSError, ValueError):
         ok, data = False, None
     if not ok:
-        return None, f"> {path.name}을(를) 읽지 못해 이 보고서에 싣지 않았습니다."
+        return None, f"> {path.name} 파일을 읽지 못해 이 보고서에 싣지 않았습니다."
     return data, ""
 
 

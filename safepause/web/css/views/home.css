@@ -24,10 +24,10 @@
 .home-flow > .section-title { flex-wrap: wrap; align-items: baseline; row-gap: .1rem; }
 .home-asof { font-size: 1rem; font-weight: 600; color: var(--text-3); }
 
-/* ---- 카드 공통 ---- */
-.home-card h4 { font-size: 1.05rem; font-weight: 700; line-height: 1.4; margin-bottom: .2rem; }
+/* ---- 카드 공통: 작은 회색 이름(h4) → 굵은 결론 한 줄(.home-insight) → 설명·차트(D6, 요약 카드의 kpi-label·큰 숫자와 같은 위계) ---- */
+.home-card h4 { font-size: 1rem; font-weight: 600; line-height: 1.4; color: var(--text-3); margin: 0 0 .15rem; }
 .home-card > .muted { margin-bottom: .1rem; }
-.home-insight { font-weight: 700; color: var(--text); margin: .1rem 0 .2rem; }
+.home-insight { font-size: 1.2rem; font-weight: 800; line-height: 1.4; letter-spacing: -0.01em; color: var(--text); margin: .1rem 0 .35rem; }
 .home-ok { display: flex; align-items: center; gap: .6rem; margin-top: .5rem; padding: .8rem .9rem; border-radius: var(--r-m); background: var(--ok-weak); color: var(--ok-text); font-weight: 600; }
 .home-ok svg { width: 1.3rem; height: 1.3rem; flex: none; }
 
@@ -77,6 +77,8 @@ a.home-fact:active { background: var(--bg-sub); }
 .chart-key { display: flex; align-items: center; gap: .5rem; color: var(--text-3); margin-top: .15rem; }
 .chart-key-dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--chart-flag); flex: none; }
 .chart-readout { margin-top: .75rem; padding: .75rem min(.9rem, 3vw); border-radius: var(--r-m); background: var(--surface-2); color: var(--text-2); font-weight: 600; }
+.chart-readout:empty { display: none; }   /* 막대를 누르기 전에는 비어 있어 숨긴다 */
+.chart-note { display: block; }
 
 /* 범례: 왼쪽 이름(위)·비율과 건수(아래), 오른쪽 금액. 아주 좁으면 금액이 다음 줄 오른쪽으로 */
 .home-legend { margin-top: .2rem; }
@@ -87,9 +89,16 @@ a.home-fact:active { background: var(--bg-sub); }
 .home-legend-money { margin-left: auto; white-space: nowrap; }
 
 /* ---- 많이 보낸 곳 ---- */
-.home-top { display: grid; margin-top: .6rem; }
-.home-top-item { display: flex; gap: min(.75rem, 3vw); align-items: flex-start; padding: .75rem 0; }
+.home-top { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: .6rem; }   /* 큰 글씨: 긴 금액이 칸을 밀어내지 않게 */
 .home-top-item + .home-top-item { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+/* 한 줄 전체가 내 거래(그 이름으로 걸러 보기)로 가는 링크(J9) */
+.home-top-link {
+  display: flex; gap: min(.75rem, 3vw); align-items: flex-start; min-height: 2.4rem; padding: .75rem min(.5rem, 2vw);
+  margin: 0 calc(-1 * min(.5rem, 2vw)); border-radius: var(--r-m); color: inherit; text-decoration: none;
+}
+a.home-top-link:active { background: var(--bg-sub); }
+.home-top-chev { align-self: center; margin-left: -.15rem; }
+.home-top-chev, .home-top-chev svg { width: min(1.25rem, 6vw); height: min(1.25rem, 6vw); }
 .home-rank {
   min-width: min(1.75rem, 9vw); min-height: min(1.75rem, 9vw); padding: 0 .3em; border-radius: 999px; display: grid; place-items: center; flex: none; margin-top: .1rem;
   background: var(--primary-weak); color: var(--primary-weak-text); font-weight: 800; font-size: 1rem; line-height: 1;

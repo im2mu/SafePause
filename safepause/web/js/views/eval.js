@@ -1,7 +1,8 @@
-/* AI 성능 확인(보호자·심사용). 전문 용어(주의·고위험·fused 등)는 이 화면 표에만 쓴다.
- * ① 제출 보고서 수치(검증 세트 seed 21~40, 앱에 함께 넣은 원자료) ② 직접 다시 계산 ③ 내 거래로 확인. */
-import { h, icon, fill, busy, announce, skeleton } from "../ui.js";
-import { nf, percent, num, formatWon } from "../format.js";
+/* AI 성능 확인(조력자·기관용). 전문 용어(주의·고위험·fused 등)는 이 화면 표에만 쓴다.
+ * ① 제출 보고서 수치(검증 세트 seed 21~40, 앱에 함께 넣은 원자료) + 표 위 결론(J11, 표와 같은 수치로 만든 글)
+ * ② 직접 다시 계산 ③ 내 거래로 확인. 표 칸 안 설명도 문장마다 한 줄(C6). */
+import { h, icon, fill, busy, announce, skeleton, splitSentences } from "../ui.js";
+import { nf, percent, num, formatWon, keepUnits } from "../format.js";
 import { errorNotice, learnedText } from "../components.js";
 import { MODE_KO, SIGNAL_KO } from "../labels.js";
 import { STALE, MODE } from "../api.js";
@@ -30,7 +31,8 @@ export default {
         h("div", { class: "field" }, h("label", { for: "eval-seeds", text: "반복 횟수 (seed 수, 인물 3명씩)" }), seeds),
         h("fieldset", { class: "field form-group" }, h("legend", { class: "field-label", text: "어떤 방식으로 확인할까요?" }),
           modeBoxes.map((b) => h("label", { class: "check-row" }, b, h("span", { class: "grow", text: `${MODE_KO[b.value]} (${b.value})` })))),
-        MODE === "engine" ? h("p", { class: "hint", text: "휴대폰에서는 1번에 10초쯤, 10번이면 1~2분 걸려요." }) : null,
+        // 걸리는 시간은 재 둔 기록이 없어 숫자로 약속하지 않는다(C14)
+        h("p", { class: "hint", text: MODE === "engine" ? "반복 횟수가 많을수록 오래 걸려요. 휴대폰에서는 몇 분 걸릴 수 있어요." : "반복 횟수가 많을수록 오래 걸려요." }),
         h("button", { type: "button", class: "btn primary big block", onclick: (e) => busy(e.currentTarget, run) }, icon("chart"), h("span", { text: "확인 시작" }))),
       runOut,
       h("h3", { class: "section-title", text: "내 거래로 확인" }),
@@ -47,6 +49,7 @@ export default {
       const std = ref.sets.standard.modes, sub = ref.sets.subtle.modes;
       const H3 = ["rules", "fused", "anomaly"].map((m) => MODE_KO[m]);
       fill(refSlot,
+        conclusion(std, sub),
         h("div", { class: "table-wrap" }, h("table", null,
           h("caption", { text: "표준 시나리오 300개 (인물 3 × seed 20)" }),
           h("thead", null, h("tr", null, h("th", { text: "지표" }), ["rules", "fused", "anomaly"].map((m) => h("th", { text: MODE_KO[m] })))),
@@ -65,7 +68,10 @@ export default {
             trow("정상 거래 고위험률", ["rules", "fused", "anomaly"].map((m) => percent(sub[m].normal_high_rate, 2)), H3),
             trow("정상 거래 알림률(주의 이상)", ["rules", "fused", "anomaly"].map((m) => percent(sub[m].normal_alert_rate, 2)), H3)))),
         h("p", { class: "muted eval-note", text: `seed ${ref.seeds} 검증 세트(룰 보완에 쓰지 않은 세트). ${ref.note}` }),
-        h("p", { class: "muted eval-note", text: "이 앱 안의 AI 엔진은 PC판과 같은 코드예요. 아래 직접 다시 계산해 보기는 seed 1부터 계산해서 값이 달라요." }));
+        // PC 프로그램 안에서 PC판과 같다고 말하지 않는다(C8)
+        h("p", { class: "muted eval-note", text: MODE === "engine"
+          ? "이 앱 안의 AI 엔진은 PC판과 같은 코드예요. 아래 직접 다시 계산해 보기는 seed 1부터 계산해서 값이 달라요."
+          : "아래 직접 다시 계산해 보기는 seed 1부터 계산해서 값이 달라요." }));
     } catch (e) {
       fill(refSlot, h("div", { class: "notice" }, icon("info"), h("p", { text: "보고서 수치 파일을 읽지 못했어요." })));
     }
@@ -134,6 +140,38 @@ export default {
 
 function trow(label, values, heads = []) {
   // heads: 좁은 화면에서 값 앞에 붙일 칸 이름(표를 카드 모양으로 바꿀 때)
+  // 두 문장 이상인 값(learnedText 등)은 문장마다 한 줄(p 안 span.sent, C6)
   return h("tr", null, h("th", { scope: "row", text: label }),
-    values.map((v, i) => h("td", { class: "num", "data-label": heads[i] || "", text: v })));
+    values.map((v, i) => (splitSentences(String(v)).length > 1
+      ? h("td", { class: "num long", "data-label": heads[i] || "" }, h("p", { text: v }))
+      : h("td", { class: "num", "data-label": heads[i] || "", text: v }))));
+}
+
+// 화면 글에서 숫자와 단위·조사가 줄 끝에서 떨어지지 않게(6만 7천 원, 78.5%로)
+function tight(t) {
+  return keepUnits(t).replace(/%(?=[가-힣])/g, "%\u2060");
+}
+
+/**
+ * 표 위 결론(J11): 규칙만 → 규칙 + AI로 바뀐 점을 표와 같은 수치로 쓴다(합성 데이터 기준). 방향(늘어요·줄어요)은 값에서 정한다.
+ */
+function conclusion(std, sub) {
+  const r = std.rules, f = std.fused;
+  const dir = (a, b, up, down) => (b > a ? up : b < a ? down : "같아요");
+  const lines = [
+    `걱정되는 거래를 꼭 확인으로 알린 비율이 ${percent(r.txn_high_recall)}에서 ${percent(f.txn_high_recall)}로 ${dir(r.txn_high_recall, f.txn_high_recall, "늘어요.", "줄어요.")}`,
+    `첫 알림 전에 나간 돈은 평균 ${formatWon(r.amount_before_first_alert_mean)}에서 ${formatWon(f.amount_before_first_alert_mean)}으로 ${dir(r.amount_before_first_alert_mean, f.amount_before_first_alert_mean, "늘어요.", "줄어요.")}`,
+    `평소 거래를 잘못 알린 비율도 ${percent(r.normal_alert_rate, 2)}에서 ${percent(f.normal_alert_rate, 2)}로 ${dir(r.normal_alert_rate, f.normal_alert_rate, "조금 늘어요.", "줄어요.")}`,
+  ];
+  if (sub && sub.rules && sub.fused) {
+    lines.push(`알아차리기 어려운 경계 변형에서는 꼭 확인으로 찾은 사례가 ${percent(sub.rules.scenario_high, 0)}에서 ${percent(sub.fused.scenario_high, 0)}로 ${dir(sub.rules.scenario_high, sub.fused.scenario_high, "늘어요.", "줄어요.")}`);
+  }
+  const more = f.txn_high_recall > r.txn_high_recall, noisier = f.normal_alert_rate > r.normal_alert_rate;
+  const lead = more && noisier ? "AI를 더하면 꼭 확인할 일을 더 많이 찾지만, 괜찮은 거래 알림도 조금 늘어요."
+    : more ? "AI를 더하면 꼭 확인할 일을 더 많이 찾아요." : "AI를 더해도 꼭 확인할 일을 더 찾지는 못했어요.";
+  return h("section", { class: "card eval-conclusion", "aria-label": "결론" },
+    h("h4", { class: "eval-conclusion-title", text: "규칙만 쓸 때와 AI를 더할 때" }),
+    h("p", { class: "strong", text: lead }),
+    h("ul", { class: "about-bullets" }, lines.map((t) => h("li", null, h("p", { text: tight(t) })))),
+    h("p", { class: "muted", text: "표준 시나리오 300개 기준이에요. 합성 데이터라서 실제 피해 데이터로 확인한 값이 아니에요." }));
 }

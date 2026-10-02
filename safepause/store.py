@@ -42,6 +42,7 @@ DECISIONS_FILE = "decisions.json"
 NOTICES_FILE = "notices.json"            # 자동 알림 기록 + 직접 보낸 알림 기록(kind "manual")
 COUNSELORS_FILE = "counselors.json"      # 상담하는 곳(v0.3)
 FLAGS_FILE = "flags.json"                # 알림 목록에 담은 거래(v0.3)
+REVIEWS_FILE = "reviews.json"            # 내가 한 거예요(오탐 바로잡기) 표시한 거래(v0.3 수정 계획 C)
 
 # wipe()가 지우는 파일 목록. 이 저장소가 만드는 파일은 모두 여기에 있어야 한다.
 STORE_FILES: tuple[str, ...] = (
@@ -52,11 +53,13 @@ STORE_FILES: tuple[str, ...] = (
     NOTICES_FILE,
     COUNSELORS_FILE,
     FLAGS_FILE,
+    REVIEWS_FILE,
 )
 # 지우는 순서: 가장 민감한 거래 기록부터(중간에 실패해도 거래가 먼저 사라지게)
 WIPE_ORDER: tuple[str, ...] = (
     TRANSACTIONS_FILE,
     FLAGS_FILE,
+    REVIEWS_FILE,
     NOTICES_FILE,
     DECISIONS_FILE,
     HELPERS_FILE,
@@ -305,11 +308,28 @@ class Store:
 
     def clear_flags(self) -> None:
         """담은 거래를 모두 비운다(거래를 통째로 바꿀 때)."""
+        self._remove_file(FLAGS_FILE)
+
+    # ---- 내가 한 거예요(v0.3 수정 계획 C): [{txn_id, status: "ok", created_at}] 표시한 순서 ----
+    def load_reviews(self) -> list[dict[str, Any]]:
+        rows = self._read_records(REVIEWS_FILE)
+        if any(not isinstance(r.get("txn_id"), str) for r in rows):
+            raise self._broken(REVIEWS_FILE)
+        return rows
+
+    def save_reviews(self, reviews: list[dict[str, Any]]) -> None:
+        self._write(REVIEWS_FILE, reviews)
+
+    def clear_reviews(self) -> None:
+        """내가 확인한 표시를 모두 비운다(거래를 통째로 바꿀 때)."""
+        self._remove_file(REVIEWS_FILE)
+
+    def _remove_file(self, name: str) -> None:
         with self._lock:
             try:
-                self._unlink(self._path(FLAGS_FILE))
+                self._unlink(self._path(name))
             except OSError as exc:
-                raise self._cannot_write(FLAGS_FILE) from exc
+                raise self._cannot_write(name) from exc
 
     # ---- 거래 ----
     def load_transactions(self) -> list[Transaction]:
@@ -351,6 +371,10 @@ class Store:
 
     def load_notices(self) -> list[dict[str, Any]]:
         return self._read_records(NOTICES_FILE)
+
+    def save_notices(self, records: list[dict[str, Any]]) -> None:
+        """알림 기록 전체를 다시 쓴다(직접 보낸 기록 하나 지우기, v0.3 수정 계획 E)."""
+        self._write(NOTICES_FILE, records)
 
     # ---- 즉시 철회권 ----
     def wipe(self) -> list[str]:

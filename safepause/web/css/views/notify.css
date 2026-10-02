@@ -38,10 +38,15 @@
 .np-person.on { border-color: var(--primary); background: var(--primary-weak); }
 .np-person input { width: 1.375rem; height: 1.375rem; accent-color: var(--primary); flex: none; margin: 0; }
 .np-person:focus-within { box-shadow: var(--focus); }
-.np-person .row-main { min-width: 0; }
-.np-person .row-title { white-space: normal; display: flex; align-items: center; gap: .4rem; }
-.np-kind { width: 1.15rem; height: 1.15rem; flex: none; color: var(--text-3); }
-.np-person.on .np-kind { color: var(--primary); }
+.np-person .row-main { min-width: 0; flex: 1 1 auto; }
+.np-person .row-title { white-space: normal; display: flex; align-items: center; gap: .2rem .4rem; }
+/* 종류 그림은 체크 칸 옆 고정 칸(긴 기관 이름 앞에서 그림만 한 줄에 남지 않게, L12) */
+.np-kind-ic { flex: none; display: grid; place-items: center; width: 1.3rem; color: var(--text-3); }
+.np-kind-ic svg { width: 1.15rem; height: 1.15rem; }
+.np-person.on .np-kind-ic { color: var(--primary); }
+.np-person.off { cursor: not-allowed; }
+.np-person.off .row-main { opacity: .55; }
+.np-name { min-width: 0; flex: 0 1 auto; }
 .row-main > .np-has-row { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .35rem; }
 .np-has {
   display: inline-flex; align-items: center; gap: .25rem; font-size: 1rem; font-weight: 600; line-height: 1.35;
@@ -52,7 +57,6 @@
 /* 받는 사람 추천(POST /api/notify/suggest): 추천 배지, 돈을 받은 조력자 경고 */
 .np-rec-line { color: var(--text-3); margin: -.25rem .1rem .75rem; }
 .np-person .row-title { flex-wrap: wrap; }   /* 큰 글씨: 추천 배지는 이름 다음 줄로(이름이 한 글자씩 쪼개지지 않게) */
-.np-person .row-title > span:not(.badge) { min-width: 0; }
 .np-person .row-title .np-rec { font-size: 1rem; padding: .05rem .5rem; flex: none; }
 .np-rec svg { width: .95rem; height: .95rem; }
 .np-person.conflict { background: var(--caution-weak); }
@@ -60,6 +64,9 @@
 .row-main > .np-conflict { display: flex; gap: .4rem; align-items: flex-start; margin-top: .45rem; color: var(--caution-text); font-weight: 600; }
 .np-conflict svg { width: 1.1rem; height: 1.1rem; flex: none; margin-top: .25rem; }
 .np-none { display: grid; gap: .5rem; justify-items: start; color: var(--text-3); padding: .25rem .1rem; }
+.np-counsel-rec { margin: .25rem .1rem .6rem; }
+/* 받는 사람 한도(10명) 안내 */
+.np-limit { margin-top: .75rem; padding: .7rem .9rem; border-radius: var(--r-m); background: var(--caution-weak); color: var(--caution-text); font-weight: 600; }
 .np-divider { height: 1px; background: var(--line); margin: 1rem 0 .25rem; }
 .np-manage { margin-top: .5rem; }
 
@@ -84,20 +91,59 @@
 .np-reasons svg { width: 1.1rem; height: 1.1rem; flex: none; margin-top: .25rem; }
 .np-missing { margin-top: .7rem; padding: .7rem .9rem; border-radius: var(--r-m); background: var(--caution-weak); color: var(--caution-text); font-weight: 600; }
 
+/* 받는 사람 무리(조력자 / 상담하는 곳): 무리마다 방법·글·앱 열기를 따로 둔다(RF-5) */
+.np-group { display: grid; gap: .6rem; padding: 1rem min(1rem, 4vw); border-radius: var(--r-l); background: var(--surface-2); }
+.np-group + .np-group { margin-top: .75rem; }
+.np-g-head { display: flex; align-items: center; gap: min(.7rem, 3vw); }
+.np-g-main { flex: 1 1 auto; min-width: 0; }
+.np-g-title { font-size: 1.05rem; font-weight: 800; line-height: 1.35; }
+.np-g-names { color: var(--text-3); font-weight: 600; }
+.np-group .segmented { background: var(--surface); }
+.np-group .np-reasons { margin-top: 0; }
+.np-group .np-missing { margin-top: 0; }
+.np-msg-label { margin: .2rem 0 -.2rem; }
+.np-group .field { margin-bottom: 0; }
+.np-group .input { background: var(--surface); }
+.np-group textarea.input { padding-left: min(1rem, 3.5vw); padding-right: min(1rem, 3.5vw); }
+/* 아주 큰 글씨(단계 카드가 13글자보다 좁음): 무리 칸의 바탕·여백·그림을 빼서 글 칸을 넓힌다 */
+@container (max-width: 13rem) {
+  .np-group { padding: .9rem 0 0; background: none; border-radius: 0; border-top: 1px solid var(--line); }
+  .np-g-head > .row-icon, .np-group .btn > .btn-ic { display: none; }   /* 버튼 그림을 빼서 글 칸을 넓힌다 */
+  .np-group .segmented { background: var(--surface-2); }
+  .np-group .input { background: var(--surface-2); }
+}
+
 /* 보낼 글 */
-textarea.input.np-msg { min-height: 9.5rem; line-height: 1.55; white-space: pre-wrap; }
-.np-msg-foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; margin-top: .4rem; }
+textarea.input.np-msg { min-height: 6rem; line-height: 1.55; white-space: pre-wrap; }
+.np-msg-foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
 .np-count { margin-top: 0; font-variant-numeric: tabular-nums; }
 .np-msg-foot .btn { margin-left: auto; }
+/* 메일 제목은 문장에 넣지 않고 이름표 + 값으로(C2) */
+.np-subject { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .6rem; }
+.np-subject-label { color: var(--text-3); font-weight: 600; }
+.np-subject-text { font-weight: 700; overflow-wrap: anywhere; }
+.np-speak { justify-self: start; }
 
 /* 앱 열기 */
-.np-send { display: grid; gap: .5rem; margin: 1.25rem 0 .5rem; }
+.np-send-btns { display: grid; gap: .5rem; margin-top: .25rem; }
 .np-send-btn[aria-disabled="true"] { opacity: .5; }
-.np-must { text-align: center; color: var(--text-3); font-weight: 600; }
+.np-send-text { display: grid; text-align: left; line-height: 1.3; min-width: 0; }
+.np-send-who { font-weight: 600; opacity: .92; overflow-wrap: anywhere; }
+.np-send-btn.done:not(.primary) { background: var(--surface); }
+.np-done { color: var(--ok-text); font-weight: 700; }
+.np-must { text-align: center; color: var(--text-3); font-weight: 600; margin-top: 1rem; }
+.np-empty-line + .np-must { margin-top: .5rem; }
 .np-fail:empty { display: none; }
-.np-fail .notice { margin-bottom: .25rem; }
+.np-fail .notice { margin-bottom: 0; }
+.np-sent-link { margin: .25rem 0 .5rem; }
 
-/* 거래 고르기 시트 */
+/* 거래 고르기 시트: 고르기·닫기는 시트 아래에 붙어 있다(목록이 길어도 늘 보임, L2) */
+.np-pick-sheet .np-pick-actions {
+  position: sticky; bottom: -1.5rem; z-index: 2; margin: .75rem calc(-1 * var(--gutter)) 0; padding: .75rem var(--gutter) 1.5rem;
+  background: var(--surface); border-top: 1px solid var(--line);
+  grid-template-columns: repeat(auto-fit, minmax(min(7.5rem, 100%), 1fr));
+}
+.np-pick-more { margin-top: .75rem; }
 .np-pick-chips { padding-top: 0; }
 .np-pick-panel { min-height: 6rem; }
 .np-pick-total { color: var(--text-3); margin: 0 .2rem .6rem; }
@@ -117,12 +163,17 @@ textarea.input.np-msg { min-height: 9.5rem; line-height: 1.55; white-space: pre-
 .al-tabs-wrap > .seg-tabs { background: color-mix(in srgb, var(--line) 70%, var(--bg-sub)); }
 .al-tabs .seg-tab { flex-direction: column-reverse; justify-content: center; gap: .1rem; padding: .55rem .35rem; overflow-wrap: normal; }
 .al-tabs .seg-tab > span:first-child { line-height: 1.3; }
+/* 좁은 화면: 세 칸 이름을 모두 낱말 사이에서 두 줄로(걱정되는 / 거래, 담은 / 거래, 보낸 / 알림) 맞춰 칸 높이가 같게(D8) */
+.al-tabs .seg-tab > span:first-child { white-space: normal; }
+@container (max-width: 26rem) {
+  .al-tabs .seg-tab > span:first-child { white-space: pre-line; }
+}
 .al-tabs .seg-count { display: block; min-height: 1.3em; font-size: 1.3rem; font-weight: 800; line-height: 1.3; color: var(--text-2); }
 .al-tabs .seg-tab[aria-selected="true"] .seg-count { color: var(--primary); }
 @container (max-width: 15rem) {
   .al-tabs { flex-direction: column; }
   .al-tabs .seg-tab { flex: none; flex-direction: row; justify-content: space-between; text-align: left; padding: .55rem .8rem; overflow-wrap: anywhere; }
-  .al-tabs .seg-tab > span:first-child { flex: 1 1 auto; min-width: 0; }
+  .al-tabs .seg-tab > span:first-child { flex: 1 1 auto; min-width: 0; white-space: normal; }
   .al-tabs .seg-count { font-size: 1.1rem; min-height: 0; flex: none; white-space: nowrap; }
 }
 .al-panel { outline: none; }
@@ -130,6 +181,10 @@ textarea.input.np-msg { min-height: 9.5rem; line-height: 1.55; white-space: pre-
 .al-panel .empty .btn, .np-pick-panel .empty .btn { margin-top: 1rem; }
 .al-panel .empty .btn svg, .np-pick-panel .empty .btn svg { width: 1.25rem; height: 1.25rem; margin: 0; color: currentColor; }
 .al-summary { color: var(--text-3); margin: 0 .25rem .75rem; }
+.al-reviewed-note { display: flex; align-items: flex-start; gap: .35rem; color: var(--ok-text); font-weight: 600; }
+.al-reviewed-note svg { width: 1.1rem; height: 1.1rem; flex: none; margin-top: .25rem; }
+.al-more { margin-top: .75rem; }
+.al-more-note { display: grid; gap: .5rem; justify-items: start; color: var(--text-3); margin: .75rem .25rem 0; }
 
 /* 상담 안내 띠 */
 .al-band {
@@ -147,12 +202,54 @@ textarea.input.np-msg { min-height: 9.5rem; line-height: 1.55; white-space: pre-
   .al-band-btn { width: 100%; }
 }
 
-/* 걱정되는 거래 카드: 머리(그림·등급·담음)는 큰 글씨에서 줄바꿈, 알리기·담기는 한 줄, 소리로 듣기는 아래 한 줄 */
+/* 걱정되는 거래 카드: 머리(그림·등급·담음·내가 확인함·알렸어요)는 큰 글씨에서 줄바꿈,
+   알리기·담기·내가 한 거예요·자세히는 두 칸씩, 소리로 듣기는 아래 한 줄 */
+.al-cards { display: grid; gap: .75rem; }
+.al-cards .alert-card { margin: 0; }
 .al-cards .alert-head { flex-wrap: wrap; }
-.al-cards .card-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(7rem, 100%), 1fr)); }
-.al-cards .card-actions > .speak-btn { grid-column: 1 / -1; order: 3; }
+/* 좁은 화면: [알리기][자세히] 한 줄, 담기·내가 한 거예요는 글이 길어 한 줄씩(세 줄로 꺾이지 않게), 소리로 듣기는 맨 아래 */
+.al-cards .card-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.al-cards .card-actions > .al-send { order: 1; }
+.al-cards .card-actions > .al-detail-btn { order: 2; }
+.al-cards .card-actions > .al-flag-btn { order: 3; grid-column: 1 / -1; }
+.al-cards .card-actions > .al-review-btn { order: 4; grid-column: 1 / -1; }
+.al-cards .card-actions > .speak-btn { grid-column: 1 / -1; order: 5; }
+@container (min-width: 24rem) {   /* 넓은 화면: 두 칸씩 두 줄 */
+  .al-cards .card-actions > .al-flag-btn, .al-cards .card-actions > .al-review-btn { grid-column: auto; }
+}
+@container (max-width: 15rem) { .al-cards .card-actions { grid-template-columns: minmax(0, 1fr); } }   /* 아주 큰 글씨: 한 줄에 하나 */
 .al-cards .card-actions > .btn { min-width: 0; white-space: normal; }
-.al-flag-btn[aria-pressed="true"] { background: var(--primary-weak); color: var(--primary-weak-text); }
+.al-flag-btn[aria-pressed="true"], .al-review-btn[aria-pressed="true"] { background: var(--primary-weak); color: var(--primary-weak-text); }
+.alert-card.reviewed { box-shadow: inset 0 0 0 1.5px var(--line); }
+.alert-card.reviewed .pause-lines, .alert-card.reviewed .card-question { color: var(--text-3); }
+.alert-card:focus { outline: none; box-shadow: var(--focus); }
+
+/* 같은 일 묶기(J5): 머리 줄 + 첫 카드 + 펼치기 */
+.al-group { display: grid; gap: .5rem; padding: .6rem; border-radius: var(--r-l); background: color-mix(in srgb, var(--line) 45%, var(--bg-sub)); }
+.al-group-head { display: flex; align-items: flex-start; gap: .5rem; padding: .25rem .4rem 0; color: var(--text-2); }
+.al-group-head > svg { width: 1.2rem; height: 1.2rem; flex: none; margin-top: .25rem; }
+.al-group-main { flex: 1 1 auto; min-width: 0; }
+.al-group-main b { font-weight: 800; }
+.al-group-toggle .al-group-chev { transition: transform .2s ease; }
+.al-group-toggle[aria-expanded="true"] .al-group-chev { transform: rotate(180deg); }
+.al-group-rest { display: grid; gap: .5rem; }
+
+/* 카드 자세히(거래 시트) */
+.al-d-head { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; }
+.al-d-head .sheet-title { margin-bottom: 0; }
+.al-d-badges { display: flex; flex-wrap: wrap; gap: .35rem; }
+.al-d-amount { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: .5rem; }
+.al-d-amount.in { color: var(--primary); }
+.al-d-facts { display: grid; gap: .1rem; margin: .5rem 0 0; }
+.al-d-fact { display: grid; grid-template-columns: 3.5em minmax(0, 1fr); gap: 0 .75rem; align-items: baseline; }
+.al-d-fact dt { color: var(--text-3); font-weight: 600; }
+.al-d-fact dd { margin: 0; font-weight: 600; }
+.al-next { display: grid; gap: .5rem; }
+.al-next-title { font-size: 1.05rem; font-weight: 800; }
+.al-next-list { display: grid; gap: .45rem; }
+.al-next-list li { display: flex; gap: .5rem; align-items: flex-start; }
+.al-next-list svg { width: 1.15rem; height: 1.15rem; flex: none; margin-top: .25rem; color: var(--primary); }
+.al-next-btns { margin-top: .25rem; }
 
 /* 담은 거래 */
 .al-send-all { margin-bottom: .75rem; }
@@ -175,7 +272,13 @@ textarea.input.np-msg { min-height: 9.5rem; line-height: 1.55; white-space: pre-
 }
 .al-msg.clamp { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .al-msg-toggle { margin-top: .35rem; }
-.al-more-send { margin-top: .25rem; }
+.al-more-send { margin-top: .75rem; }
+.al-sent-actions { padding: .6rem 0 0; }
+/* 적어 둔 기록(조력자 설정대로 적어 두기만 함, 보낸 것이 아님) */
+.al-auto { margin-top: 1.75rem; }
+.al-auto-title { display: flex; align-items: center; gap: .45rem; font-size: var(--title-section); font-weight: 800; margin: 0 .25rem .6rem; }
+.al-auto-title svg { width: 1.2rem; height: 1.2rem; flex: none; color: var(--caution-text); }
+.tag.al-unsent { background: var(--caution-weak); color: var(--caution-text); }
 
 /* ==== 큰 글씨(140~200%)·좁은 칸: 목록의 동그란 그림과 들여쓰기를 빼서 글자 칸을 넓힌다 ==== */
 .np-picked-slot, .np-pick-panel, .al-flags, .al-sent, .al-panel, .np-send, .np-step { container-type: inline-size; }

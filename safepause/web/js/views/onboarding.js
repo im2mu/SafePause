@@ -1,8 +1,26 @@
-/* 처음 켰을 때: 무엇을 하는 앱인지 → 동의 세 가지(모두 꺼짐에서 시작, 따로 고름) → 누가 동의했는지. */
+/* 처음 켰을 때: 무엇을 하는 앱인지 → 동의 세 가지(모두 꺼짐에서 시작, 따로 고름) → 누가 동의했는지 + 약관 동의 자리.
+ * 약관·개인정보 수집·이용 동의는 정식 버전에서 필수가 된다. 지금은 준비 중 자리만 두고 시작을 막지 않는다(IA-6).
+ * 1단계 소개는 전체 탭의 사용법 안내(guide.js)가 introNodes로 다시 보여 준다(J10). */
 import { h, icon, fill, busy, toast } from "../ui.js";
-import { errorNotice } from "../components.js";
+import { errorNotice, menuRow } from "../components.js";
 import { deviceWord } from "../format.js";
 import { STALE } from "../api.js";
+import { openSoon } from "./more.js";
+
+/** 1단계 소개(로고·한 줄 소개·약속 셋). 사용법 안내 화면도 같이 쓴다. heading: "h1"(첫 실행) 또는 "h2"(사용법 안내) */
+export function introNodes(heading = "h1") {
+  return [
+    h("div", { class: "onboard-brandrow" },
+      h("div", { class: "onboard-hero brand-mark" }, icon("logo")),
+      h("p", { class: "onboard-brand", text: "SafePause" })),
+    h(heading, { class: "onboard-title", tabindex: "-1", text: "걱정되는 거래를 함께 알아차려요." }),
+    h("p", { class: "muted", text: "내 거래에서 걱정되는 거래를 찾아 쉬운 말과 그림으로 알려 줘요." }),
+    h("ul", { class: "promise" },
+      h("li", null, icon("sparkle"), h("span", { text: "AI가 걱정되는 거래를 찾아요." })),
+      h("li", null, icon("users"), h("span", { text: "조력자와 상담하는 곳에 알릴 수 있어요." })),
+      h("li", null, icon("lock"), h("span", { text: `${deviceWord()} 안에서만 살펴봐요.` }))),
+  ];
+}
 
 export default {
   title: "시작하기",
@@ -25,23 +43,16 @@ export default {
 
     function show() {
       if (step === 0) {
-        fill(main, h("div", { class: "onboard-body" }, dots(), stepNo(),
-          h("div", { class: "onboard-hero brand-mark" }, icon("logo")),
-          h("p", { class: "onboard-brand", text: "SafePause" }),
-          h("h1", { tabindex: "-1", text: "걱정되는 거래를 함께 알아차려요." }),
-          h("p", { class: "muted", text: "내 거래에서 걱정되는 거래를 찾아 쉬운 말과 그림으로 알려 줘요." }),
-          h("ul", { class: "promise" },
-            h("li", null, icon("sparkle"), h("span", { text: "AI가 걱정되는 거래를 찾아요." })),
-            h("li", null, icon("users"), h("span", { text: "조력자와 상담하는 곳에 알릴 수 있어요." })),
-            h("li", null, icon("lock"), h("span", { text: `${where} 안에서만 살펴봐요.` })))),
+        fill(main, h("div", { class: "onboard-body onboard-intro" }, dots(), stepNo(), introNodes("h1")),
         h("div", { class: "onboard-foot" },
           h("button", { type: "button", class: "btn primary big block", text: "다음", onclick: () => { step = 1; show(); } }),
           h("button", { type: "button", class: "btn ghost big block", text: "나중에 할게요", onclick: later })));
       } else if (step === 1) {
+        // 설명은 동의 화면과 같은 뜻(C2): 보내기는 본인이 누른다
         const items = [
-          ["monitoring", "chart", "거래 살펴보기", "내 거래를 살펴보고 걱정되는 거래를 찾아요."],
-          ["helper_alerts", "users", "조력자에게 알리기", "꼭 확인할 거래가 생기면 내가 고른 조력자에게 알려요."],
-          ["counseling_referral", "building", "상담하는 곳에 알려 주기", "꼭 확인할 일이 30일 동안 3번 이상 생기면 상담하는 곳에 알려 줘요."],
+          ["monitoring", "chart", "거래 살펴보기", ["내 거래를 살펴보고 걱정되는 거래를 찾아요."]],
+          ["helper_alerts", "users", "조력자에게 알리기", ["꼭 확인할 거래가 생기면 내가 고른 조력자에게 알릴 수 있게 골라 둬요.", "보내기는 내가 눌러요."]],
+          ["counseling_referral", "building", "상담하는 곳에 알려 주기", ["상담하는 곳에 알려 줘요.", "알릴 때가 되면 알려 드려요. 보내기는 내가 눌러요."]],
         ];
         fill(main, h("div", { class: "onboard-body" }, dots(), stepNo(),
           h("h1", { tabindex: "-1", text: "무엇을 해도 될까요?" }),
@@ -51,7 +62,7 @@ export default {
               onclick: () => { choice[key] = !choice[key]; sw.setAttribute("aria-checked", choice[key] ? "true" : "false"); } });
             return h("div", { class: "switch-row consent-row" },
               h("div", { class: "consent-head" }, h("span", { class: "row-icon blue" }, icon(ic)), h("h3", { text: title }), sw),
-              h("div", { class: "consent-body" }, h("p", { text: desc })));
+              h("div", { class: "consent-body" }, desc.map((t) => h("p", { text: t }))));
           }))),
         h("div", { class: "onboard-foot" },
           h("button", { type: "button", class: "btn primary big block", text: "다음", onclick: () => { step = 2; show(); } }),
@@ -67,6 +78,12 @@ export default {
           h("p", { class: "muted onboard-sub", text: "동의한 사람을 기록해요. 나중에 동의 화면에서 바꿀 수 있어요." }),
           h("div", { class: "segmented", role: "radiogroup", "aria-label": "누가 동의했나요?" }, radios),
           h("div", { class: "notice onboard-note" }, icon("lock"), h("p", { text: `기록은 ${where} 안에만 저장해요.` })),
+          // 약관 동의 자리(IA-6): 정식 버전에서 필수가 된다. 지금은 내용 보기만 준비 중 안내로 연다
+          h("h2", { class: "section-title onboard-terms-title", text: "약관 동의" }),
+          h("p", { class: "muted", text: "정식 버전에서는 시작하기 전에 읽고 동의해요. 지금은 동의하지 않아도 쓸 수 있어요." }),
+          h("div", { class: "list onboard-terms" },
+            menuRow({ icon: "doc", title: "이용약관 동의", sub: "정식 버전에서 꼭 필요해요.", soon: true, onclick: () => openSoon("terms") }),
+            menuRow({ icon: "shield", title: "개인정보 수집·이용 동의", sub: "정식 버전에서 꼭 필요해요.", soon: true, onclick: () => openSoon("collect") })),
           err),
         h("div", { class: "onboard-foot" },
           h("button", {
@@ -98,6 +115,16 @@ export default {
     }
     window.addEventListener("resize", fitFoot);
     ctx.onCleanup(() => window.removeEventListener("resize", fitFoot));
+    // 글자 크기를 나중에 바꿔도(설정·기기 글자 크기) 버튼 묶음 높이가 바뀌면 다시 잰다
+    if (typeof ResizeObserver === "function") {
+      let lastH = 0;
+      const ro = new ResizeObserver(() => {
+        const foot = main.querySelector(".onboard-foot");
+        if (foot && foot.offsetHeight !== lastH) { lastH = foot.offsetHeight; fitFoot(); }
+      });
+      ro.observe(main);
+      ctx.onCleanup(() => ro.disconnect());
+    }
     show();
   },
 };

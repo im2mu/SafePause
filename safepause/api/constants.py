@@ -27,7 +27,10 @@ MIN_MONTHLY_DAYS = 14                       # 이보다 짧은 기간은 '한 �
 
 # v0.2 연습 화면 안내. 평가·옛 호환을 위해 상수만 남기고, v0.3 응답(check/decide의 practice_note)에는 넣지 않는다(빈 글)
 PRACTICE_NOTE = "연습 화면이에요. 실제로 돈이 나가지 않아요."
-TS_NOTE = ("확인한 거래는 저장된 거래의 마지막 날에 이어서 적어요. "
+# 확인한 거래의 날짜(v0.3 수정 계획 A): 저장된 실제 거래의 마지막 시각이 이 날수 안이면 오늘 날짜(실사용),
+# 더 오래됐으면(합성·옛 데이터) 마지막 실제 거래 날짜에 고른 시각을 붙인다(데모). 확인을 여러 번 해도 날짜를 밀지 않는다
+LIVE_RECENT_DAYS = 45
+TS_NOTE = ("저장된 거래가 오래전 것이라 확인한 거래는 저장된 거래 끝에 이어서 적어요. "
            "그래서 날짜가 오늘과 달라요. 시각만 고른 대로예요.")
 LIVE_IDS_USED_UP = "보내기 전 확인 번호를 다 썼어요. 동의 화면에서 모두 지운 뒤 다시 해 주세요."
 TOO_BIG = "파일이 너무 커요(5MB까지)."
@@ -35,7 +38,7 @@ NO_MONITORING = ("거래 살펴보기에 동의하지 않아서 분석하지 않
                  "동의 화면에서 거래 살펴보기를 켜 주세요.")
 SUPERSEDED = ("지우기(또는 동의 끄기)가 먼저 처리돼서 이번 거래는 저장하지 않았어요. "
               "필요하면 다시 해 주세요.")
-NO_FILE = "올린 파일을 찾지 못했어요. CSV 파일을 골라 다시 올려 주세요."
+NO_FILE = "올린 파일을 찾지 못했어요. CSV나 엑셀(.xlsx) 파일을 골라 다시 올려 주세요."
 SYNTHETIC_NOTE = "합성 데이터 기준, 실제 피해 데이터 검증 아님"
 LABELED_NOTE = ("지금 저장된 거래에는 연습용으로 섞은 걱정되는 거래가 있어요. "
                 "이 숫자는 잘못 알린 비율이 아니에요.")
@@ -68,3 +71,41 @@ TXN_NOT_FOUND = "그 거래를 찾지 못했어요."
 CONFLICT_REASON = "이 거래에서 돈을 받은 사람이에요."   # 받는 사람 추천: 거래 상대방인 조력자
 INSIGHT_MONTHS = 6                          # 돈 흐름 분석: 최근 몇 달까지 보여 줄지
 TOP_PAYEES = 3
+
+# ---- v0.3 수정 계획(docs/v03_fixplan.md) ----
+# 연습용 거래 기본 조합: AI만 먼저 잡은 거래(규칙 신호 없이 AI가 걱정한 거래)가 1건 이상 나오는 조합(테스트로 고정)
+DEFAULT_SAMPLE_PERSONA = "worker"
+DEFAULT_SAMPLE_SEED = 10                     # 근로자·번호 10: 김*호 첫 새벽 이체(28만 원)를 AI만 먼저 잡고, 다음 이체부터 규칙도 잡는다
+REVIEW_OK = "ok"                            # 내가 한 거예요(오탐 바로잡기) 표시. 탐지 등급은 바꾸지 않는다
+NOTICE_NOT_FOUND = "그 알림 기록을 찾지 못했어요."
+ONLY_CHECKED = "보내기 전 확인 기록만 지울 수 있어요."
+UPLOAD_MODES: tuple[str, ...] = ("replace", "append")   # 파일 올리기: 모두 바꾸기 / 이어 붙이기(같은 거래는 한 번만)
+# 화면 이름표(web/js/labels.js CHANNEL_KO·SIGNAL_KO와 같은 글). 분석 결과 표 파일(CSV)에 쓴다
+CHANNEL_KO: dict[str, str] = {
+    "transfer": "계좌 이체", "card": "카드 결제", "micropay": "휴대폰 결제", "telecom_bill": "휴대폰 요금",
+    "atm": "현금 찾기", "income": "들어온 돈", "other": "기타",
+}
+SIGNAL_KO: dict[str, str] = {
+    "night_repeat_transfer": "밤 시간 잦은 이체",
+    "payee_surge": "한 사람에게 송금 집중",
+    "micropay_surge": "휴대폰 소액결제 급증",
+    "new_merchant_high_value": "처음 가는 곳 큰 금액 결제",
+    "multi_line_telecom": "휴대폰 요금 여러 회선",
+}
+SIGNAL_KO_NEUTRAL: dict[str, str] = {"new_merchant_high_value": "큰 금액 결제"}   # 처음인지 알 수 없을 때
+# AI가 본 것(_item의 ai.top_feature): 평균과 가장 다른 특징 1가지(detect.anomaly.explain_features)의 쉬운 말.
+# 이미 끝난 거래를 설명하므로 지난 일로 쓴다. 숫자는 사실(건수)만 넣고 배수 같은 계산 값은 쓰지 않는다
+AI_FEATURE_TEXT: dict[str, str] = {
+    "log_amount": "평소에 쓰던 돈보다 큰 금액이었어요.",
+    "amount_vs_p95": "평소에 쓰던 돈보다 큰 금액이었어요.",
+    "hour_sin": "평소에 잘 쓰지 않던 시간이었어요.",
+    "hour_cos": "평소에 잘 쓰지 않던 시간이었어요.",
+    "is_night": "평소에 잘 쓰지 않던 시간이었어요.",
+    "new_counterparty": "처음 거래한 상대였어요.",
+    "cp_count_7d": "7일 동안 같은 상대와 거래한 횟수가 평소보다 많았어요.",
+    "cp_sum_7d_ratio": "7일 동안 같은 상대에게 간 돈이 평소보다 많았어요.",
+    "channel_count_7d_ratio": "7일 동안 같은 방법으로 돈을 쓴 횟수가 평소보다 많았어요.",
+    "new_line": "처음 보는 휴대폰 번호였어요.",
+    "is_out": "평소와 다르게 돈이 나간 거래였어요.",
+}
+AI_NIGHT_TEXT = "평소에 잘 쓰지 않던 밤 시간이었어요."

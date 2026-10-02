@@ -1,27 +1,32 @@
-/* 돈 보내기(보내기 탭의 첫 탭, #/send): 받는 사람·금액을 적고 → AI 확인 카드 → 본인이 정하면 내 은행 앱을 연다.
+/* 돈 보내기(보내기 탭의 첫 탭, #/send): 받는 사람·금액을 적고 → 보내기 전 확인 카드 → 본인이 정하면 내 은행 앱을 연다.
  * - SafePause는 돈을 옮기지 않는다. 보내기는 본인이 고른 은행 앱에서 한다(은행 이름·로고는 앱에 넣지 않음, bankapp.js).
- * - 확인: POST /api/safepause/check → 카드가 있으면 안전 정지 카드, 없으면(걱정 없음) 바로 결과.
- *   거래 살펴보기 동의가 꺼져 있으면 확인하지 않은 결과를 보인다(보내는 것을 막지 않음).
+ * - 확인: POST /api/safepause/check(아무것도 저장하지 않음) → 카드가 있으면 안전 정지 카드, 없으면(걱정 없음) 결과만 보인다.
+ *   걱정 없음이면 decide를 부르지 않는다(본인이 고르지 않은 결정은 기록하지 않음, 수정 계획 1-A).
+ *   거래 살펴보기 동의가 꺼져 있으면 확인하지 않은 결과를 보인다(보내는 길은 그대로 열어 둠).
  * - 카드 규칙(v0.2와 같음, tests/test_static_ui.py가 확인):
  *   등급 배지 → 그림 → 제목 → 줄 → 질문 → 조력자 안내 → 오류·닫기 → 소리로 듣기 → 선택지 3개(서버 순서·문구 그대로).
  *   닫을 수 없다(dismissible false). 처음 초점은 제목(#card-title). Esc·뒤로 가기는 닫지 않고 안 보낼래요로 초점만 옮긴다.
  *   대화상자 이름은 등급 + 제목(aria-labelledby card-level card-title). 세 선택지는 같은 모양이다(한쪽으로 이끌지 않음).
  *   칸이 넉넉하면 본문·선택지를 나누고(선택지가 늘 보임), 좁으면 카드 전체를 한 번에 스크롤한다(본문이 0px로 접히지 않게, fitLayout).
+ *   나눈 본문이 넘치면 아래쪽을 흐리게 하고 아래로 더 있어요 표시를 둔다(질문·소리로 듣기가 본문 끝에 있음을 알게, L7).
  * - 결정: POST /api/safepause/decide → 결과 시트.
- *   그래도 보낼래요 → 내 은행 앱에서 보내 주세요 + [내 은행 앱 열기]·[다른 은행 앱 고르기]
- *   안 보낼래요 → 보내지 않았어요
- *   조력자에게 물어볼래요 → 물어볼 사람 고르기 → 결과에 [알림 보내기로 문자·메일 보내기](#/send?mode=notify&txn=확인한 거래)
- * - 금액은 80만·1억 2천만처럼 적어도 바르게 읽고(parseKoreanAmount), 정확한 원을 같이 보인다. 0·한도는 그 자리에서 알린다.
+ *   그래도 보낼래요 → 계좌 이체면 내 은행 앱에서 보내 주세요 + [내 은행 앱 열기]·필수 문장, 가게·휴대폰 결제면 결과 글만(RF-7)
+ *   안 보낼래요 → 보내지 않았어요 + [알림 보내기로 문자·메일 보내기](조력자에게 직접 알리는 길, RF-3)
+ *   조력자에게 물어볼래요 → 물어볼 사람 고르기 → [문자로 물어보기]·[메일로 물어보기](알림 보내기에 조력자·글을 미리 채움)
+ *   조력자 설정대로 적어 둔 기록은 보낸 것이 아니다: 보냈다는 약속을 쓰지 않고, 직접 보내는 버튼을 함께 둔다(C1·J4).
+ * - 금액은 80만·1억 2천만처럼 적어도 바르게 읽고(parseKoreanAmount), 정확한 원 하나를 보인다(amountPreview). 0·한도는 그 자리에서 알린다.
  */
 import { h, icon, picto, fill, setText, openSheet, busy, announce, toast, comingSoonSheet } from "../ui.js";
-import { nf, formatWon, moneyText, parseKoreanAmount, sentence } from "../format.js";
-import { LEVEL, DECISION_ICON, EXAMPLES, PAY_CHANNELS, COUNSELING_TITLE } from "../labels.js";
-import { levelBadge, speakButton, menuRow } from "../components.js";
+import { nf, formatWon, moneyText, amountPreview, parseKoreanAmount, sentence, deviceWord } from "../format.js";
+import { LEVEL, DECISION_ICON, EXAMPLES, PAY_CHANNELS, COUNSELING_TITLE, AI_TEXT } from "../labels.js";
+import { levelBadge, speakButton, menuRow, noVoiceNote } from "../components.js";
+import { capabilities } from "../native.js";
 import { STALE, isConsentError } from "../api.js";
 import * as speech from "../speech.js";
 import { bankAppActions, getBankApp, pickBankApp, bankAppUnavailable } from "./bankapp.js";
 
 const MAX_AMOUNT = 10000000000;   // api PendingIn.amount 한도(100억 원)
+const MIN_TRAIN = 30;             // api constants.MIN_TRAIN: 거래가 이보다 적으면 AI 없이 약속(규칙)만 쓴다
 const TIMES = [
   { value: "", label: "지금" },
   { value: "15:00", label: "오후 3시" },
@@ -33,30 +38,55 @@ const NO_CHECK = { spellcheck: "false", autocapitalize: "off", autocorrect: "off
 const MUST = "SafePause는 돈을 보내지 않아요. 보내기는 내 은행 앱에서 해요.";
 const AMOUNT_HINT = "숫자로 적어 주세요. 예: 800000 또는 80만";
 const TOO_BIG = "금액이 너무 커요(100억 원까지).";
+const NO_WORRY = "걱정되는 점이 없어요.";
+const TO_NOTIFY = "알림 보내기로 문자·메일 보내기";
+// 버튼 글의 가운뎃점 낱말(문자·메일)은 줄을 바꾸지 않는 조각으로 넣는다(문자 / ·메일로 끊기지 않게). 글 자체는 그대로다
+function keepDot(text) {
+  return h("span", null, String(text).split(/(\S*·\S*)/).filter(Boolean).map((part) => (part.includes("·") ? h("span", { class: "nowrap", text: part }) : part)));
+}
 // 결과 제목(거래 방법에 맞춰). 서버 decide의 message와 같은 글이다(easy_card.ChannelWords self_do·not_done).
-// 결과에서는 서버 글을 먼저 쓰고, 서버 응답이 없는 경우(동의 꺼짐)에만 이 표를 쓴다. 조력자에게 물어볼래요는 서버 글을 쓴다
+// 서버 응답이 없는 경우(걱정 없음·동의 꺼짐)에는 이 표를 쓴다. 조력자에게 물어볼래요는 서버 글을 쓴다
 const SEND_TITLE = { transfer: "내 은행 앱에서 보내 주세요.", card: "결제는 직접 해 주세요.", micropay: "결제는 직접 해 주세요." };
 const STOP_TITLE = { transfer: "보내지 않았어요.", card: "결제하지 않았어요.", micropay: "결제하지 않았어요." };
+// 요약 칸 이름: 계좌 이체는 받는 사람·보낼 시각, 가게·휴대폰 결제는 받는 곳·결제 시각(RF-7)
+const SUM_WORDS = {
+  transfer: { to: "받는 사람", time: "보낼 시각" },
+  card: { to: "받는 곳", time: "결제 시각" },
+  micropay: { to: "받는 곳", time: "결제 시각" },
+};
+// 계좌 연결해서 바로 보내기(준비 중): 오픈뱅킹 출금 이체 순서. 마이데이터는 조회 전용이라 쓰지 않는다(C4·IA-4)
 const SOON_STEPS = [
-  { title: "계좌 연결", sub: "마이데이터로 내 계좌를 연결해요." },
+  { title: "계좌 연결", sub: "오픈뱅킹으로 내 계좌를 연결해요." },
+  { title: "출금 동의", sub: "이 앱에서 내 계좌의 돈을 보내도 된다고 동의해요." },
   { title: "받는 사람·금액 적기" },
-  { title: "AI 확인 카드", sub: "걱정되는 점이 있으면 한 번 더 물어봐요." },
+  { title: "보내기 전 확인 카드", sub: "걱정되는 점이 있으면 한 번 더 물어봐요." },
   { title: "이체 인증", sub: "은행이 정한 본인 인증과 한도를 거쳐요." },
   { title: "보내기 완료" },
 ];
 
-// 확인한 거래(이 창에서만 기억): 알림 보내기가 저장된 거래에서 그 거래를 못 찾을 때(물어볼래요는 거래 이력에 적지 않음) 쓴다
+// 확인한 거래(이 창에서만 기억, 저장소에 쓰지 않음): 알림 보내기가 저장된 거래에서 그 거래를 못 찾을 때
+// (안 보낼래요·물어볼래요는 거래 이력에 적지 않음) 쓴다. 모두 지우기·거래 살펴보기 끄기로 세대(epoch)가 바뀌면 버린다(IA-1)
 const checked = new Map();
-/** 돈 보내기에서 확인한 거래의 항목(_item 모양) 또는 null. notify.js가 쓴다. */
-export function checkedItem(id) { return checked.get(String(id || "")) || null; }
-function remember(r) {
+/** 돈 보내기에서 확인한 거래의 항목(_item 모양) 또는 null. epoch를 주면 그 세대에 기억한 것만 돌려준다. notify.js가 쓴다. */
+export function checkedItem(id, epoch) {
+  const it = checked.get(String(id || ""));
+  if (!it) return null;
+  if (epoch !== undefined && it.epoch !== epoch) { checked.delete(String(id)); return null; }
+  return it;
+}
+/** 기억한 확인 거래를 모두 잊는다(모두 지우기 때 부를 수 있음). */
+export function clearChecked() { checked.clear(); }
+function remember(r, epoch, cands) {
   const p = r && r.pending;
   if (!p || !p.id) return;
   const a = r.assessment || {};
   checked.set(String(p.id), {
     txn: { ...p, direction: "out" }, level: a.level || "none",
     signals: (a.rule_hits || []).map((x) => x.code), reasons: a.reasons || [], practice: true, flagged: false,
-    unsaved: !r.added_to_history,   // 거래 이력에 적지 않은 거래(서버의 거래 id 요청에는 넣지 않는다)
+    unsaved: !r.added_to_history,   // 거래 이력에 적지 않은 거래(알림 보내기는 이것을 pending으로 추천에 넘긴다, RF-1)
+    // 이 거래에서 돈을 받는 조력자(추천을 못 받을 때도 체크를 풀고 경고하게)
+    conflict_ids: (cands || []).filter((c) => c.conflict).map((c) => String(c.id)),
+    epoch,
   });
 }
 // 서버 글 목록에서 빈 줄을 뺀다(서버 check·decide 글에는 연습이라는 말이 없다: tests/test_api_v03.py가 확인)
@@ -74,6 +104,7 @@ export default {
     const toIdInput = h("input", { class: "input", id: "pay-to-id", type: "text", maxlength: "60", ...NO_CHECK });
     const errorText = h("p", { class: "error-text", id: "pay-error", role: "alert", hidden: true });
     const checkBtn = h("button", { type: "submit", class: "btn primary big block" }, icon("shield"), h("span", { text: "보내기 전에 확인하기" }));
+    const ctaBar = h("div", { class: "cta-bar" }, checkBtn);
     const channelSeg = segmented("pay-channel", PAY_CHANNELS, "transfer", "pay-channel-label");
     const timeSeg = segmented("pay-time", TIMES, "", "pay-time-label", () => paintMore());
     const moreSub = h("span", { class: "mn-more-sub" });
@@ -100,23 +131,26 @@ export default {
       h("div", { class: "field" }, h("span", { class: "field-label", id: "pay-channel-label", text: "어떻게 보내요?" }), channelSeg.el),
       more,
       errorText,
-      h("div", { class: "cta-bar" }, checkBtn));
+      ctaBar);
 
+    // 화면 위 안내: 거래 수·동의에 따라 살펴보는 방법을 사실대로 쓴다(C13: 30건보다 적으면 약속(규칙)만, 동의가 꺼져 있으면 살펴보지 않음)
+    const lead = h("p", { class: "page-sub mn-lead", text: "보내기 전에 받는 사람과 금액을 한 번 더 살펴봐요." });
     const bankRowSlot = h("div");
+    // 필수 문장 안내는 폼 아래에 둔다(첫 화면에서 받는 사람 칸이 확인 버튼에 가리지 않게, L5·D7)
     fill(main,
-      h("p", { class: "page-sub", text: "보내기 전에 받는 사람과 금액을 AI가 한 번 더 살펴봐요." }),
+      lead,
+      form,
       h("div", { class: "notice blue mn-must" }, icon("shield"), h("div", null,
         h("p", { class: "strong", text: MUST }),
-        h("p", { text: "확인이 끝나면 내가 고른 은행 앱을 열어 드려요." }))),
-      form,
+        h("p", { text: "계좌 이체는 확인이 끝나면 내가 고른 은행 앱을 열어 드려요." }))),
       h("h3", { class: "section-title", text: "보내는 방법" }),
       bankRowSlot,
-      h("h3", { class: "section-title" }, h("span", { text: "예시로 해 보기" }), h("span", { class: "tag mn-example-tag", text: "심사·시연용" })),
+      h("h3", { class: "section-title", text: "예시로 해 보기" }),
       h("div", { class: "card flat mn-examples" },
         h("p", { class: "muted", text: "누르면 예시 내용으로 칸을 채워요. 확인은 직접 눌러요." }),
         h("div", { class: "chips", role: "group", "aria-label": "예시" }, EXAMPLES.map((ex) => h("button", { type: "button", class: "chip", onclick: () => fillExample(ex) },
           icon("edit"), h("span", { text: ex.label }))))),
-      speech.available() ? null : h("p", { class: "muted mn-novoice", text: speech.NO_VOICE_NOTE }));
+      noVoiceNote("muted mn-novoice"));
 
     paintBankRow();
     paintMore();
@@ -127,6 +161,23 @@ export default {
     let pending = null;      // 카드에서 고르기를 기다리는 거래(check 요청 + 정해진 시각·id)
     let lastCheck = null;
     let chosenTime = "";     // 자세히에서 고른 보낼 시각(지금이면 빈 글)
+
+    // 확인 버튼은 화면 아래에 붙어 따라온다. 다만 첫 화면에서 받는 사람 칸을 가리면(큰 글씨·짧은 화면) 붙이지 않고 폼 끝에 둔다(L5)
+    function fitCta() {
+      if (!ctaBar.isConnected) return;
+      const active = document.activeElement;
+      if (active && form.contains(active) && active !== checkBtn && /^(INPUT|TEXTAREA)$/.test(active.tagName)) return;   // 자판이 열린 동안은 그대로
+      ctaBar.classList.remove("free");
+      const cs = window.getComputedStyle(ctaBar);
+      if (cs.position !== "sticky") return;
+      const stuckTop = window.innerHeight - (parseFloat(cs.bottom) || 0) - ctaBar.offsetHeight;
+      const firstBottom = toInput.getBoundingClientRect().bottom + window.scrollY;
+      ctaBar.classList.toggle("free", firstBottom > stuckTop - 4);
+    }
+    const onResize = () => fitCta();
+    window.addEventListener("resize", onResize);
+    ctx.onCleanup(() => window.removeEventListener("resize", onResize));
+    window.requestAnimationFrame(fitCta);
 
     // 내 은행 앱 줄 + 계좌 연결해서 바로 보내기(준비 중)
     function paintBankRow() {
@@ -145,7 +196,7 @@ export default {
         menuRow({ icon: "link", title: "계좌 연결해서 바로 보내기", sub: "은행 앱을 열지 않고 여기서 보내요.", soon: true,
           onclick: () => comingSoonSheet({
             icon: "bank", title: "계좌 연결해서 바로 보내기",
-            lines: ["내 계좌를 연결하면 은행 앱을 열지 않고 여기서 바로 보낼 수 있어요.", "보내기 전 AI 확인은 그대로 해요."],
+            lines: ["계좌를 연결해(오픈뱅킹) 이 앱에서 바로 보내요.", "보내기 전에 받는 사람과 금액을 살펴보는 것은 그대로 해요."],
             steps: SOON_STEPS, action: "계좌 연결하기",
           }) })));
     }
@@ -169,7 +220,7 @@ export default {
       else if (!Number.isFinite(n)) msg = AMOUNT_HINT;
       else if (n > MAX_AMOUNT) msg = TOO_BIG;
       if (msg) { amountEasy.classList.add("bad"); amountEasy.textContent = msg; return; }
-      amountEasy.textContent = `= ${formatWon(n)} (${moneyText(n)})`;
+      amountEasy.textContent = amountPreview(n);   // 정확한 원 단위 하나(반올림한 만 원 표기를 붙이지 않음, RF-4)
     }
     function fillExample(ex) {
       toInput.value = ex.to;
@@ -200,7 +251,8 @@ export default {
       box.scrollIntoView({ block: "nearest" });   // 아래에 붙은 확인 버튼에 가리지 않게(scroll-margin, money.css)
     }
 
-    // 최근에 보낸 사람(거래 살펴보기 동의가 있을 때만)
+    // 화면 위 안내 문장(C13)과 최근에 보낸 사람(거래 살펴보기 동의가 있을 때만)을 함께 불러온다
+    paintLead();
     try {
       const p = await ctx.req("GET", "/api/payees");
       const names = (p.items || []).slice(0, 6);
@@ -212,6 +264,19 @@ export default {
         payeeBox.hidden = false;
       }
     } catch (e) { if (e === STALE) return; /* 동의가 없거나 아직 못 읽으면 목록 없이 쓴다 */ }
+
+    async function paintLead() {
+      try {
+        const c = await ctx.req("GET", "/api/consent");
+        if (!c || !c.monitoring) { setText(lead, "거래 살펴보기가 꺼져 있어서 지금은 살펴보지 않아요."); fitCta(); return; }
+        const s = await ctx.req("GET", "/api/data/summary");
+        const n = Number(s && s.count) || 0;
+        setText(lead, n < MIN_TRAIN
+          ? `보내기 전에 받는 사람과 금액을 약속(규칙)으로 한 번 더 살펴봐요. ${AI_TEXT.aiLearning}`
+          : "보내기 전에 받는 사람과 금액을 약속(규칙)과 AI로 한 번 더 살펴봐요.");
+        fitCta();
+      } catch (e) { /* 못 읽으면 처음 문장 그대로 */ }
+    }
 
     async function onCheck(e) {
       e.preventDefault();
@@ -233,7 +298,7 @@ export default {
           lastCheck = r;
           chosenTime = req.time || "";
           if (r.card) openCard(r);
-          else await decide("send", null, null);   // 걱정 없음 → 바로 결과
+          else showNoWorry(req);   // 걱정 없음: 결정을 기록하지 않고 결과만(수정 계획 1-A)
         } catch (err) {
           if (err === STALE) return;
           if (isConsentError(err)) showUnchecked(req);
@@ -247,9 +312,15 @@ export default {
       const card = r.card;
       const lv = LEVEL[card.level] || LEVEL.caution;
       let sheetApi = null;
+      let deciding = false;    // decide 요청 중(버튼은 disabled 대신 aria-disabled: 초점이 body로 빠지지 않게)
       const body = h("div", { class: "sheet-body" });
       const errorSlot = h("div", { class: "pause-error" });
       const foot = h("div", { class: "sheet-foot", role: "group", "aria-label": "고르기" });
+      // 나눈 본문이 넘칠 때 아래로 더 있다는 표시(누르면 본문을 내린다). 읽는 순서를 흐리지 않게 화면 낭독에서는 숨긴다
+      const below = h("button", { type: "button", class: "btn sm ghost mn-below", tabindex: "-1", "aria-hidden": "true",
+        onclick: () => body.scrollBy({ top: Math.max(body.clientHeight * 0.7, 80), behavior: "smooth" }) },
+      icon("chevron-down"), h("span", { text: "아래로 더 있어요" }));
+      body.addEventListener("scroll", () => paintBelow(), { passive: true });
 
       const notes = (() => {
         const plan = r.notify_plan_preview;
@@ -269,15 +340,15 @@ export default {
             h("span", { id: "card-level" }, levelBadge(card.level)),
             h("div", { class: "pictos", "aria-hidden": "true" }, (card.pictograms || []).map((p) => picto(p))),
             h("h2", { class: "pause-title focus-target", id: "card-title", tabindex: "-1", text: card.title })),
-          h("ul", { class: "pause-lines", id: "card-lines" }, card.lines.map((line) => h("li", { text: line }))),
+          h("ul", { class: "pause-lines", id: "card-lines" }, card.lines.map((line) => h("li", null, h("p", { text: line })))),
           h("p", { class: "pause-question", text: card.question }),
           notes.length ? h("div", { class: "helper-note" }, icon("users"), h("div", null, notes.map((t) => h("p", { text: t })))) : null,
           errorSlot,
           speakButton(speakText, { cls: "btn block pause-speak", label: "소리로 듣기" }));
         // 선택지는 서버가 준 순서·문구 그대로. 세 선택지를 같은 모양으로 둔다(한쪽으로 이끌지 않음)
-        fill(foot, card.choices.map((c) => h("button", {
+        fill(foot, below, card.choices.map((c) => h("button", {
           type: "button", class: "btn big block choice-btn", "data-decision": c.decision,
-          onclick: () => (c.decision === "ask_helper" ? showAsk() : choose(c.decision)),
+          onclick: () => { if (deciding) return; if (c.decision === "ask_helper") showAsk(); else choose(c.decision); },
         }, h("span", { class: "ci" }, icon(DECISION_ICON[c.decision] || "check")), h("span", { text: c.label }))));
         fitLayout();
       }
@@ -291,23 +362,35 @@ export default {
         const room = el.clientHeight;
         const fits = room >= 420 && room - foot.scrollHeight >= Math.max(room * 0.4, 240);
         el.classList.toggle("split", fits);
+        paintBelow();
+      }
+      function paintBelow() {
+        const el = sheetApi && sheetApi.el;
+        const more = Boolean(el && el.classList.contains("split") && body.scrollHeight - body.scrollTop - body.clientHeight > 8);
+        below.hidden = !more;
+        if (el) el.classList.toggle("has-more", more);
       }
       const onResize = () => fitLayout();
       window.addEventListener("resize", onResize);
 
-      // 오류·닫기는 소리로 듣기·선택지 앞(카드 순서 규칙). 닫으면 확인 버튼으로 돌아가 다시 할 수 있다
+      // 오류·닫기는 소리로 듣기·선택지 앞(카드 순서 규칙). 물어볼 사람 고르기 화면에도 같은 자리를 둔다(FE-02).
+      // 닫으면 확인 버튼으로 돌아가 다시 할 수 있다
       function showError(err) {
         const msg = sentence(err.message || String(err));
         const box = h("div", { class: "notice red", role: "alert" }, icon("warning"), h("div", null,
           h("p", { text: `${msg} 닫기를 누르고 다시 해 볼 수 있어요.` }),
           h("button", { type: "button", class: "btn sm notice-action", onclick: () => { sheetApi.close(); checkBtn.focus(); } }, icon("close"), h("span", { text: "닫기" }))));
         fill(errorSlot, box);
+        box.scrollIntoView({ block: "nearest" });
         box.querySelector("button").focus();
       }
 
       async function choose(decision, helperIds) {
+        if (deciding) return;
+        deciding = true;
         const buttons = [...foot.querySelectorAll("button"), ...body.querySelectorAll("button")];
-        buttons.forEach((b) => { b.disabled = true; });
+        buttons.forEach((b) => { b.setAttribute("aria-disabled", "true"); });
+        errorSlot.replaceChildren();
         try {
           await decide(decision, helperIds, sheetApi);
         } catch (err) {
@@ -315,14 +398,21 @@ export default {
           if (isConsentError(err)) { const p = pending; sheetApi.close(); if (p) showUnchecked(p); return; }
           showError(err);
         } finally {
-          buttons.forEach((b) => { if (b.isConnected) b.disabled = false; });
+          deciding = false;
+          buttons.forEach((b) => { if (b.isConnected) b.removeAttribute("aria-disabled"); });
         }
       }
 
       // 조력자에게 물어볼래요 2단계: 물어볼 사람을 본인이 고른다(S37)
       function showAsk() {
         const cands = candidatesOf(r);
-        const back = h("button", { type: "button", class: "btn big block", onclick: () => { showMain(); foot.querySelector('[data-decision="ask_helper"]')?.focus(); } }, icon("back"), h("span", { text: "돌아가기" }));
+        errorSlot.replaceChildren();
+        const back = h("button", { type: "button", class: "btn big block", onclick: () => {
+          if (deciding) return;
+          errorSlot.replaceChildren();
+          showMain();
+          foot.querySelector('[data-decision="ask_helper"]')?.focus();
+        } }, icon("back"), h("span", { text: "돌아가기" }));
         if (!cands.some((c) => !c.conflict)) {
           const lines = askNobodyLines(cands);
           const orgs = (r.ask_helper_preview && r.ask_helper_preview.counseling_orgs) || [];
@@ -330,11 +420,13 @@ export default {
             h("h2", { class: "sheet-title focus-target", id: "card-ask-title", tabindex: "-1", text: "물어볼 조력자가 없어요" }),
             lines.map((t) => h("p", { class: "sheet-sub", text: t })),
             orgs.length ? h("div", { class: "notice blue" }, icon("building"), h("div", null, h("p", { text: COUNSELING_TITLE }), h("ul", null, orgs.map((o) => h("li", { text: o }))))) : null,
+            errorSlot,
             speakButton(() => ["물어볼 조력자가 없어요.", ...lines, ...(orgs.length ? [COUNSELING_TITLE, ...orgs] : [])].map(sentence).join(" ")));
-          fill(foot,
+          fill(foot, below,
             h("button", { type: "button", class: "btn primary big block", onclick: () => choose("ask_helper", []) }, icon("building"), h("span", { text: "상담하는 곳에 알릴래요" })),
             back);
           fitLayout();
+          body.scrollTop = 0;
           body.querySelector("#card-ask-title").focus();
           return;
         }
@@ -343,32 +435,35 @@ export default {
         const label = (c) => {
           if (c.conflict) return `${c.name} (돈을 받는 사람이라 이번에는 물어볼 수 없어요)`;
           const who = c.relation ? `${c.name} (${c.relation})` : c.name;
-          if (c.auto) return `${who} · ${why} 조력자 설정대로 알려요`;
+          if (c.auto) return `${who} · ${why} 조력자 설정대로 함께 물어봐요`;
           return c.active === false ? `${who} · 자동으로 알리기는 꺼 두었어요` : who;
         };
         const boxes = cands.map((c) => h("input", { type: "checkbox", value: c.id, checked: !c.conflict && (c.default || c.auto), disabled: c.conflict || c.auto }));
         const err = h("p", { class: "error-text", role: "alert", hidden: true });
-        const hints = ["체크한 사람에게 물어볼게요.", "다음 화면에서 문자나 메일을 보낼 수 있어요."];
-        if (auto.length) hints.push(`${namesText(auto.map((c) => c.name))}에게는 조력자 설정대로 알려요. 그래서 체크를 풀 수 없어요.`);
+        const hints = ["체크한 사람에게 물어볼게요.", "다음 화면에서 문자나 메일을 직접 보내요."];
+        if (auto.length) hints.push(`${namesText(auto.map((c) => c.name))}에게는 조력자 설정대로 늘 함께 물어봐요. 그래서 체크를 풀 수 없어요.`);
         fill(body,
           h("h2", { class: "sheet-title focus-target", id: "card-ask-title", tabindex: "-1", text: "누구에게 물어볼까요?" }),
           h("p", { class: "sheet-sub", text: hints.join(" ") }),
           h("div", { class: "list mn-ask-list" }, cands.map((c, i) => h("label", { class: `check-row row${c.conflict ? " off" : ""}` }, boxes[i],
             h("span", { class: "row-icon" }, icon("users")), h("span", { class: "grow", text: label(c) })))),
           err,
+          errorSlot,
           speakButton(() => ["누구에게 물어볼까요?", ...hints, ...cands.map((c) => label(c))].map(sentence).join(" ")));
-        fill(foot,
+        fill(foot, below,
           h("button", {
             type: "button", class: "btn primary big block",
             onclick: () => {
-              // 체크를 풀 수 없는 자동 알림 대상도 함께 보낸다(그 사람도 물어보는 알림을 받음)
+              // 체크를 풀 수 없는 자동 알림 대상도 함께 보낸다(그 사람에게도 물어봄)
               const ids = boxes.filter((b) => b.checked).map((b) => b.value);
               if (!ids.length) { err.textContent = "물어볼 사람을 한 명 이상 골라 주세요."; err.hidden = false; return; }
+              err.hidden = true;
               choose("ask_helper", ids);
             },
           }, icon("helper"), h("span", { text: "체크한 사람에게 물어볼래요" })),
           back);
         fitLayout();
+        body.scrollTop = 0;
         body.querySelector("#card-ask-title").focus();
       }
 
@@ -378,14 +473,14 @@ export default {
         initialFocus: "#card-title",
         onEscape: () => {
           const askTitle = body.querySelector("#card-ask-title");
-          if (askTitle) { showMain(); body.querySelector("#card-title").focus(); return; }
+          if (askTitle) { if (deciding) return; showMain(); body.querySelector("#card-title").focus(); return; }
           foot.querySelector('[data-decision="cancel"]')?.focus();
         },
         onClose: () => { speech.stop(); window.removeEventListener("resize", onResize); },
       });
       showMain();
       sheetApi.el.setAttribute("aria-labelledby", "card-level card-title");
-      window.requestAnimationFrame(() => body.querySelector("#card-title")?.focus());
+      window.requestAnimationFrame(() => { body.querySelector("#card-title")?.focus(); paintBelow(); });
     }
 
     async function decide(decision, helperIds, sheetApi) {
@@ -393,75 +488,106 @@ export default {
       if (decision === "ask_helper" && Array.isArray(helperIds)) payload.helper_ids = helperIds;
       const r = await ctx.req("POST", "/api/safepause/decide", payload);
       if (pending && r.pending) pending.id = r.pending.id;   // 서버가 새 id를 줬으면 그 id로 다시 시도
-      remember(r);
+      remember(r, ctx.session.epoch, candidatesOf(lastCheck));
       if (sheetApi) sheetApi.close();
       showResult(r, decision, helperIds);
       return r;
     }
 
-    /** 보낼 것 요약(받는 사람·금액·방법·시각·계좌번호): 은행 앱에 옮겨 적기 쉽게. */
+    /** 보낼 것 요약(받는 사람·금액·방법·시각·계좌번호): 은행 앱에 옮겨 적기 쉽게. 결제 방법이면 받는 곳·결제 시각. */
     function summary(p, time) {
       const ch = PAY_CHANNELS.find((c) => c.value === p.channel) || PAY_CHANNELS[0];
+      const words = SUM_WORDS[ch.value] || SUM_WORDS.transfer;
       const t = TIMES.find((x) => x.value === time);
       const rows = [
-        ["받는 사람", p.to || p.counterparty || ""],
+        [words.to, p.to || p.counterparty || ""],
         ["금액", moneyText(p.amount)],
         ["방법", ch.label],
-        time && t ? ["보낼 시각", t.label] : null,
+        time && t ? [words.time, t.label] : null,
         p.to_id ? ["계좌번호", p.to_id] : null,
       ].filter(Boolean);
       return h("dl", { class: "mn-summary" }, rows.map(([k, v]) => h("div", { class: "mn-sum-row" }, h("dt", { text: k }), h("dd", { text: v }))));
+    }
+
+    /** 알림 보내기 주소(확인한 거래를 미리 고름). opts: {helpers, ask, channel, counselors} */
+    function notifyRoute(txnId, { helpers = [], ask = false, channel = "", counselors = false } = {}) {
+      const q = new URLSearchParams({ mode: "notify" });
+      if (txnId) q.set("txn", txnId);
+      if (helpers.length) q.set("helper", helpers.join(","));
+      if (counselors) q.set("to", "counselors");
+      if (ask) q.set("ask", "1");
+      if (channel) q.set("channel", channel);
+      return `send?${q.toString()}`;
     }
 
     function showResult(r, decision, helperIds) {
       const p = { ...pending, ...(r.pending || {}), to: (pending && pending.to) || (r.pending && r.pending.counterparty) || "" };
       const plan = r.notify_plan || {};
       const channel = p.channel || "transfer";
+      const transfer = channel === "transfer";
       const kind = decision === "cancel" ? "stop" : decision === "ask_helper" ? "ask" : "send";
       const title = decision === "send" ? sentence(r.message || SEND_TITLE[channel] || SEND_TITLE.transfer)
         : decision === "cancel" ? sentence(r.message || STOP_TITLE[channel] || STOP_TITLE.transfer)
           : sentence(clean([r.result_title])[0] || "조력자에게 물어봐요");
-      const lines = decision === "ask_helper" ? clean(r.result_lines) : [];
-      // 날짜 안내는 거래 이력에 적었을 때만(보낼래요). 물어볼래요·안 보낼래요는 이력에 적지 않는다
-      const tsNote = r.added_to_history ? clean([r.ts_note || (lastCheck && lastCheck.ts_note) || ""])[0] || "" : "";
-      const showCounseling = Boolean(plan.suggest_counseling && (plan.counseling_orgs || []).length);
-      if (decision !== "send" && plan.note_to_person && !(showCounseling && plan.note_to_person === COUNSELING_TITLE)) lines.push(...clean([plan.note_to_person]));
-      // 조력자 알림은 이 기기에 기록만 한다(문자·메일은 알림 보내기에서 직접): 보낼래요 결과에서는 그렇게 풀어 쓴다
-      const recorded = r.notices_recorded > 0
-        ? (decision === "send" ? "조력자 설정대로 알림 기록을 남겼어요. 문자나 메일은 알림 보내기에서 보낼 수 있어요." : clean([r.delivery_note])[0] || "")
-        : "";
-      const noWorry = decision === "send" && !(lastCheck && lastCheck.card);   // 카드 없이 바로 온 결과(걱정 없음)
-      const spoken = [title, ...(noWorry ? ["걱정되는 점이 없어요."] : []), ...lines];
-      if (decision === "send") spoken.push(MUST);
-      if (showCounseling) spoken.push(COUNSELING_TITLE, `${plan.counseling_orgs.join(", ")}.`);
-      if (tsNote) spoken.push(tsNote);
       const txnId = r.pending && r.pending.id;
       const added = Boolean(r.added_to_history);
+      const cands = candidatesOf(lastCheck);
+      const askedIds = (helperIds || []).map(String);
+      const asked = decision === "ask_helper" ? cands.filter((c) => askedIds.includes(String(c.id)) && !c.conflict) : [];
+      const caps = capabilities();
+      const askWays = [caps.sms ? { value: "sms", label: "문자로 물어보기", icon: "chat" } : null,
+        caps.email ? { value: "email", label: "메일로 물어보기", icon: "mail" } : null].filter(Boolean);
+      const wayWord = caps.sms && caps.email ? "문자나 메일을" : caps.sms ? "문자를" : "메일을";
+
+      // 결과 글: 물어볼래요는 서버 글 + 아래 버튼으로 직접 묻는다는 안내. 보냈다고 약속하지 않는다(C1·J4)
+      const lines = [];
+      if (decision === "ask_helper") {
+        lines.push(...clean(r.result_lines));
+        if (asked.length && askWays.length) lines.push(`아래 버튼으로 ${namesText(asked.map((c) => c.name))}에게 ${wayWord} 보내 물어봐요.`);
+      }
+      // 조력자 설정대로 적어 둔 기록(보낸 것이 아님): 서버 안내 문장 + 장소 + 직접 보내는 길(RF-3·RF-6·C1)
+      const showCounseling = Boolean(plan.suggest_counseling && (plan.counseling_orgs || []).length);
+      const notes = [];
+      if (decision !== "ask_helper") {
+        if (plan.note_to_person && !(showCounseling && plan.note_to_person === COUNSELING_TITLE)) notes.push(...clean([plan.note_to_person]));
+        if (r.notices_recorded > 0) notes.push(`${deviceWord()}에 적어 두기만 했어요.`, "문자나 메일은 알림 보내기에서 직접 보내요.");
+      }
+      const tsNote = added ? clean([r.ts_note || (lastCheck && lastCheck.ts_note) || ""])[0] || "" : "";
+      const spoken = [title, ...lines];
+      if (decision === "send" && transfer) spoken.push(MUST);
+      spoken.push(...notes);
+      if (showCounseling) spoken.push(COUNSELING_TITLE, `${plan.counseling_orgs.join(", ")}.`);
+      if (tsNote) spoken.push(tsNote);
 
       openSheet((close) => {
         const done = () => { close(); resetForm(added); };
-        const toNotify = () => {
-          const q = new URLSearchParams({ mode: "notify" });
-          if (txnId) q.append("txn", txnId);
-          for (const id of helperIds || []) q.append("helper", id);
-          if (decision === "ask_helper" && !(helperIds || []).length) q.set("to", "counselors");   // 물어볼 조력자가 없었음
-          close();
-          resetForm(false);
-          go(`send?${q.toString()}`);
-        };
+        const toNotify = (route) => { close(); resetForm(added); go(route); };
+        // 결과의 알림 보내기 버튼: 물어볼래요는 문자·메일 따로, 물어볼 조력자가 없었으면 상담하는 곳, 그 밖은 조력자에게 직접 알리기
+        let notifyBtns = null;
+        if (decision === "ask_helper" && asked.length) {
+          notifyBtns = (askWays.length ? askWays : [{ value: "", label: TO_NOTIFY, icon: "chat" }]).map((w, i) => h("button", {
+            type: "button", class: `btn ${i === 0 ? "primary" : "weak"} big block result-main`,
+            onclick: () => toNotify(notifyRoute(txnId, { helpers: asked.map((c) => String(c.id)), ask: true, channel: w.value })),
+          }, icon(w.icon), keepDot(w.label)));
+        } else if (decision === "ask_helper") {
+          notifyBtns = h("button", { type: "button", class: "btn primary big block result-main",
+            onclick: () => toNotify(notifyRoute(txnId, { counselors: true })) }, icon("chat"), keepDot(TO_NOTIFY));
+        } else if (lastCheck && lastCheck.card) {
+          notifyBtns = h("button", { type: "button", class: `btn ${decision === "cancel" ? "primary" : "weak"} big block result-main`,
+            onclick: () => toNotify(notifyRoute(txnId)) }, icon("chat"), keepDot(TO_NOTIFY));
+        }
         return [
           h("div", { class: `result-hero ${kind}` },
-            h("div", { class: "big-icon" }, icon(kind === "stop" ? "stop" : kind === "ask" ? "helper" : decision === "send" && channel === "transfer" ? "bank" : "check")),
-            h("h2", { class: "focus-target", tabindex: "-1", text: title }),
-            noWorry ? h("p", { class: "result-ok" }, icon("check-line"), h("span", { text: "걱정되는 점이 없어요." })) : null),
+            h("div", { class: "big-icon" }, icon(kind === "stop" ? "stop" : kind === "ask" ? "helper" : transfer ? "bank" : "check")),
+            h("h2", { class: "focus-target", tabindex: "-1", text: title })),
           lines.length ? h("div", { class: "result-lines" }, lines.map((line) => h("p", { text: line }))) : null,
           decision === "send" ? summary(p, chosenTime) : null,
-          decision === "send" ? bankAppActions() : null,
-          decision === "send" ? mustLine() : null,
-          decision === "ask_helper" ? h("button", { type: "button", class: "btn primary big block result-main", onclick: toNotify }, icon("chat"), h("span", { text: "알림 보내기로 문자·메일 보내기" })) : null,
-          recorded || showCounseling || tsNote ? h("div", { class: "result-notes" },
-            recorded ? h("p", { class: "muted", text: recorded }) : null,
-            recorded && decision === "send" ? h("button", { type: "button", class: "btn sm weak", onclick: toNotify }, icon("chat"), h("span", { text: "알림 보내기" })) : null,
+          decision === "send" && transfer ? bankAppActions() : null,
+          decision === "send" && transfer ? mustLine() : null,
+          decision === "send" ? null : notifyBtns,
+          notes.length || showCounseling || tsNote || (decision === "send" && notifyBtns) ? h("div", { class: "result-notes" },
+            notes.length ? h("div", { class: "mn-notes" }, notes.map((t) => h("p", { class: "muted", text: t }))) : null,
+            decision === "send" ? notifyBtns : null,
             showCounseling ? h("div", { class: "notice blue" }, icon("building"), h("div", null, h("p", { text: COUNSELING_TITLE }), h("ul", null, plan.counseling_orgs.map((o) => h("li", { text: o }))))) : null,
             tsNote ? h("p", { class: "muted", text: tsNote }) : null) : null,
           h("div", { class: "sheet-actions" },
@@ -472,19 +598,41 @@ export default {
       announce(title);
     }
 
+    // 걱정 없음(카드 없음): 결정을 기록하지 않는다. 계좌 이체일 때만 내 은행 앱을 연다(수정 계획 1-A·RF-7)
+    function showNoWorry(req) {
+      const channel = req.channel || "transfer";
+      const transfer = channel === "transfer";
+      const next = SEND_TITLE[channel] || SEND_TITLE.transfer;
+      const spoken = [NO_WORRY, next, ...(transfer ? [MUST] : [])];
+      openSheet((close) => [
+        h("div", { class: "result-hero ok" }, h("div", { class: "big-icon" }, icon("check-line")),
+          h("h2", { class: "focus-target", tabindex: "-1", text: NO_WORRY })),
+        h("div", { class: "result-lines" }, h("p", { text: next })),
+        summary(req, req.time || ""),
+        transfer ? bankAppActions() : null,
+        transfer ? mustLine() : null,
+        h("div", { class: "sheet-actions" },
+          speakButton(() => spoken.map(sentence).join(" ")),
+          h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => { close(); resetForm(false); } })),
+      ], { label: NO_WORRY, className: "mn-result" });
+      announce(NO_WORRY);
+    }
+
     // 거래 살펴보기 동의가 꺼져 있으면 확인하지 않는다. 그래도 보내는 길은 그대로 열어 둔다
     function showUnchecked(req) {
-      const title = SEND_TITLE[req.channel] || SEND_TITLE.transfer;
+      const channel = req.channel || "transfer";
+      const transfer = channel === "transfer";
+      const title = SEND_TITLE[channel] || SEND_TITLE.transfer;
       const lines = ["거래 살펴보기가 꺼져 있어서 SafePause는 확인하지 않았어요."];
       openSheet((close) => [
-        h("div", { class: "result-hero" }, h("div", { class: "big-icon" }, icon("bank")),
+        h("div", { class: "result-hero" }, h("div", { class: "big-icon" }, icon(transfer ? "bank" : "check")),
           h("h2", { class: "focus-target", tabindex: "-1", text: title })),
         h("div", { class: "result-lines" }, lines.map((t) => h("p", { text: t }))),
         summary(req, req.time || ""),
-        bankAppActions(),
-        mustLine(),
+        transfer ? bankAppActions() : null,
+        transfer ? mustLine() : null,
         h("div", { class: "sheet-actions" },
-          speakButton(() => [title, ...lines, MUST].map(sentence).join(" ")),
+          speakButton(() => [title, ...lines, ...(transfer ? [MUST] : [])].map(sentence).join(" ")),
           h("button", { type: "button", class: "btn weak big block", onclick: () => { close(); go("more/consent"); } }, icon("toggle"), h("span", { text: "동의 켜러 가기" })),
           h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => { close(); resetForm(false); } })),
       ], { label: title, className: "mn-result" });

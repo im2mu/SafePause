@@ -14,6 +14,7 @@ from pydantic import BaseModel, ValidationError
 
 from safepause.api.schemas import (
     CardsQuery,
+    CheckedIn,
     ConsentIn,
     CounselorList,
     DecideIn,
@@ -21,7 +22,9 @@ from safepause.api.schemas import (
     FlagIn,
     HelperList,
     NoticeRecordIn,
+    NoticeRemoveIn,
     PendingIn,
+    ReviewIn,
     SampleIn,
     SuggestIn,
     TxnQuery,
@@ -62,15 +65,20 @@ def _eval_run(s: Service, q: dict[str, str], body: Any, raw: Optional[bytes]) ->
 
 
 def _upload(s: Service, q: dict[str, str], body: Any, raw: Optional[bytes]) -> Any:
+    """파일 올리기. 앱(엔진)은 본문 {mapping, mode}와 파일 바이트를 따로 넘긴다(PC는 multipart 칸 mapping·mode)."""
     mapping = ""
-    if isinstance(body, dict) and isinstance(body.get("mapping"), str):
-        mapping = body["mapping"]
-    return s.upload(raw, mapping)
+    mode: Optional[str] = None
+    if isinstance(body, dict):
+        if isinstance(body.get("mapping"), str):
+            mapping = body["mapping"]
+        if body.get("mode") is not None:
+            mode = body["mode"] if isinstance(body["mode"], str) else "?"   # 글이 아니면 서비스가 422로 알림
+    return s.upload(raw, mapping, mode)
 
 
 def _transactions(s: Service, q: dict[str, str], body: Any, raw: Optional[bytes]) -> Any:
     query = TxnQuery.model_validate(q)
-    return s.transactions(query.level, query.limit, query.offset)
+    return s.transactions(query.level, query.limit, query.offset, query.q, query.since, query.until)
 
 
 def _cards(s: Service, q: dict[str, str], body: Any, raw: Optional[bytes]) -> Any:
@@ -92,6 +100,9 @@ ROUTES: dict[tuple[str, str], Handler] = {
     ("GET", "/api/flags"): lambda s, q, b, r: s.get_flags(),
     ("POST", "/api/flags"): lambda s, q, b, r: s.add_flag(_model(FlagIn, b)),
     ("POST", "/api/flags/remove"): lambda s, q, b, r: s.remove_flag(_model(FlagIn, b)),
+    ("POST", "/api/reviews"): lambda s, q, b, r: s.add_review(_model(ReviewIn, b)),
+    ("POST", "/api/reviews/remove"): lambda s, q, b, r: s.remove_review(_model(ReviewIn, b)),
+    ("POST", "/api/transactions/remove-checked"): lambda s, q, b, r: s.remove_checked(_model(CheckedIn, b)),
     ("GET", "/api/insights"): lambda s, q, b, r: s.insights(),
     ("GET", "/api/payees"): lambda s, q, b, r: s.payees(),
     ("POST", "/api/safepause/check"): lambda s, q, b, r: s.check(_model(PendingIn, b)),
@@ -99,12 +110,14 @@ ROUTES: dict[tuple[str, str], Handler] = {
     ("GET", "/api/cards"): _cards,
     ("GET", "/api/notices"): lambda s, q, b, r: s.notices(),
     ("POST", "/api/notices/record"): lambda s, q, b, r: s.record_notice(_model(NoticeRecordIn, b)),
+    ("POST", "/api/notices/remove"): lambda s, q, b, r: s.remove_notice(_model(NoticeRemoveIn, b)),
     ("POST", "/api/notify/suggest"): lambda s, q, b, r: s.notify_suggest(_model(SuggestIn, b)),
     ("GET", "/api/decisions"): lambda s, q, b, r: s.decisions(),
     ("POST", "/api/eval/run"): _eval_run,
     ("POST", "/api/eval/file"): lambda s, q, b, r: s.eval_file(),
     ("GET", "/api/export/results"): lambda s, q, b, r: s.export_results_csv(),
     ("GET", "/api/export/validation"): lambda s, q, b, r: s.export_validation(),
+    ("GET", "/api/export/summary"): lambda s, q, b, r: s.export_summary(),
     ("POST", "/api/wipe"): lambda s, q, b, r: s.wipe(),
 }
 
@@ -121,10 +134,10 @@ def dispatch(service: Service, method: str, path: str, body: Any = None,
     try:
         return 200, route(service, query, body, raw)
     except ValidationError as exc:
-        detail, errors = validation_detail(exc.errors())
+        detail, errors = validation_detail(exc.errors(), parts.path)
         return 422, {"detail": detail, "errors": errors}
     except _MissingBody:
-        detail, errors = validation_detail([{"loc": ("body",), "type": "missing"}])
+        detail, errors = validation_detail([{"loc": ("body",), "type": "missing"}], parts.path)
         return 422, {"detail": detail, "errors": errors}
     except ServiceError as exc:
         payload: dict[str, Any] = {"detail": exc.detail}

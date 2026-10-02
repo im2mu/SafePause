@@ -15,6 +15,7 @@ decisions.json
 notices.json
 counselors.json
 flags.json
+reviews.json
 serve.lock
 .sp-*
 file_eval_*

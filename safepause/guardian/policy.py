@@ -5,7 +5,9 @@
 - 기본은 고위험(HIGH)만 알린다(Helper.min_level 기본값 HIGH).
 - 조력자가 이번 거래의 상대방이면 그 조력자는 이번 건에서 빼고 다른 조력자에게만 알린다.
 - 상담기관 연계는 당사자가 동의했을 때만 제안한다.
-- 조력자 메시지는 "결정은 당사자가 한다"는 문구를 반드시 담는다.
+- v0.3: 자동 알림은 실제로 보내지 않고 이 기기에 적어 두기만 한다. 그래서 당사자에게 보이는 문장에
+  보낸다는 약속(알려 드릴게요)을 쓰지 않고, 적어 둔 기록 글에도 당사자 결정 문장을 넣지 않는다
+  (당사자 화면에 그대로 보이며, 사용자 금지 문구 '결정은 내가 해요'와 같은 뜻이라서. docs/v03_fixplan.md A).
 - 당사자가 카드에서 '조력자에게 물어볼래요'를 고르면, 물어볼 조력자도 당사자가 고른다
   (helper_ids). 고르지 않았으면 당사자가 정한 '무엇을 알릴까요?' 범위 안의 조력자에게만 묻는다.
 - Helper.active는 '자동으로 알리기'다. 꺼 두면 자동 알림만 받지 않고, 당사자가 직접 물을 때는
@@ -47,23 +49,23 @@ NOTE_NO_HELPER_TO_ASK = "물어볼 수 있는 조력자가 없어요."
 # ---- 조력자 메시지 --------------------------------------------------------
 
 def helper_message(person_name: str = DEFAULT_PERSON_NAME) -> str:
-    """조력자에게 남길 요약. 당사자 결정 존중 문구를 포함한다(금액·상대는 넣지 않는다)."""
+    """조력자에게 알릴 거래를 적어 둔 기록의 글(금액·상대는 넣지 않는다). 먼저 본인과 이야기해 달라고 쓴다."""
     p = (person_name or "").strip()
     if p:
         return (f"[SafePause] {p}님 거래에서 확인이 필요한 신호가 있어요. "
-                f"결정은 {p}님이 합니다. 먼저 {p}님과 이야기해 주세요.")
+                f"먼저 {p}님과 이야기해 주세요.")
     return ("[SafePause] 함께 확인이 필요한 거래가 있어요. "
-            "결정은 본인이 해요. 먼저 본인과 이야기해 주세요.")
+            "먼저 본인과 이야기해 주세요.")
 
 
 def ask_helper_message(person_name: str = DEFAULT_PERSON_NAME) -> str:
-    """당사자가 '조력자에게 물어볼래요'를 골랐을 때의 메시지."""
+    """당사자가 '조력자에게 물어볼래요'를 골랐을 때 적어 두는 글."""
     p = (person_name or "").strip()
     if p:
         return (f"[SafePause] {p}님이 거래를 함께 확인해 주기를 원해요. "
-                f"결정은 {p}님이 합니다. 먼저 {p}님과 이야기해 주세요.")
+                f"먼저 {p}님과 이야기해 주세요.")
     return ("[SafePause] 본인이 거래를 함께 확인해 주기를 원해요. "
-            "결정은 본인이 해요. 먼저 본인과 이야기해 주세요.")
+            "먼저 본인과 이야기해 주세요.")
 
 
 # ---- 이해충돌(조력자 = 거래 상대방) 판별 ------------------------------------
@@ -163,12 +165,27 @@ def names_phrase(names: list[str]) -> str:
     return f"{names[0]} 외 {len(names) - 1}명"
 
 
+# 끝 글자가 한글이 아닐 때 읽는 소리의 받침 여부: 숫자(영·일·삼·육·칠·팔 = 받침), 영문 끝 l·m·n(엘·엠·엔, 빌·톰·앤)
+_DIGIT_FINAL = {"0": True, "1": True, "2": False, "3": True, "4": False, "5": False, "6": True, "7": True,
+                "8": True, "9": False}
+_LATIN_FINAL = frozenset("lmn")
+
+
+def _has_final(phrase: str) -> bool:
+    """마지막 글자(한글·숫자·영문, 뒤의 기호는 건너뜀)를 읽을 때 받침이 있는지. 알 수 없으면 False."""
+    for ch in reversed(phrase):
+        if 0xAC00 <= ord(ch) <= 0xD7A3:
+            return (ord(ch) - 0xAC00) % 28 != 0
+        if ch in _DIGIT_FINAL:
+            return _DIGIT_FINAL[ch]
+        if ch.isascii() and ch.isalpha():
+            return ch.lower() in _LATIN_FINAL
+    return False
+
+
 def _topic(phrase: str) -> str:
-    """은/는 조사를 붙인다. 끝 글자가 한글이 아니면 '은(는)'."""
-    last = phrase[-1:] or " "
-    if not 0xAC00 <= ord(last) <= 0xD7A3:
-        return phrase + "은(는)"
-    return phrase + ("은" if (ord(last) - 0xAC00) % 28 else "는")
+    """은/는 조사를 붙인다. 을(를)·은(는) 같은 묶음 표기는 쓰지 않는다(C11)."""
+    return phrase + ("은" if _has_final(phrase) else "는")
 
 
 def _conflict_reason(conflicted: list[Helper]) -> str:
@@ -230,9 +247,11 @@ def decide(assessment: RiskAssessment, txn: Transaction, helpers: list[Helper], 
                for h in to_notify]
 
     if to_notify:
+        # 실제로 보내지 않으므로 보낸다는 약속을 쓰지 않는다: 고르기 전에는 알릴 수 있다고, 고른 뒤에는 적어 두었다고
         names = names_phrase([h.name for h in to_notify])
-        note = (f"{_conflict_reason(conflicted)} 그래서 {names}에게만 알려 드릴게요." if conflicted
-                else f"{names}에게 알려 드릴게요.")
+        tail = "알릴 수 있어요." if preview else "알릴 수 있게 적어 두었어요."
+        note = (f"{_conflict_reason(conflicted)} 그래서 {names}에게만 {tail}" if conflicted
+                else f"{names}에게 {tail}")
     elif all_conflicted:
         verb = "않아요" if preview else "않았어요"
         note = (f"{_conflict_reason(conflicted)} 그래서 이번에는 "
@@ -298,9 +317,10 @@ def ask_helper_plan(assessment: RiskAssessment, txn: Transaction, helpers: list[
                for h in to_notify]
 
     if to_notify:
+        # 물어보는 사람은 본인이다(문자·메일은 알림 보내기에서 본인이 보냄): 앱이 물어보겠다고 약속하지 않는다
         names = names_phrase([h.name for h in to_notify])
-        note = (f"{_conflict_reason(conflicted)} 그래서 {names}에게만 물어볼게요." if conflicted
-                else f"{names}에게 물어볼게요.")
+        note = (f"{_conflict_reason(conflicted)} 그래서 {names}에게만 물어봐요." if conflicted
+                else f"{names}에게 물어봐요.")
     elif all_conflicted:
         note = f"{_conflict_reason(conflicted)} 그래서 이번에는 물어보지 않았어요."
     elif helpers:

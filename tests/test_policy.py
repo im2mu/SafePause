@@ -16,6 +16,7 @@ from safepause.guardian.policy import (
     ask_helper_candidates,
     ask_helper_plan,
     decide,
+    ask_helper_message,
     helper_message,
     is_conflict,
 )
@@ -84,7 +85,10 @@ def test_default_min_level_is_high_only() -> None:
     assert caution.note_to_person == NOTE_NOT_NOTIFIED
     high = run(assessment(RiskLevel.HIGH), txn(), [MOM], ALERTS_ONLY)
     assert [n.helper_id for n in high.notices] == ["h1"]
-    assert high.note_to_person == "엄마에게 알려 드릴게요."
+    assert high.note_to_person == "엄마에게 알릴 수 있게 적어 두었어요."
+    # 고르기 전 미리 보기: 보낸다는 약속 없이 알릴 수 있다고만(v0.3 수정 계획 A)
+    preview = decide(assessment(RiskLevel.HIGH), txn(), [MOM], ALERTS_ONLY, 0, SETTINGS, now=NOW, preview=True)
+    assert preview.note_to_person == "엄마에게 알릴 수 있어요."
 
 
 def test_min_level_caution_helper_gets_caution_alerts() -> None:
@@ -207,7 +211,7 @@ def test_conflicted_helper_excluded_others_notified() -> None:
     plan = run(assessment(), txn("김엄마", "110-123-456789"), [MOM, CENTER], ALERTS_ONLY)
     assert plan.excluded_conflict == ["h1"]
     assert [n.helper_id for n in plan.notices] == ["h2"]
-    assert plan.note_to_person == "엄마는 돈을 받는 사람이에요. 그래서 센터 선생님에게만 알려 드릴게요."
+    assert plan.note_to_person == "엄마는 돈을 받는 사람이에요. 그래서 센터 선생님에게만 알릴 수 있게 적어 두었어요."
     assert plan.suggest_counseling is False
 
 
@@ -267,16 +271,17 @@ def test_settings_default_used_when_omitted() -> None:
 # ---- 메시지 ---------------------------------------------------------------
 
 def test_message_respects_persons_decision() -> None:
+    """적어 둔 기록 글은 먼저 본인과 이야기해 달라고 쓴다. 당사자 화면에 보이므로 결정 문장은 넣지 않는다(RF-11)."""
     plan = run(assessment(), txn(), [MOM, CENTER], ALERTS_ONLY)
     assert len(plan.notices) == 2
     for notice in plan.notices:
         assert notice.message == ("[SafePause] 민수님 거래에서 확인이 필요한 신호가 있어요. "
-                                  "결정은 민수님이 합니다. 먼저 민수님과 이야기해 주세요.")
-        assert "결정은 민수님이 합니다" in notice.message
+                                  "먼저 민수님과 이야기해 주세요.")
+        assert "결정은" not in notice.message
         assert notice.txn_id == "t9" and notice.level == RiskLevel.HIGH
         assert notice.created_at == "2026-09-30T21:05:00"
     assert [n.helper_name for n in plan.notices] == ["엄마", "센터 선생님"]
-    assert plan.note_to_person == "엄마, 센터 선생님에게 알려 드릴게요."
+    assert plan.note_to_person == "엄마, 센터 선생님에게 알릴 수 있게 적어 두었어요."
 
 
 def test_message_does_not_leak_amount_or_counterparty() -> None:
@@ -288,14 +293,17 @@ def test_message_does_not_leak_amount_or_counterparty() -> None:
 def test_default_person_name() -> None:
     # 부를 이름이 없으면 '당사자님' 같은 어려운 말 대신 '본인'으로 쓴다(⑤ 기록에 그대로 보임)
     msg = helper_message()
-    assert "결정은 본인이 해요" in msg and "당사자" not in msg
-    assert "결정은 민수님이 합니다" in helper_message("민수")
+    assert msg == "[SafePause] 함께 확인이 필요한 거래가 있어요. 먼저 본인과 이야기해 주세요."
+    assert "당사자" not in msg and "결정은" not in msg
+    assert "먼저 민수님과 이야기해 주세요." in helper_message("민수")
+    for text in (msg, helper_message("민수"), ask_helper_message(), ask_helper_message("민수")):
+        assert "결정은" not in text and "알려 드릴" not in text
 
 
 def test_many_helpers_note_is_short() -> None:
     helpers = [Helper(id=f"h{i}", name=f"조력자{i}", relation="가족") for i in range(4)]
     plan = run(assessment(), txn(), helpers, ALERTS_ONLY)
-    assert plan.note_to_person == "조력자0 외 3명에게 알려 드릴게요."
+    assert plan.note_to_person == "조력자0 외 3명에게 알릴 수 있게 적어 두었어요."
 
 
 def test_plan_is_json_serializable() -> None:
@@ -311,8 +319,9 @@ def test_ask_helper_plan_ignores_level_but_respects_conflict() -> None:
                            person_name="민수", now=NOW)
     assert [n.helper_id for n in plan.notices] == ["h2"]
     assert plan.excluded_conflict == ["h1"]
-    assert "결정은 민수님이 합니다" in plan.notices[0].message
-    assert plan.note_to_person == "엄마는 돈을 받는 사람이에요. 그래서 센터 선생님에게만 물어볼게요."
+    assert plan.notices[0].message == ("[SafePause] 민수님이 거래를 함께 확인해 주기를 원해요. "
+                                       "먼저 민수님과 이야기해 주세요.")
+    assert plan.note_to_person == "엄마는 돈을 받는 사람이에요. 그래서 센터 선생님에게만 물어봐요."
 
 
 def test_ask_helper_plan_all_conflicted() -> None:
@@ -343,7 +352,7 @@ def test_ask_helper_uses_chosen_ids_only() -> None:
     plan = ask_helper_plan(night, txn(), [CENTER, DAD_BILLS_ONLY], ALERTS_ONLY,
                            helper_ids=["h3"], now=NOW)
     assert [n.helper_id for n in plan.notices] == ["h3"]
-    assert plan.note_to_person == "아빠에게 물어볼게요."
+    assert plan.note_to_person == "아빠에게 물어봐요."
     # 아무도 고르지 않으면 알리지 않는다
     none = ask_helper_plan(night, txn(), [CENTER, DAD_BILLS_ONLY], ALERTS_ONLY, helper_ids=[], now=NOW)
     assert none.notices == [] and none.note_to_person == NOTE_NONE_CHOSEN
@@ -375,8 +384,21 @@ def test_helper_without_auto_alerts_can_still_be_asked() -> None:
     assert auto.notices == []
     asked = ask_helper_plan(night, txn(), [mom_ask_only], ALL_ON, helper_ids=["h1"], now=NOW)
     assert [n.helper_id for n in asked.notices] == ["h1"]
-    assert asked.note_to_person == "엄마에게 물어볼게요."
+    assert asked.note_to_person == "엄마에게 물어봐요."
     by_scope = ask_helper_plan(night, txn(), [mom_ask_only], ALL_ON, now=NOW)   # 고르지 않으면 범위 안 모두
     assert [n.helper_id for n in by_scope.notices] == ["h1"]
     nobody = ask_helper_plan(night, txn(), [], ALL_ON, now=NOW)
     assert nobody.notices == [] and nobody.note_to_person == "물어볼 수 있는 조력자가 없어요."
+
+
+# ---- 조사(C11: 은(는) 같은 묶음 표기 없이) ------------------------------------------------
+
+@pytest.mark.parametrize("name,expected", [
+    ("엄마", "엄마는"), ("센터 선생님", "센터 선생님은"), ("조력자0 외 3명", "조력자0 외 3명은"),
+    ("010-1234-5678", "010-1234-5678은"), ("010-1234-5672", "010-1234-5672는"), ("이모(2)", "이모(2)는"),
+    ("Tom", "Tom은"), ("Mike", "Mike는"), ("엄마 :)", "엄마 :)는"), ("!!", "!!는"),
+])
+def test_topic_particle_has_no_paren_form(name: str, expected: str) -> None:
+    from safepause.guardian.policy import _topic
+    assert _topic(name) == expected
+    assert "(는)" not in _topic(name) and "(은)" not in _topic(name)

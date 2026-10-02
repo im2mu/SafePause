@@ -1,10 +1,11 @@
-"""거래내역 CSV 가져오기.
+"""거래내역 CSV·엑셀(.xlsx) 가져오기.
 
 - SafePause 표준 CSV(열: id,ts,amount,direction,channel,...)면 그대로 읽는다.
 - 그 밖의 CSV는 한국어 머리글(열 이름)을 보고 자동으로 짝을 짓는다. 특정 금융기관 양식을
   지원한다는 뜻이 아니다(실제 양식으로 시험한 적 없음). 머리글을 모르면 ``mapping``으로 지정한다.
 - 인코딩: 파일 앞이 FF FE / FE FF(BOM)면 UTF-16, 아니면 utf-8-sig → cp949 순서로 시도한다.
-  엑셀(xlsx·xls)·PDF·사진·HTML 파일은 앞 바이트(또는 글)로 알아보고 맞는 안내를 한다.
+  엑셀(.xlsx)은 첫 시트를 CSV 글로 바꿔 같은 방법으로 읽는다(data.xlsx, 표준 라이브러리만, v0.3 수정 AUG-02).
+  옛 엑셀(.xls)·PDF·사진·HTML 파일은 앞 바이트(또는 글)로 알아보고 맞는 안내를 한다.
 - 구분자: 쉼표·탭·세미콜론·세로줄(|)을 하나씩 써 보고, 머리글을 찾은 구분자를 쓴다.
 - 거래 종류(channel)·상대 식별값은 글자를 보고 추정하며, 추정했다는 사실을 리포트
   ``warnings``에 남긴다. 회선 번호(전화번호)를 알 수 없는 통신요금은 회선을 비워 둔다.
@@ -48,6 +49,7 @@ from safepause.data.synth import (
     round_amount,
     txn_from_standard_row,
 )
+from safepause.data.xlsx import XlsxError, is_zip, xlsx_to_csv_text
 from safepause.models import Channel, Direction, Transaction
 
 ENCODINGS: tuple[str, ...] = ("utf-8-sig", "cp949")
@@ -161,11 +163,10 @@ def plain_message(text: str) -> str:
     return out
 _SAVE_AS_CSV = ("엑셀에서 [다른 이름으로 저장]을 누르고 파일 형식을 [CSV UTF-8(쉼표로 분리)]로 골라 저장한 뒤 "
                 "그 파일을 올려 주세요.")
-_EXPORT_HINT = "은행 앱이나 인터넷뱅킹에서 거래내역을 엑셀 파일로 내려받은 뒤, " + _SAVE_AS_CSV
+_EXPORT_HINT = "은행 앱이나 인터넷뱅킹에서 거래내역을 엑셀(.xlsx)이나 CSV 파일로 내려받아 올려 주세요."
 _IMAGE_MESSAGE = "사진(이미지) 파일은 읽지 못해요. " + _EXPORT_HINT
-# 파일 앞 바이트 → 안내(CSV가 아닌 파일)
+# 파일 앞 바이트 → 안내(CSV·엑셀(.xlsx)이 아닌 파일). zip(PK)은 _read_text가 엑셀로 읽어 본다
 _SIGNATURES: tuple[tuple[bytes, str], ...] = (
-    (b"PK\x03\x04", "엑셀 파일(.xlsx)이나 압축 파일은 바로 읽지 못해요. " + _SAVE_AS_CSV),
     (bytes.fromhex("D0CF11E0A1B11AE1"), "옛 엑셀 파일(.xls) 같은 문서 파일은 바로 읽지 못해요. " + _SAVE_AS_CSV),
     (b"%PDF", "PDF 파일은 읽지 못해요. " + _EXPORT_HINT),
     (b"\x89PNG\r\n\x1a\n", _IMAGE_MESSAGE),
@@ -271,6 +272,11 @@ def _read_text(src: str | Path | bytes) -> tuple[str, str]:
         if not path.is_file():
             raise LoaderError(f"파일을 찾을 수 없어요: {path}")
         data = path.read_bytes()
+    if is_zip(data):   # 엑셀(.xlsx): 첫 시트를 CSV 글로 바꾼다. 엑셀이 아닌 zip·손상·너무 큰 파일은 안내
+        try:
+            return xlsx_to_csv_text(data), "xlsx"
+        except XlsxError as exc:
+            raise LoaderError(str(exc)) from exc
     for magic, message in _SIGNATURES:
         if data.startswith(magic):
             raise LoaderError(message)

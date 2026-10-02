@@ -181,6 +181,32 @@
 - 상담 동의 이름을 "상담하는 곳에 알려 주기"로 바꾼다. 관련 문구는 "상담하는 곳에 알려 줘요."
 - 탐지 로직·평가 수치는 바꾸지 않는다. `python tools/check_eval_unchanged.py`가 차이 0이어야 한다.
 
+### 3.7 2026-10-03 수정(적대적 검증 145건, `docs/v03_fixplan.md`)으로 더하고 바꾼 것
+
+결정과 까닭은 fixplan 1절이 원본이다. 여기에는 구현된 계약만 적는다(서비스·router·FastAPI 같음, `tests/test_v03_fixplan.py` 파리티 시험).
+
+- **새 저장 파일 `reviews.json`** `[{txn_id, status: "ok", created_at}]`(내가 한 거예요). `store.STORE_FILES`·모두 지우기·packaging `PRIVATE_FILE_NAMES`·`.gitignore`에 들어 있다. 거래를 통째로 바꾸면 비우고, 이어 붙이기에서는 그대로 둔다.
+- **새 API**
+  - `POST /api/reviews {txn_id}` → `{ok, count}`. 거래 살펴보기 동의가 필요하고, 없는 거래는 404 "그 거래를 찾지 못했어요."
+  - `POST /api/reviews/remove {txn_id}` → `{ok, count}`(동의 없이 됨)
+  - `POST /api/notices/remove {id}` → `{ok, count}`. 직접 보낸 기록(kind manual)만 지운다. 자동 기록이나 없는 id는 404 "그 알림 기록을 찾지 못했어요."
+  - `POST /api/transactions/remove-checked {txn_id}` → `{ok, count(남은 거래 수)}`. 보내기 전 확인 기록(`live-…`)만 지우고 관련 담음·확인 표시도 정리한다. 그 밖의 id는 400 "보내기 전 확인 기록만 지울 수 있어요.", 없으면 404
+  - `GET /api/export/summary` → `{filename: "safepause-summary-YYYYMMDD.txt", mime: "text/plain", text, note}`. 조력자·기관용 한 장 요약이고 이름·계좌는 넣지 않는다.
+- **바뀐 API**
+  - `POST /api/notify/suggest {txn_ids, pending?}`: `pending`(check 응답의 pending 모양)이면 저장하지 않은 확인 거래도 이해충돌·등급을 본다. 이해충돌은 나간 돈의 받는 사람만 본다. 알릴 조력자가 모두 돈 받은 사람이고 상담하는 곳 동의가 있으면 상담하는 곳을 추천한다. 응답에 `counseling_reason: "repeat"|"conflict"|""`를 더했다.
+  - `POST /api/data/upload`: 본문 `mode: "replace"(기본)|"append"`(PC는 multipart 칸, 앱 엔진은 본문). append는 같은 거래(시각·금액·방향·방법·상대 정규화)를 한 번만 둔다. 응답에 `mode, added, duplicates, levels, ai_only`. 틀린 mode는 422 "입력한 값을 확인해 주세요: 올리는 방법"
+  - `.xlsx`: 표준 라이브러리(zipfile·xml.etree)만으로 첫 시트를 읽는다(`safepause/data/xlsx.py`). 압축 해제 합계 30MB, 파일 5,000개, 10만 줄, 256칸 상한, DTD 거부. 앱 엔진(Pyodide)에서도 같다.
+  - `GET /api/insights`: 보내기 전 확인 기록(live)을 모든 수치에서 빼고 `checked_excluded`로 그 수를 알린다. `compare: {month, days, prev_days, prev_same_period_out, prev_same_period_count}`(지난달 같은 날짜 범위, 지난달을 다 모르면 null)를 더했다.
+  - `GET /api/transactions?level&limit&offset&q&since&until`: 이름 검색과 기간. 최상위에 `open_summary`(내가 확인한 것을 뺀 등급별 수)·`reviewed_count`. `GET /api/cards`에 `open`·`reviewed`
+  - 거래·카드·담은 거래 항목: `reviewed: bool`, `notified_at`(직접 보낸 기록 가운데 그 거래가 든 가장 최근 시각 또는 null), `ai: {fitted, percentile(0~100 또는 null), top_feature(쉬운 말 한 줄 또는 null), only_ai, raised}`. check 응답에도 `ai`
+  - `POST /api/data/sample`: 기본값이 가상 근로자·번호 10이다(AI만 먼저 찾은 거래가 1건 있는 조합). 응답에 `levels`·`ai_only`
+  - `POST /api/notices/record`의 `recipients`에 저장된 조력자·상담하는 곳 `id`를 함께 적는다(다시 보내기용, 모르는 받는 사람은 빈 글)
+  - 자동 기록(kind auto)은 조력자 이름의 번호를 가리고, 글에서 결정 문장을 뺀다. 화면은 이것을 적어 둔 기록(아직 안 보냄)으로 나눠 보인다.
+  - 조력자 PUT: 옛 가린 연락처만 있는 조력자는 phone·email을 비워 보내도 보존한다. 지우려면 그 항목에 `clear_contact: true`
+- **보내기 전 확인 기록의 시각**: 저장된 실제 거래의 마지막 시각이 45일 안이면 지금, 더 오래됐으면(합성 데이터) 마지막 실제 거래 날짜에 고른 시각을 붙인다. 그 시각이 마지막 실제 거래보다 이르면 다음 날이다(확인 기록이 실제 거래 사이에 끼지 않게). 여러 번 확인해도 날짜가 더 밀리지 않는다. 이때만 `ts_note`를 준다.
+- **문구**: `delivery_note`는 "알림은 기록만 해요. 문자나 메일은 알림 보내기에서 보낼 수 있어요."(장소 말 없음). 미리 보기는 "…에게 알릴 수 있어요.", 결정 뒤는 "…에게 알릴 수 있게 적어 두었어요.", 물어볼래요는 "…에게 물어봐요."이다. 보냈다고 약속하는 글은 쓰지 않는다. 보낸 알림 탭의 `GET /api/notices` delivery_note는 3.4의 고정 문구 그대로다.
+- **앱 엔진**: 위 새 API 가운데 reviews·reviews/remove·notices/remove·transactions/remove-checked는 AI 패키지 없이 처리돼 worker.mjs BASIC에 넣었다(AI 준비 전·AI 부분 실패 때도 됨). suggest·upload·sample·export/summary는 AI 준비 뒤에 처리한다.
+
 ## 4. 안드로이드 계약 (`android/`)
 
 - `res/values/strings.xml` app_name을 `SafePause`로 바꾼다. 런처 이름이 바뀐다.

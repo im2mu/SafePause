@@ -10,7 +10,7 @@
 .send-panel { outline: none; }
 
 /* ==== 돈 보내기 입력 ====================================================== */
-.mn-must { align-items: flex-start; }
+.mn-must { align-items: flex-start; margin-top: 1rem; }   /* 필수 문장 안내는 폼 아래(첫 화면에서 받는 사람 칸이 보이게, L5·D7) */
 .mn-must .strong { font-weight: 800; }
 .mn-must p + p { margin-top: .35rem; }
 .mn-form { padding-top: 1.25rem; }
@@ -42,12 +42,12 @@
 }
 @media (min-width: 900px) { .mn-form .cta-bar { bottom: 0; } }
 @media (max-width: 899px) { body.typing .mn-form .cta-bar { bottom: 0; } }   /* 자판이 열려 아래 탭이 숨으면 자판 바로 위 */
+/* 첫 화면에서 받는 사람 칸을 가리면(큰 글씨·짧은 화면) 확인 버튼을 붙이지 않고 폼 끝에 둔다(money.js fitCta, L5) */
+.mn-form .cta-bar.free { position: static; background: none; padding-top: .5rem; }
 .mn-form > .error-text { margin-bottom: .25rem; }
 /* 칸·오류로 스크롤할 때 아래에 붙은 확인 버튼(약 5rem)과 아래 탭에 가리지 않게 */
 .mn-form :is(.input, .error-text, .amount-easy) { scroll-margin-top: 1rem; scroll-margin-bottom: calc(var(--nav-h) + 6rem); }
 
-.mn-example-tag { font-weight: 700; }
-.section-title .mn-example-tag { margin-right: auto; }
 .mn-examples .chips { padding-bottom: 0; margin-top: .5rem; }
 .mn-examples .chip { white-space: normal; text-align: left; border-radius: var(--r-l); }
 .mn-novoice { margin: .5rem .25rem; }
@@ -69,6 +69,7 @@
 .helper-note svg { width: 1.25rem; height: 1.25rem; flex: none; margin-top: .15rem; }
 .helper-note p + p { margin-top: .35rem; }
 .pause-error:not(:empty) { margin-top: .75rem; }
+.pause-lines li > p { margin: 0; }
 .pause-speak { margin-top: .75rem; }
 .choice-btn { justify-content: flex-start; text-align: left; min-height: 3.75rem; font-size: 1rem; }
 .choice-btn .ci { width: min(2.25rem, 10vw); height: min(2.25rem, 10vw); border-radius: 50%; display: grid; place-items: center; background: var(--surface); flex: none; }
@@ -85,6 +86,11 @@
 .sheet.split > .sheet-foot { flex: none; display: grid; gap: .5rem; padding: .75rem 0 max(1rem, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
 .sheet.split .pause-head { margin-top: 0; }
 .sheet.pause:not(.split) > .sheet-foot { display: grid; gap: .5rem; padding: .75rem 0 .5rem; }
+/* 나눈 본문이 넘치면 아래쪽을 흐리게 하고 아래로 더 있어요 표시를 둔다(질문·소리로 듣기가 첫 화면 밖이어도 알게, L7) */
+.sheet.split.has-more > .sheet-body { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent); }
+.mn-below { justify-self: center; margin-top: -.25rem; color: var(--text-3); min-height: 2.4rem; }
+.mn-below svg { width: 1.1rem; height: 1.1rem; }
+.sheet.pause:not(.split) .mn-below { display: none; }
 @media (min-width: 600px) { .sheet.pause { padding-top: 0; } .sheet.pause .pause-head { border-radius: var(--r-xl) var(--r-xl) 0 0; } }
 
 /* ==== 결과 ============================================================== */
@@ -93,6 +99,7 @@
 .result-hero .big-icon svg { width: min(2.1rem, 9.5vw); height: min(2.1rem, 9.5vw); }
 .result-hero.stop .big-icon { background: var(--danger-weak); color: var(--danger); }
 .result-hero.ask .big-icon { background: var(--ok-weak); color: var(--ok-text); }
+.result-hero.ok .big-icon { background: var(--ok-weak); color: var(--ok-text); }
 .result-hero h2 { font-size: 1.35rem; font-weight: 800; line-height: 1.35; outline: none; }
 .result-ok { display: inline-flex; align-items: center; gap: .35rem; margin-top: .5rem; color: var(--ok-text); font-weight: 700; }
 .result-ok svg { width: 1.2rem; height: 1.2rem; flex: none; }
@@ -100,7 +107,8 @@
 .result-lines p { color: var(--text-2); }
 .result-main { margin-top: .25rem; }
 .result-notes { display: grid; gap: .6rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-.result-notes > .btn { justify-self: start; }
+.result-notes > .btn { justify-self: stretch; }
+.mn-notes { display: grid; gap: .25rem; }
 .result-notes .notice { margin-bottom: 0; }
 /* 결과의 필수 문장(은행 앱 버튼 바로 아래) */
 .mn-must-line { display: flex; gap: .5rem; align-items: flex-start; margin-top: .75rem; color: var(--primary-weak-text); font-weight: 700; }

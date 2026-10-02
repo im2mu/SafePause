@@ -1,6 +1,7 @@
 """조력자 알림 보관함. SPEC §7.
 
 프로토타입이므로 실제 문자·메일·앱 알림을 보내지 않는다. 알림은 로컬 저장소에 기록만 된다.
+문자·메일은 본인이 알림 보내기 화면에서 보낸다. 장소 말(이 휴대폰·이 컴퓨터)은 화면이 붙인다(v0.3 수정 계획 A).
 """
 from __future__ import annotations
 
@@ -8,7 +9,7 @@ from typing import Iterable, Protocol, runtime_checkable
 
 from safepause.models import HelperNotice, NotifyPlan
 
-DELIVERY_NOTE = "알림은 기록만 해요. 이 기기에 적어 두고, 문자나 메일은 보내지 않아요."
+DELIVERY_NOTE = "알림은 기록만 해요. 문자나 메일은 알림 보내기에서 보낼 수 있어요."
 
 
 @runtime_checkable

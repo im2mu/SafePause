@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal, Optional
 
 from pydantic import (
@@ -17,6 +17,8 @@ from pydantic import (
 )
 
 from safepause.api.constants import (
+    DEFAULT_SAMPLE_PERSONA,
+    DEFAULT_SAMPLE_SEED,
     MAX_EVAL_SEEDS,
     MAX_HELPERS,
     MAX_NOTICE_MESSAGE,
@@ -50,21 +52,39 @@ FIELD_KO: dict[str, str] = {
     "level": "보기", "limit": "개수", "offset": "시작 위치",
     "phone": "전화번호", "email": "이메일", "phone_masked": "전화번호", "email_masked": "이메일",
     "kind": "종류", "memo": "메모", "txn_id": "거래", "txn_ids": "거래", "recipients": "받는 사람",
-    "message": "보낼 글",
+    "message": "보낼 글", "mode": "올리는 방법", "clear_contact": "옛 연락처 지우기",
+    "q": "검색어", "since": "시작 날짜", "until": "끝 날짜",
 }
 
+# 경로마다 다른 칸 이름(같은 칸 이름이 화면마다 다른 뜻일 때)과 목록 원소 오류에 쓸 목록 이름(v0.3 수정 BE-10)
+PATH_FIELD_KO: dict[str, dict[str, str]] = {
+    "/api/counselors": {"active": "사용"},
+    "/api/notices/record": {"id": "받는 사람"},
+    "/api/notices/remove": {"id": "알림 기록"},
+}
+PATH_LIST_KO: dict[str, str] = {"/api/counselors": "상담하는 곳", "/api/helpers": "조력자"}
+# FastAPI는 객체가 아닌 본문을 model_attributes_type으로, pydantic 직접 검사(router)는 model_type으로 알린다(BE-9)
+_TYPE_ALIASES = {"model_type": "model_attributes_type"}
 
-def validation_detail(errors: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
-    """pydantic 오류 목록 → ('입력한 값을 확인해 주세요: 금액, 받는 사람', [{loc, type}])."""
+
+def validation_detail(errors: list[dict[str, Any]], path: str = "") -> tuple[str, list[dict[str, Any]]]:
+    """pydantic 오류 목록 → ('입력한 값을 확인해 주세요: 금액, 받는 사람', [{loc, type}]).
+
+    path: 요청 경로(/api/counselors 등). 경로마다 다른 칸 이름과 목록 원소 이름을 쓴다. 라우터와 FastAPI가 같은 값을 준다.
+    """
+    labels = {**FIELD_KO, **PATH_FIELD_KO.get(path, {})}
     names: list[str] = []
     out: list[dict[str, Any]] = []
     for err in errors:
         loc = [str(x) for x in err.get("loc", ()) if x not in ("body", "query", "path")]
-        label = next((FIELD_KO[x] for x in reversed(loc) if x in FIELD_KO), None)
+        label = next((labels[x] for x in reversed(loc) if x in labels), None)
         if err.get("type") == "extra_forbidden" and loc:   # 받지 않는 칸: 영어 경로 대신 쉬운 말 + 칸 이름
             label = f"받지 않는 항목({loc[-1]})"
+        if label is None and loc and all(x.isdigit() for x in loc):   # 목록 원소 자체가 틀림([null] 등)
+            label = PATH_LIST_KO.get(path)
         names.append(label or (".".join(loc) or "요청"))
-        out.append({"loc": loc, "type": str(err.get("type", ""))})
+        kind = str(err.get("type", ""))
+        out.append({"loc": loc, "type": _TYPE_ALIASES.get(kind, kind)})
     return "입력한 값을 확인해 주세요: " + ", ".join(dict.fromkeys(names)), out
 
 
@@ -98,6 +118,8 @@ class HelperIn(BaseModel):
     contact는 옛 클라이언트(phone·email 칸을 보내지 않음)용이다. 그때만 contact를 나눠 넣는다(@가 있으면 메일).
     phone·email 칸을 보내는 새 클라이언트의 contact(GET이 준 가린 표시)는 쓰지 않는다. 번호·메일을 지웠는데
     옛 표시가 남지 않게 하기 위함이다. GET이 주는 phone_masked·email_masked도 그대로 돌려보내도 되며 무시한다.
+    v0.2에서 옮겨 온 가린 연락처(원본 없음)만 있는 조력자는, 같은 id로 번호·메일을 비워 보내도 그 표시를 지키고
+    clear_contact가 참일 때만 지운다(BE-8: 다른 조력자를 저장하기만 해도 사라지던 문제).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -113,6 +135,7 @@ class HelperIn(BaseModel):
     min_level: Literal["caution", "high"] = "high"   # 기본: 고위험만(S22)
     signal_scope: list[SignalCode] = Field(default_factory=list)
     active: StrictBool = True
+    clear_contact: StrictBool = False   # 옛 가린 연락처(원본 없음)를 지울 때 참
 
     @model_validator(mode="before")
     @classmethod
@@ -219,6 +242,10 @@ class FlagIn(BaseModel):
         return value
 
 
+ReviewIn = FlagIn       # 내가 한 거예요 표시·취소 {txn_id}(v0.3 수정 계획 C)
+CheckedIn = FlagIn      # 보내기 전 확인 기록 지우기 {txn_id}(v0.3 수정 계획 A)
+
+
 def _clean_txn_ids(values: list[str]) -> list[str]:
     """거래 id 목록: 앞뒤 빈칸을 떼고 빈 값은 빼며 겹치면 한 번만(들어온 순서대로). 너무 긴 id는 오류."""
     out = [v.strip() for v in values if v and v.strip()]
@@ -271,16 +298,19 @@ class NoticeRecordIn(BaseModel):
         return value
 
 
-class SuggestIn(BaseModel):
-    """알림 보내기의 받는 사람 추천(v0.3 돈 보내기 설계). 고른 거래 0~20개(없으면 조력자 설정만 본다)."""
+class NoticeRemoveIn(BaseModel):
+    """직접 보낸 알림 기록 하나 지우기(v0.3 수정 계획 E). 자동 기록은 지우지 않는다."""
 
     model_config = ConfigDict(extra="forbid")
-    txn_ids: list[str] = Field(default_factory=list, max_length=MAX_NOTICE_TXNS)
+    id: str = Field(min_length=1, max_length=40)
 
-    @field_validator("txn_ids")
+    @field_validator("id")
     @classmethod
-    def _txn_ids(cls, values: list[str]) -> list[str]:
-        return _clean_txn_ids(values)
+    def _strip(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("지울 기록을 골라 주세요.")
+        return value
 
 
 class PendingIn(BaseModel):
@@ -313,6 +343,22 @@ class PendingIn(BaseModel):
         return value
 
 
+class SuggestIn(BaseModel):
+    """알림 보내기의 받는 사람 추천(v0.3 돈 보내기 설계). 고른 거래 0~20개(없으면 조력자 설정만 본다).
+
+    pending: 저장하지 않은 보내기 전 확인 거래(물어볼래요·안 보낼래요에서 넘어올 때). 이 거래도 이해충돌·등급을 본다.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    txn_ids: list[str] = Field(default_factory=list, max_length=MAX_NOTICE_TXNS)
+    pending: Optional[PendingIn] = None
+
+    @field_validator("txn_ids")
+    @classmethod
+    def _txn_ids(cls, values: list[str]) -> list[str]:
+        return _clean_txn_ids(values)
+
+
 class DecideIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     pending: PendingIn
@@ -333,8 +379,8 @@ class DecideIn(BaseModel):
 
 class SampleIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    persona: str = "worker"
-    seed: int = Field(1, ge=0, le=1_000_000)
+    persona: str = DEFAULT_SAMPLE_PERSONA
+    seed: int = Field(DEFAULT_SAMPLE_SEED, ge=0, le=1_000_000)   # 기본: AI만 먼저 잡은 거래가 있는 조합
     scenarios: StrictBool = True
     days: int = Field(120, ge=SCENARIO_WINDOW_DAYS + 1, le=365)
 
@@ -364,12 +410,18 @@ class EvalIn(BaseModel):
 
 
 class TxnQuery(BaseModel):
-    """거래 목록 조회 조건(쪽 나눔: offset·limit. limit=0이면 전부). level=flagged는 담은 거래만."""
+    """거래 목록 조회 조건(쪽 나눔: offset·limit. limit=0이면 전부). level=flagged는 담은 거래만.
+
+    q: 상대 이름 검색(공백·대소문자 무시, 포함). since·until: 거래 날짜 범위(YYYY-MM-DD, 양 끝 포함). v0.3 수정 AUG-09·J9.
+    """
 
     model_config = ConfigDict(extra="ignore")
     level: Literal["all", "caution", "high", "flagged"] = "all"
     limit: int = Field(0, ge=0, le=100_000)
     offset: int = Field(0, ge=0, le=10_000_000)
+    q: str = Field("", max_length=40)
+    since: Optional[date] = None
+    until: Optional[date] = None
 
 
 class CardsQuery(BaseModel):

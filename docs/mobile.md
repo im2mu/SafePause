@@ -24,12 +24,15 @@
 [MainActivity.java]  https://app.safepause.local/* 요청만 APK assets에서 꺼내 줌. 그 밖의 주소는 403.
   JS 다리 SafePauseNative: 기기 TTS(인터넷이 필요한 음성은 쓰지 않음), 파일 저장(시스템 저장 창),
     v0.3: openExternal(sms:·smsto:·mailto:·tel:만, 문자·메일 앱/다이얼 화면 열기), pickContact(phone|email, 시스템 연락처 선택 창),
-    capabilities()(문자·메일·다이얼·연락처 앱이 있는지, TTS 준비, apps), 읽기가 끝나면 window.__safepauseSpeechDone(소리 버튼 토글)
+    capabilities()(문자·메일·다이얼·연락처 앱이 있는지, TTS 준비, apps), 읽기가 끝나면 window.__safepauseSpeechDone(소리 버튼 토글),
+    setThemeMode(auto|light|dark)(앱 설정의 화면 모드에 맞춰 위아래 시스템 막대 색을 바꿈, ui.applyPrefs가 부름)
     돈 보내기(docs/v03_spec_money.md): listApps()(홈 화면 앱 목록 {package, label}, 자기 앱 빼고 이름순), openApp(pkg)(그 목록의 앱만 연다).
     SafePause는 돈을 옮기지 않는다. 확인 카드 뒤 본인이 고른 은행 앱을 열 뿐이고, 은행 이름·패키지는 앱에 넣지 않는다
   Manifest <queries>: TTS_SERVICE, SENDTO(sms·smsto·mailto), DIAL(tel), PICK(phone_v2·email_v2), MAIN·LAUNCHER(내 은행 앱 고르기).
     QUERY_ALL_PACKAGES는 쓰지 않는다
-  파일 고르기: 시스템 문서 선택 창(ACTION_OPEN_DOCUMENT, CSV)
+  파일 고르기: 시스템 문서 선택 창(ACTION_OPEN_DOCUMENT, CSV·TXT·XLSX)
+  launchMode singleTop: 연락처·파일·저장 창이 열린 채 홈 화면 아이콘으로 돌아와도 그 창이 그대로 남는다
+  렌더러가 죽으면(메모리 부족·WebView 업데이트) 앱을 닫지 않고 화면을 다시 연다(60초 안에 4번째면 멈추고 안내)
 ```
 
 - 2단계 준비: 앱을 켜면 파이썬과 가벼운 기능(동의·조력자·기록)을 먼저 준비하고, AI 분석 패키지는 뒤에서 싣습니다.
@@ -64,7 +67,27 @@
 
 에뮬레이터에는 은행 앱이 없어 다른 앱(달력)으로 열기를 확인했다. 실제 은행 앱이 열리는지, 은행 앱의 인증 화면에서 돌아올 때의 동작은 실기기에서 확인해야 한다.
 
-에뮬레이터·실기기 확인이 아직 남은 것: 홈 화면 이름 표시, 문자 앱(sms_body)·메일 앱(제목·본문) 채우기, 연락처 선택 창 결과, TTS 끝남 알림으로 소리 버튼이 돌아오는지.
+실기기 확인이 아직 남은 것: 실제 은행 앱 열기와 돌아오기, ARM 기기의 준비 시간. (문자 앱 글 채우기·연락처 선택 창 결과·TTS 끝남 알림은 아래 2026-10-03 표에서 에뮬레이터로 확인)
+
+### v0.3 수정 (2026-10-03, 에뮬레이터: Android 15 google_apis x86_64, `-gpu guest`)
+
+적대적 검증의 안드로이드 결함 9건(AND-01~09)을 고친 뒤 확인했다. 빌드는 `assemble_www.py` → `build_apk.py --debug`.
+
+| 확인 | 결과 |
+|---|---|
+| aapt2 | 요청 권한 0개, label `SafePause`, launchMode singleTop, 테마 아이콘(monochrome)은 일시정지 두 막대가 뚫린 팔각형 |
+| JVM 시험 `android/check_shell.py` | 44개 사례 ALL OK(읽기 끝남 id 비교, 문자·메일 주소 길이 한도, 앱 목록 이름순) |
+| TTS 끝남(AND-01) | 짧은 글 읽기가 약 1.3초 뒤 끝남 알림을 보내고 8초 뒤 읽는 중이 아님. 알림 탭 카드의 소리로 듣기가 다 읽은 뒤 저절로 소리로 듣기로 돌아옴 |
+| 렌더러 종료(AND-02) | 렌더러 프로세스를 죽여도 앱 프로세스는 남고 화면을 다시 열며 토스트로 알림 |
+| 저장 창 중 앱 종료(AND-03) | 앱이 다시 만들어진 뒤 저장 결과를 토스트로 알리고, 내용이 없으면 빈 파일을 지움 |
+| 다크 모드 바꾸기(AND-04) | 켠 채로 기기 다크 모드를 바꾸면 위아래 막대 색이 바뀜. 앱 설정에서 어둡게를 고르면 기기 설정이 밝아도 막대가 어두운 색(23,23,28), 자동이면 다시 흰색 |
+| 연락처 창 중 아이콘으로 돌아오기(AND-05) | 홈 → 런처 아이콘으로 돌아와도 연락처 선택 창이 그대로 맨 위, 고른 결과가 화면에 한 번 옴 |
+| 긴 글(AND-06) | 한글 1,000자 글로 문자 앱 작성 화면이 열리고 글이 채워짐(보내지 않음) |
+| 연락처 불러오기 두 번 누르기(AND-08) | 두 번째는 연락처 창이 이미 열려 있어요 안내만, 창은 하나, 고른 번호·이름이 칸에 들어감 |
+| 엑셀 올리기 | 시스템 문서 선택 창에서 `.xlsx`를 고를 수 있음(EXTRA_MIME_TYPES에 xlsx 형식 추가). 이어 붙이기로 올리면 5건 읽음·새 거래 5건 |
+| 서명 비밀번호(AND-09) | keytool·apksigner에 환경 변수로 넘김(명령줄에 보이지 않음) |
+| 앱 안 엔진(묶음 www를 Chrome 엔진 모드로) | full 단계 약 8초. 내가 한 거예요·확인 기록 지우기·보낸 알림 지우기·받는 사람 추천(pending)·이어 붙여 올리기·조력자·기관용 요약 정상. `.xlsx` 올리기는 zipfile·xml.etree로 5건 읽음(합계 줄 뺌), 같은 파일을 다시 이어 붙이면 새 거래 0건·겹친 5건 |
+| AI 부분만 실패(numpy·scipy·scikit-learn wheel을 뺀 묶음) | 단계 error(fatal false). 동의·내가 한 거예요·보낸 알림 지우기·확인 기록 지우기·모두 지우기는 파이썬이 답하고, 돈 흐름 분석만 503 |
 
 ### v0.2 (에뮬레이터: Android 15 google_apis x86_64, WebView 124)
 

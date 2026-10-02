@@ -1,5 +1,6 @@
 /* 쉬운 숫자·시각 표기. 규칙은 파이썬 explain/easy_card.py와 같다(천 원·만 원 단위 반올림, '새벽 2시').
- * 목록·표의 금액은 moneyText("50,000원") 하나만 쓴다(쉬운 말 금액을 옆에 또 붙이지 않음). */
+ * 목록·표의 금액은 moneyText("50,000원") 하나만 쓴다(쉬운 말 금액을 옆에 또 붙이지 않음).
+ * 입력 금액 미리 보기는 amountPreview(정확한 원 단위), 시간대 이름은 bandLabel, 줄 끝 끊김 막기는 keepUnits. */
 import { isApp, isMobile } from "./native.js";
 
 export const nf = new Intl.NumberFormat("ko-KR");
@@ -13,6 +14,59 @@ export function deviceWord() {
 export function moneyText(value, sign = "") {
   const n = Math.round(Number(value) || 0);
   return sign ? `${sign}${nf.format(Math.abs(n))}원` : `${nf.format(n)}원`;
+}
+
+/**
+ * 입력한 금액 미리 보기(돈 보내기 금액 칸 아래 줄, RF-4·C10): 정확한 원 단위 하나만 쓴다.
+ * amountPreview(3500) → "3,500원". 반올림한 만 원 표기를 = 로 붙이지 않는다(3,500원이 4천 원으로 보이지 않게).
+ * 숫자가 아니거나 0 이하이면 빈 글("")을 돌려준다(화면이 오류 문장을 따로 보인다).
+ */
+export function amountPreview(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return moneyText(Math.round(n));
+}
+
+// 시간대(돈 흐름 분석 time_bands의 band): 앱의 시각 표기(formatTime)와 같은 말을 쓴다(수정 계획 1-E)
+export const BANDS = {
+  dawn: { label: "새벽", range: "밤 12시~아침 6시" },
+  morning: { label: "오전", range: "아침 6시~낮 12시" },
+  day: { label: "낮", range: "낮 12시~저녁 6시" },
+  evening: { label: "저녁·밤", range: "저녁 6시~밤 12시" },
+};
+
+/**
+ * 시간대 이름. bandLabel("dawn") → "새벽", bandLabel("dawn", {range: true}) → "새벽(밤 12시~아침 6시)".
+ * 모르는 값은 그대로 돌려준다.
+ */
+export function bandLabel(band, { range = false } = {}) {
+  const b = BANDS[band];
+  if (!b) return String(band ?? "");
+  return range ? `${b.label}(${b.range})` : b.label;
+}
+
+/**
+ * 숫자와 단위·시각이 줄 끝에서 떨어지지 않게 그 사이 빈칸을 줄을 바꾸지 않는 빈칸으로 바꾼다(C13·D8·L8·L9).
+ * keepUnits("6월 27일 새벽 4시 41분, 5만 원") → "6월 27일 새벽 4시 41분, 5만 원"
+ * 화면에 보이는 글에만 쓴다(문자·메일로 보낼 글과 소리로 읽을 글에는 쓰지 않는다).
+ */
+export function keepUnits(text) {
+  return String(text ?? "")
+    .replace(/(새벽|아침|오전|낮|오후|저녁|밤) (\d{1,2}시)/g, "$1 $2")
+    .replace(/(\d{1,2}시) (\d{1,2}분)/g, "$1 $2")
+    .replace(/(\d{4}년) (\d{1,2}월)/g, "$1 $2")
+    .replace(/(\d{1,2}월) (\d{1,2}일)/g, "$1 $2")
+    .replace(/(\d[\d,.]*[억만천]?) 원/g, "$1 원")
+    .replace(/(\d[\d,.]*억) (\d)/g, "$1 $2")
+    .replace(/(\d[\d,.]*만) (\d[\d,.]*천)/g, "$1 $2");
+}
+
+/**
+ * 메일 주소를 화면에 보일 때 @ 앞에서만 줄을 바꿀 수 있게 한다(L8: example.co / m처럼 한 글자가 남지 않게).
+ * 보이는 글에만 쓴다(문자·메일 앱 주소에는 원래 값을 쓴다).
+ */
+export function breakableEmail(text) {
+  return String(text ?? "").replace("@", "​@");
 }
 
 export function formatWon(value) {

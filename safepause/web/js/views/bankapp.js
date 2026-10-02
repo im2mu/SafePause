@@ -1,11 +1,13 @@
-/* 내 은행 앱: 휴대폰에 설치된 앱 목록에서 본인이 한 번 고르고(이 기기에만 기억), 돈 보내기 결과에서 그 앱을 연다.
+/* 내 은행 앱: 휴대폰에 설치된 앱 목록에서 본인이 한 번 고르고(이 휴대폰에만 기억), 돈 보내기 결과에서 그 앱을 연다.
  * - 은행 이름·로고는 앱에 넣지 않는다. 앱 이름에 은행·뱅크·bank·페이·pay·증권·카드가 들어간 앱을 위로 올릴 뿐이다.
  * - 고른 앱은 localStorage safepause.bankApp = {package, label}. 못 읽거나 못 써도 화면은 그대로 쓴다(try/catch).
+ *   저장하지 못하면 이 창이 열려 있는 동안만 기억해 그대로 연다(FE-08: 이번에만 써요라고 하고 다시 고르게 하지 않게).
  * - 앱 목록·열기는 안드로이드 앱에서만 된다(native.listApps·openApp). PC·휴대폰 브라우저는 버튼을 비활성으로 두고 까닭을 보인다.
  * - 다른 화면은 이 파일의 함수만 쓴다: bankAppActions(돈 보내기 결과), bankAppSettings(앱 설정), clearBankApp(모두 지우기).
  */
 import { h, icon, fill, setText, openSheet, toast, announce } from "../ui.js";
 import { canListApps, listApps, openApp, isApp } from "../native.js";
+import { deviceWord } from "../format.js";
 
 export const BANK_APP_KEY = "safepause.bankApp";
 // 돈과 관련된 앱 이름에 흔히 들어가는 낱말(특정 회사 이름은 넣지 않는다)
@@ -18,21 +20,27 @@ export function bankAppUnavailable() {
   return isApp() ? "이 앱 버전에서는 은행 앱을 열 수 없어요. 앱을 새 버전으로 바꿔 주세요." : "은행 앱은 휴대폰 앱에서 열 수 있어요.";
 }
 
-/** 고른 앱 {package, label} 또는 null. */
+// 저장소에 쓰지 못했을 때 이 창이 열려 있는 동안만 기억하는 앱(FE-08)
+let memoryApp = null;
+
+/** 고른 앱 {package, label} 또는 null. 저장소에서 못 읽으면 이 창에서 고른 앱을 쓴다. */
 export function getBankApp() {
   try {
     const v = JSON.parse(localStorage.getItem(BANK_APP_KEY) || "null");
     if (v && typeof v.package === "string" && v.package && typeof v.label === "string") return { package: v.package, label: v.label || v.package };
-  } catch (e) { /* 못 읽으면 고르지 않은 것으로 본다 */ }
-  return null;
+  } catch (e) { /* 못 읽으면 이 창에서 고른 앱을 본다 */ }
+  return memoryApp ? { ...memoryApp } : null;
 }
 
+/** 고른 앱을 기억한다. 저장소에 썼으면 true, 이 창에서만 기억했으면 false. */
 export function saveBankApp(app) {
-  try { localStorage.setItem(BANK_APP_KEY, JSON.stringify({ package: app.package, label: app.label })); return true; } catch (e) { return false; }
+  memoryApp = { package: app.package, label: app.label };
+  try { localStorage.setItem(BANK_APP_KEY, JSON.stringify(memoryApp)); return true; } catch (e) { return false; }
 }
 
 /** 고른 은행 앱을 잊는다(설정의 지우기, 동의 화면의 모두 지우기). */
 export function clearBankApp() {
+  memoryApp = null;
   try { localStorage.removeItem(BANK_APP_KEY); } catch (e) { /* 무시 */ }
 }
 
@@ -62,7 +70,7 @@ export function pickBankApp() {
         return h("li", null, h("button", {
           type: "button", class: `row ba-app${on ? " on" : ""}`,
           onclick: () => {
-            if (!saveBankApp(app)) toast("이 기기에 기억하지 못했어요. 이번에만 써요.", "error");
+            if (!saveBankApp(app)) toast(`${deviceWord()}에 기억하지 못했어요. SafePause를 닫기 전까지만 기억해요.`, "error");
             picked = app;
             close();
           },
@@ -82,9 +90,9 @@ export function pickBankApp() {
         const hits = q ? apps.filter((a) => norm(a.label).includes(q)) : apps;
         const money = hits.filter(isMoneyApp);
         const others = hits.filter((a) => !isMoneyApp(a));
-        count.textContent = q ? `찾은 앱 ${hits.length}개` : `이 휴대폰의 앱 ${apps.length}개`;
+        count.textContent = q ? `찾은 앱 ${hits.length}개` : `${deviceWord()}의 앱 ${apps.length}개`;
         if (!hits.length) {
-          fill(listSlot, h("p", { class: "ba-empty", text: apps.length ? "찾는 앱이 없어요. 다른 이름으로 찾아 보세요." : "고를 수 있는 앱이 없어요." }));
+          fill(listSlot, h("p", { class: "ba-empty", text: apps.length ? "찾는 앱이 없어요. 다른 이름으로 찾아보세요." : "고를 수 있는 앱이 없어요." }));
           return;
         }
         fill(listSlot, group("돈 관련 앱", money), group(money.length ? "다른 앱" : "앱", others));

@@ -20,7 +20,7 @@ import hmac
 import logging
 import re
 from collections.abc import Callable, Iterable
-from datetime import datetime
+from datetime import date, datetime
 from email import policy as _email_policy
 from email.parser import BytesParser
 from pathlib import Path
@@ -38,6 +38,7 @@ from safepause import __version__, config
 from safepause.api.constants import MAX_UPLOAD_BYTES, NO_FILE, TOO_BIG
 from safepause.api.router import INTERNAL_ERROR
 from safepause.api.schemas import (
+    CheckedIn,
     ConsentIn,
     CounselorIn,
     DecideIn,
@@ -45,7 +46,9 @@ from safepause.api.schemas import (
     FlagIn,
     HelperIn,
     NoticeRecordIn,
+    NoticeRemoveIn,
     PendingIn,
+    ReviewIn,
     SampleIn,
     SuggestIn,
     validation_detail,
@@ -228,7 +231,7 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
-        detail, errors = validation_detail(list(exc.errors()))
+        detail, errors = validation_detail(list(exc.errors()), request.scope.get("path", ""))
         return _json(422, detail, errors=errors)
 
     @app.exception_handler(Exception)
@@ -281,11 +284,12 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
     def _upload_finish(generation: int, content_type: str, body: bytes) -> dict[str, Any]:
         fields = _parse_form(content_type, body)
         mapping = fields.get("mapping", b"").decode("utf-8", "replace")
-        return service.upload_finish(generation, fields.get("file"), mapping)
+        mode = fields["mode"].decode("utf-8", "replace") if "mode" in fields else None
+        return service.upload_finish(generation, fields.get("file"), mapping, mode)
 
     @app.post(UPLOAD_PATH)
     async def data_upload(request: Request) -> dict[str, Any]:
-        """거래내역 CSV 올리기(multipart: file, 선택 mapping). 파일은 메모리에서만 읽는다."""
+        """거래내역 파일 올리기(multipart: file, 선택 mapping·mode). CSV·TXT·XLSX. 파일은 메모리에서만 읽는다."""
         generation = await run_in_threadpool(service.upload_begin)
         body = await _read_body_limited(request, MAX_UPLOAD_BYTES + UPLOAD_OVERHEAD_BYTES)
         return await run_in_threadpool(_upload_finish, generation, request.headers.get("content-type", ""), body)
@@ -294,8 +298,10 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
     @app.get("/api/transactions")
     def transactions(level: Literal["all", "caution", "high", "flagged"] = "all",
                      limit: int = Query(0, ge=0, le=100_000),
-                     offset: int = Query(0, ge=0, le=10_000_000)) -> dict[str, Any]:
-        return service.transactions(level, limit, offset)
+                     offset: int = Query(0, ge=0, le=10_000_000),
+                     q: str = Query("", max_length=40),
+                     since: Optional[date] = None, until: Optional[date] = None) -> dict[str, Any]:
+        return service.transactions(level, limit, offset, q, since, until)
 
     # ---- 알림 목록에 담은 거래(v0.3) ----
     @app.get("/api/flags")
@@ -309,6 +315,20 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
     @app.post("/api/flags/remove")
     def remove_flag(body: FlagIn) -> dict[str, Any]:
         return service.remove_flag(body)
+
+    # ---- 내가 한 거예요(v0.3 수정 계획 C) ----
+    @app.post("/api/reviews")
+    def add_review(body: ReviewIn) -> dict[str, Any]:
+        return service.add_review(body)
+
+    @app.post("/api/reviews/remove")
+    def remove_review(body: ReviewIn) -> dict[str, Any]:
+        return service.remove_review(body)
+
+    # ---- 보내기 전 확인 기록 지우기(v0.3 수정 계획 A) ----
+    @app.post("/api/transactions/remove-checked")
+    def remove_checked(body: CheckedIn) -> dict[str, Any]:
+        return service.remove_checked(body)
 
     # ---- 돈 흐름 분석(v0.3) ----
     @app.get("/api/insights")
@@ -341,6 +361,10 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
     def record_notice(body: NoticeRecordIn) -> dict[str, Any]:
         return service.record_notice(body)
 
+    @app.post("/api/notices/remove")
+    def remove_notice(body: NoticeRemoveIn) -> dict[str, Any]:
+        return service.remove_notice(body)
+
     # ---- 알림 보내기: 받는 사람 추천(v0.3 돈 보내기 설계) ----
     @app.post("/api/notify/suggest")
     def notify_suggest(body: SuggestIn) -> dict[str, Any]:
@@ -367,6 +391,10 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
     @app.get("/api/export/validation")
     def export_validation() -> dict[str, Any]:
         return service.export_validation()
+
+    @app.get("/api/export/summary")
+    def export_summary() -> dict[str, Any]:
+        return service.export_summary()
 
     # ---- 즉시 철회: 모두 지우기 ----
     @app.post("/api/wipe")

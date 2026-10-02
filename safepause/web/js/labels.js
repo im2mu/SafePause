@@ -34,10 +34,46 @@ export const CHANNEL_ICON = {
 // 차트 색 번호(css --chart-1~5, .c1~.c5). 결제 방법마다 늘 같은 색을 쓴다
 export const CHANNEL_CHART = { transfer: 1, card: 2, micropay: 3, telecom_bill: 4, atm: 5, income: 5, other: 5 };
 
+// 등급 배지. 아이콘은 선 아이콘(icons.js UI의 check·warning·stop, 24 viewBox 굵기 2)이다(D4: 큰 픽토그램을 섞지 않음)
 export const LEVEL = {
   none: { text: "괜찮아요", icon: "check", cls: "none" },
   caution: { text: "확인해요", icon: "warning", cls: "caution" },
   high: { text: "꼭 확인해요", icon: "stop", cls: "high" },
+};
+
+// 알림 목록에 담기(담은 거래). 버튼·토스트·목록·배지 문구를 한곳에서 쓴다(RF-10·C3, 설계서 6.2)
+export const FLAG_TEXT = {
+  button: "알림 목록에 담기",
+  undo: "담기 취소",
+  toast: "알림 탭에 담았어요.",
+  removed: "담은 거래에서 뺐어요.",
+  list: "담은 거래",
+  badge: "담음",
+};
+
+// 내가 한 거예요(오탐 바로잡기, 수정 계획 1-C). 탐지 등급은 그대로이고 표시·일부 집계만 바뀐다
+export const REVIEW_TEXT = {
+  button: "내가 한 거예요",
+  undo: "확인 취소",
+  badge: "내가 확인함",
+  toast: "내가 한 거래로 표시했어요.",
+  removedToast: "내가 확인한 표시를 지웠어요.",
+  note: "걱정되는 거래 수에서 뺐어요.",
+};
+
+// 알린 거래 배지(직접 보낸 알림에 든 거래, 수정 계획 1-E). 날짜는 components.notifiedBadge가 붙인다
+export const NOTIFIED_TEXT = "알렸어요";
+
+// 왜 걱정되나요(수정 계획 1-D): 약속(규칙)으로 본 것 + AI가 본 것. components.aiExplain이 쓴다
+export const AI_TEXT = {
+  title: "왜 걱정되나요?",
+  rules: "약속(규칙)으로 본 것",
+  rulesNone: "약속(규칙)에 걸린 것은 없어요.",
+  ai: "AI가 본 것",
+  aiLearning: "거래가 30건보다 적어 AI는 아직 배우는 중이에요.",
+  aiOnly: "약속(규칙)에는 걸리지 않고 AI만 찾은 거래예요.",
+  aiNone: "AI가 본 정도는 아직 알 수 없어요.",
+  diffLabel: "평소 내 거래와 다른 정도",
 };
 
 // 상담하는 곳 종류(api Counselor.kind)
@@ -54,17 +90,19 @@ export const COUNSELOR_KIND_ICON = {
 export const NOTICE_CHANNEL_KO = { sms: "문자", email: "메일", call: "전화", copy: "복사" };
 export const NOTICE_CHANNEL_ICON = { sms: "chat", email: "mail", call: "call", copy: "copy" };
 
-// 돈 보내기(보내기 전 확인 → 내 은행 앱): 카드 선택지 아이콘, 보내는 방법, 예시(심사·시연용)
+// 돈 보내기(보내기 전 확인 → 내 은행 앱): 카드 선택지 아이콘, 보내는 방법, 예시로 해 보기
 export const DECISION_ICON = { send: "send", cancel: "stop", ask_helper: "helper" };
 export const PAY_CHANNELS = [
   { value: "transfer", label: "계좌 이체", icon: "bank" },
   { value: "card", label: "가게에서 결제", icon: "card" },
   { value: "micropay", label: "휴대폰 결제", icon: "sig-phone-pay" },
 ];
+// 칩 글의 금액·시각 안 빈칸은 줄을 바꾸지 않는 빈칸(\u00a0)이다(C13·D8: 80만 / 원, 오후 / 3시로 끊기지 않게).
+// 가운뎃점 앞도 붙여 두어 줄이 바뀌면 점이 줄 앞에 오지 않는다. parts는 subParts(조각 · 조각)로 그릴 때 쓴다
 export const EXAMPLES = [
-  { key: "safe", label: "엄마에게 5만 원 · 오후 3시", to: "엄마", amount: 50000, channel: "transfer", time: "15:00" },
-  { key: "night", label: "김*호에게 30만 원 · 새벽 2시", to: "김*호", amount: 300000, channel: "transfer", time: "02:00" },
-  { key: "store", label: "처음 가는 가게에서 80만 원", to: "새로 연 전자상가", amount: 800000, channel: "card", time: "15:00" },
+  { key: "safe", label: "엄마에게 5만\u00a0원\u00a0· 오후\u00a03시", parts: ["엄마에게 5만 원", "오후 3시"], to: "엄마", amount: 50000, channel: "transfer", time: "15:00" },
+  { key: "night", label: "김*호에게 30만\u00a0원\u00a0· 새벽\u00a02시", parts: ["김*호에게 30만 원", "새벽 2시"], to: "김*호", amount: 300000, channel: "transfer", time: "02:00" },
+  { key: "store", label: "처음 가는 가게에서 80만\u00a0원", parts: ["처음 가는 가게에서 80만 원"], to: "새로 연 전자상가", amount: 800000, channel: "card", time: "15:00" },
 ];
 
 export const MODE_KO = { fused: "규칙 + AI 함께", rules: "규칙만", anomaly: "AI만" };

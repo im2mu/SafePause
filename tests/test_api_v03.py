@@ -135,10 +135,21 @@ def test_legacy_contact_in_store_is_converted_on_read(svc: Service) -> None:
     # 이미 가린 값은 그대로(보낼 수 없어 원본 칸은 비어 있음)
     assert (got["h3"]["phone"], got["h3"]["phone_masked"], got["h3"]["contact"]) == ("", "010-****-1111", "010-****-1111")
     assert (got["h4"]["email"], got["h4"]["email_masked"]) == ("", "ab***@x.kr")
-    # 새 화면이 GET 항목을 그대로 돌려보내면: 원본은 그대로, 보낼 수 없는 옛 가린 표시는 없어진다
+    # 새 화면이 GET 항목을 그대로 돌려보내면: 원본은 그대로, 옛 가린 표시도 그대로(BE-8: 다른 조력자를 저장하기만 해도
+    # 어느 번호였는지 단서가 사라지던 문제)
     again = {h["id"]: h for h in svc.put_helpers([HelperIn(**h) for h in got.values()])}
     assert {k: (v["phone"], v["email"]) for k, v in again.items()} == {k: (v["phone"], v["email"]) for k, v in got.items()}
-    assert (again["h3"]["contact"], again["h3"]["phone_masked"], again["h4"]["email_masked"]) == ("", "", "")
+    assert (again["h3"]["contact"], again["h3"]["phone_masked"], again["h4"]["email_masked"]) == \
+        ("010-****-1111", "010-****-1111", "ab***@x.kr")
+    # 화면 toPayload 모양(phone·email 빈 글, contact 없음) + 새 조력자 한 명을 더해도 지킨다
+    payload = [{k: v for k, v in h.items() if k not in ("contact", "phone_masked", "email_masked")}
+               for h in again.values()]
+    more = {h["id"]: h for h in svc.put_helpers([HelperIn(**h) for h in payload] + [HelperIn(name="새 조력자")])}
+    assert (more["h3"]["phone_masked"], more["h4"]["email_masked"]) == ("010-****-1111", "ab***@x.kr")
+    assert json.loads((svc.store.root / "helpers.json").read_text(encoding="utf-8"))[2]["contact"] == "010-****-1111"
+    # 본인이 지우겠다고 하면(clear_contact) 그때 지운다
+    cleared = {h["id"]: h for h in svc.put_helpers([HelperIn(**{**p, "clear_contact": True}) for p in payload])}
+    assert (cleared["h3"]["contact"], cleared["h3"]["phone_masked"], cleared["h4"]["email_masked"]) == ("", "", "")
     # 옛 클라이언트(번호·메일 칸 없이 contact만)는 가린 값을 그대로 둔다
     old = svc.put_helpers([HelperIn(id="h3", name="센터", contact="010-****-1111")])[0]
     assert (old["phone"], old["phone_masked"], old["contact"]) == ("", "010-****-1111", "010-****-1111")
@@ -231,7 +242,8 @@ def test_flags_add_list_remove(ready: Service) -> None:
     items = ready.get_flags()["items"]
     assert [i["txn_id"] for i in items] == [b, a]                          # 최근 담은 것부터
     assert all(i["created_at"] == NOW.isoformat() and i["item"]["flagged"] is True for i in items)
-    assert set(items[0]["item"]) == {"txn", "level", "signals", "anomaly_score", "reasons", "practice", "flagged"}
+    assert set(items[0]["item"]) == {"txn", "level", "signals", "anomaly_score", "reasons", "practice", "flagged",
+                                     "reviewed", "notified_at", "ai"}
     listing = ready.transactions("all")
     assert {i["txn"]["id"] for i in listing["items"] if i["flagged"]} == {a, b}
     assert listing["flagged_count"] == 2
@@ -308,8 +320,8 @@ def test_record_notice_format_and_merged_list(ready: Service) -> None:
         {"kind": "counselor", "id": "c1", "name": "x", "phone": "1644-8295"},   # 다른 칸은 버린다
         {"kind": "helper", "id": "h1", "name": "엄마"}]))                 # 겹치면 한 번만
     assert rec == {"id": "m1", "kind": "manual", "channel": "email",
-                   "recipients": [{"kind": "helper", "name": "엄마"},
-                                  {"kind": "counselor", "name": constants.COUNSELOR_PRESETS[0]["name"]}],
+                   "recipients": [{"kind": "helper", "id": "h1", "name": "엄마"},
+                                  {"kind": "counselor", "id": "c1", "name": constants.COUNSELOR_PRESETS[0]["name"]}],
                    "txn_ids": ["t1"], "message": "[SafePause] 걱정되는 거래가 있어 알려요. 확인해 주세요.",
                    "created_at": NOW.isoformat()}
     assert ready.record_notice(_record(channel="copy"))["id"] == "m2"
@@ -369,8 +381,12 @@ def test_raw_contacts_never_reach_records_or_exports(ready: Service) -> None:
 # ---- 3.5 돈 흐름 분석 -------------------------------------------------------------------
 
 def _expected_insights(items: list[dict[str, Any]]) -> dict[str, Any]:
-    """거래 목록(/api/transactions 항목)만으로 insights를 다시 계산한다(서비스 코드를 쓰지 않음)."""
-    rows = [(datetime.fromisoformat(i["txn"]["ts"]), i["txn"], i["level"]) for i in items]
+    """거래 목록(/api/transactions 항목)만으로 insights를 다시 계산한다(서비스 코드를 쓰지 않음).
+
+    보내기 전 확인 기록(practice)은 뺀다. compare는 지난달 같은 날짜 범위(1일~기준일)의 나간 돈이다.
+    """
+    checked = sum(1 for i in items if i["practice"])
+    rows = [(datetime.fromisoformat(i["txn"]["ts"]), i["txn"], i["level"]) for i in items if not i["practice"]]
     flagged_total = {"caution": sum(lv == "caution" for *_, lv in rows), "high": sum(lv == "high" for *_, lv in rows)}
     bands = [("dawn", "0-6", 0, 6), ("morning", "6-12", 6, 12), ("day", "12-18", 12, 18), ("evening", "18-24", 18, 24)]
 
@@ -380,8 +396,9 @@ def _expected_insights(items: list[dict[str, Any]]) -> dict[str, Any]:
                 for b, h, lo, hi in bands]
 
     if not rows:
-        return {"as_of": None, "months": [], "this_month": None, "prev_month": None, "channels": [],
-                "time_bands": band_rows([]), "top_payees": [], "flagged_total": flagged_total}
+        return {"as_of": None, "months": [], "this_month": None, "prev_month": None, "compare": None, "channels": [],
+                "time_bands": band_rows([]), "top_payees": [], "flagged_total": flagged_total,
+                "checked_excluded": checked}
     last = max(ts for ts, *_ in rows)
     first = min(ts for ts, *_ in rows)
     keys: list[str] = []
@@ -418,9 +435,20 @@ def _expected_insights(items: list[dict[str, Any]]) -> dict[str, Any]:
             row["out_count"] += 1
             row["flagged"] += lv != "none"
     top = sorted(pay.values(), key=lambda r: (-r["out_total"], -r["out_count"], r["name"]))[:3]
+    compare = None
+    if len(keys) > 1:
+        py, pm = (int(x) for x in keys[-2].split("-"))
+        nxt = datetime(py + (pm == 12), pm % 12 + 1, 1)
+        prev_len = (nxt - timedelta(days=1)).day
+        n = min(last.day, prev_len)
+        if first.date() <= datetime(py, pm, 1).date():          # 지난달 1일부터 데이터가 있을 때만
+            sel = [t for ts, t, _ in rows if (ts.year, ts.month) == (py, pm) and ts.day <= n and t["direction"] == "out"]
+            compare = {"month": keys[-2], "days": last.day, "prev_days": n,
+                       "prev_same_period_out": sum(t["amount"] for t in sel), "prev_same_period_count": len(sel)}
     return {"as_of": last.date().isoformat(), "months": months, "this_month": months[-1],
-            "prev_month": months[-2] if len(months) > 1 else None, "channels": channels,
-            "time_bands": band_rows(cur), "top_payees": top, "flagged_total": flagged_total}
+            "prev_month": months[-2] if len(months) > 1 else None, "compare": compare, "channels": channels,
+            "time_bands": band_rows(cur), "top_payees": top, "flagged_total": flagged_total,
+            "checked_excluded": checked}
 
 
 def test_insights_match_recomputation_from_transactions(ready: Service) -> None:
@@ -430,8 +458,8 @@ def test_insights_match_recomputation_from_transactions(ready: Service) -> None:
     assert 1 <= len(got["months"]) <= 6 and got["this_month"]["month"] == got["as_of"][:7]
     assert abs(sum(c["share"] for c in got["channels"]) - 1) < 0.01
     assert got["flagged_total"]["high"] == ready.transactions()["summary"]["high"]
-    assert list(got) == ["as_of", "months", "this_month", "prev_month", "channels", "time_bands", "top_payees",
-                         "flagged_total"]
+    assert list(got) == ["as_of", "months", "this_month", "prev_month", "compare", "channels", "time_bands",
+                         "top_payees", "flagged_total", "checked_excluded"]
 
 
 def _txn(i: int, ts: datetime, amount: int, channel: Channel = Channel.CARD, direction: Direction = Direction.OUT,
@@ -505,7 +533,7 @@ def test_suggest_response_shape(ready: Service) -> None:
     ready.put_helpers([HelperIn(id="h1", **MOM)])
     ready.put_counselors([CounselorIn(id="c1", name="센터")])
     out = _suggest(ready, _pick(ready, "high")["txn"]["id"])
-    assert list(out) == ["helpers", "counselors", "counseling_due"]
+    assert list(out) == ["helpers", "counselors", "counseling_due", "counseling_reason"]
     assert list(out["helpers"][0]) == ["id", "name", "suggested", "conflict", "reason"]
     assert list(out["counselors"][0]) == ["id", "name", "suggested"]
     assert out["helpers"][0]["name"] == "엄마" and out["counselors"][0]["name"] == "센터"
@@ -630,7 +658,7 @@ def test_suggest_counseling_due_uses_counseling_hint_rule(ready: Service) -> Non
 
 
 def test_suggest_without_helpers_or_counselors(ready: Service) -> None:
-    assert _suggest(ready) == {"helpers": [], "counselors": [], "counseling_due": False}
+    assert _suggest(ready) == {"helpers": [], "counselors": [], "counseling_due": False, "counseling_reason": ""}
 
 
 def test_suggest_unknown_transaction_is_404(ready: Service) -> None:
@@ -789,7 +817,7 @@ def test_decide_result_texts_for_money_flow(ready: Service) -> None:
     want = {
         "send": ("내 은행 앱에서 보내 주세요.", "내 은행 앱에서 보내 주세요", ["김*호에게 30만 원을 보내기 전에 확인했어요."]),
         "cancel": ("보내지 않았어요.", "보내지 않았어요", ["김*호에게 30만 원을 보내지 않았어요."]),
-        "ask_helper": ("엄마에게 물어볼게요.", "조력자에게 물어봐요",
+        "ask_helper": ("엄마에게 물어봐요.", "조력자에게 물어봐요",
                        ["김*호에게 30만 원을 보내기 전에 조력자에게 물어봐요.", "아직 보내지 않았어요."]),
     }
     for decision, (message, title, lines) in want.items():
@@ -819,7 +847,7 @@ def test_money_phrases_are_plain() -> None:
         for word in (*FORBIDDEN_WORDS, *MONEY_BANNED, "고위험", "푸시", "당사자님"):
             assert word not in text, (word, text)
     assert WORDS_SEND.self_do == "내 은행 앱에서 보내 주세요"
-    assert constants.TS_NOTE.startswith("확인한 거래는 저장된 거래의 마지막 날에 이어서 적어요.")
+    assert constants.TS_NOTE.startswith("저장된 거래가 오래전 것이라 확인한 거래는 저장된 거래 끝에 이어서 적어요.")
     assert constants.CONFLICT_REASON == "이 거래에서 돈을 받은 사람이에요."
 
 

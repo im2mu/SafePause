@@ -257,6 +257,9 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 }
 .btn:active:not(:disabled) { transform: scale(0.98); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
+/* ui.busy·담기 버튼은 disabled 대신 aria-disabled로 막는다(초점이 body로 빠지지 않게, FE-04). 하는 중(aria-busy)은 아래 돌림표 */
+.btn[aria-disabled="true"]:not([aria-busy="true"]) { opacity: .45; cursor: not-allowed; }
+.btn[aria-busy="true"] { cursor: progress; }
 .btn svg { width: 1.25rem; height: 1.25rem; flex: none; }
 .btn.primary { background: var(--primary); color: #fff; }
 .btn.primary:active:not(:disabled) { background: var(--primary-press); }
@@ -306,7 +309,7 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 .input:focus { border-color: var(--primary); background: var(--surface); }
 .input.big { font-size: 1.35rem; font-weight: 700; padding: .9rem 1rem; }
 .input[aria-invalid="true"] { border-color: var(--danger); }
-textarea.input { min-height: 5rem; resize: vertical; }
+textarea.input { min-height: 5rem; resize: vertical; word-break: keep-all; overflow-wrap: break-word; line-break: strict; }
 select.input { background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%), linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
   background-position: calc(100% - 1.25rem) 50%, calc(100% - .95rem) 50%; background-size: .35rem .35rem; background-repeat: no-repeat; padding-right: 2.5rem; }
 .hint { font-size: 1rem; color: var(--text-3); margin-top: .35rem; }
@@ -405,7 +408,9 @@ tbody th { font-weight: 600; color: var(--text-2); }
 /* 엔진 준비(모바일) */
 .engine-bar { display: flex; align-items: center; gap: .6rem; font-size: 1rem; font-weight: 600; color: var(--primary-weak-text); background: var(--primary-weak); border-radius: var(--r-m); padding: .65rem .9rem; margin: .5rem 0 .75rem; }
 .engine-bar .spinner { width: 1rem; height: 1rem; border-radius: 50%; border: 2.5px solid color-mix(in srgb, var(--primary) 30%, transparent); border-top-color: var(--primary); animation: spin .8s linear infinite; flex: none; }
-.engine-bar.error { background: var(--danger-weak); color: var(--danger); }
+.engine-bar.error { background: var(--danger-weak); color: var(--danger-weak-text); align-items: flex-start; }
+.engine-bar svg { width: min(1.25rem, 6vw); height: min(1.25rem, 6vw); flex: none; margin-top: .15rem; }   /* FE-12: 경고 아이콘이 화면 절반으로 커지지 않게 */
+.engine-bar p { flex: 1; min-width: 0; }
 
 /* 온보딩 */
 .onboard { min-height: 100dvh; display: flex; flex-direction: column; background: var(--surface); }
@@ -632,3 +637,97 @@ details > summary { min-height: 2.4rem; display: flex; align-items: center; curs
 .row-main > .parts, .parts { display: flex; flex-wrap: wrap; column-gap: .9em; overflow: hidden; }
 .parts > span { position: relative; max-width: 100%; }   /* 조각 안 빈칸은 줄을 바꾸지 않는 빈칸(subParts), 칸보다 길 때만 안에서 줄을 바꾼다 */
 .parts > span + span::before { content: "·"; position: absolute; left: -.6em; }
+
+/* ==== v0.3 수정(적대적 검증 반영): 공용 규칙 ===================================== */
+/* 소리로 듣기(D10): 음성이 준비될 때까지 버튼을 숨기고, 음성 없음 안내는 없음으로 확정됐을 때만 보인다.
+   speech.js가 html[data-voice]에 ready·pending·none을 적는다(음성 목록이 늦게 와도 화면이 저절로 맞춰진다) */
+html:not([data-voice="ready"]) .speak-btn { display: none !important; }
+html:not([data-voice="none"]) .voice-note,
+html:not([data-voice="none"]) .mn-novoice { display: none !important; }
+
+/* 줄바꿈(L8·C13): 여러 줄 글은 마지막 줄에 한두 글자만 남지 않게, 짧은 글(배지·칩·버튼·제목)은 줄 길이를 고르게 */
+p, li, .sent, .row-sub, .hint { text-wrap: pretty; }
+.tag, .chip, .badge, .btn, .seg-tab, .soon, .page-title, .sheet-title, .section-title, h2, h3, .row-title { text-wrap: balance; }
+.nowrap { white-space: nowrap; }                       /* 숫자 + 단위·시각 조각(format.keepUnits와 같이 씀) */
+.email-text { overflow-wrap: normal; word-break: keep-all; }   /* format.breakableEmail: @ 앞에서만 줄을 바꾼다 */
+
+/* 표의 숫자(L9): 좁은 화면 카드 모양 표에서 값(55.7%·0.23)은 끊지 않고 칸 이름만 줄을 바꾼다 */
+@media (max-width: 560px) {
+  .table-wrap td.num { white-space: nowrap; flex-wrap: wrap; column-gap: .75rem; }
+  .table-wrap td.num::before { white-space: normal; flex: 1 1 8rem; min-width: 0; }
+}
+
+/* 머리글 제목(L4): 아주 큰 글씨에서 제목이 잘리지 않게 두 줄까지 */
+.appbar { height: auto; min-height: var(--appbar-h); }
+.appbar-title:not(.brand) {
+  white-space: normal; text-overflow: clip; line-height: 1.25; padding: .2rem 0;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+
+/* 아래 탭(L3): 큰 글씨(200%)에서도 탭 높이(최대 84px) 안에 그림과 이름이 들어가게 칸 높이·여백에 px 상한 */
+@media (max-width: 899px) {
+  .bottom-nav { padding: min(.25rem, 5px) min(.25rem, 5px) min(.35rem, 7px); }
+  .bottom-nav .nav-item { min-height: 0; gap: min(.15rem, 3px); line-height: 1.25; }
+}
+/* 아래 탭(L6): 320폭에서 이름끼리 붙어 한 낱말처럼 읽히지 않게 탭 사이를 넓히고 이름 안 빈칸은 좁힌다(글자 크기는 그대로) */
+@media (max-width: 359px) {
+  .bottom-nav { padding-left: 0; padding-right: 0; }
+  .bottom-nav .nav-item span { word-spacing: -.15em; }
+}
+
+/* 안내 상자·체크 줄(L4): 여백·아이콘·들여쓰기에 화면 폭 상한(아주 큰 글씨에서 글자 칸이 2~4글자로 줄지 않게) */
+.notice { padding: min(1rem, 4vw) min(1.1rem, 4.5vw); gap: min(.75rem, 3vw); }
+.notice svg { width: min(1.375rem, 6vw); height: min(1.375rem, 6vw); }
+.notice ul { padding-left: min(1.2rem, 5vw); }
+.check-row { gap: min(.75rem, 3vw); }
+.check-row > svg { width: min(1.5rem, 6vw); height: min(1.5rem, 6vw); }
+.pause-lines li { padding-left: min(1rem, 4vw); padding-right: min(1rem, 4vw); }
+/* 글 칸이 글자 9자보다 좁아지면(아주 큰 글씨) 안내 상자의 아이콘을 글 위 줄로 올려 글 칸을 넓힌다.
+   컨테이너 쿼리는 글자 배율을 나중에 바꾸면 옛 배율로 판단하는 브라우저가 있어 줄바꿈(flex-wrap)으로 한다 */
+.notice { flex-wrap: wrap; }
+.notice > svg + * { flex: 1 1 9em; min-width: 0; }
+.soon-step { flex-wrap: wrap; }
+.soon-step > .soon-step-main { flex: 1 1 8em; }
+
+/* 고르기 묶음(L10): 카드 밖에서도 묶음 바탕이 보이게(고르지 않은 칸도 버튼으로 보임) */
+.segmented { background: color-mix(in srgb, var(--line) 70%, var(--bg-sub)); }
+.sheet .segmented { background: var(--bg-sub); }
+
+/* 스위치(L11): 좁은 화면에서 스위치가 작아져도 누르는 자리는 48px 이상(보이는 크기는 그대로) */
+.switch::before {
+  content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 48px); height: max(100%, 48px);
+  transform: translate(-50%, -50%); border-radius: 999px;
+}
+
+/* 가로 화면·짧은 화면(L14): 아래 탭을 낮추고(그림·이름 한 줄), 확인 버튼 띠는 따라오지 않게, 시트는 화면 높이를 거의 다 쓴다 */
+@media (max-height: 480px) and (max-width: 899px) {
+  :root { --nav-h: min(3rem, 60px); }
+  .bottom-nav .nav-item { flex-direction: row; gap: min(.4rem, 8px); }
+  .cta-bar { position: static; background: none; }
+  .sheet { max-height: calc(100dvh - .5rem); }
+}
+@media (max-height: 480px) and (min-width: 600px) {
+  .overlay { padding: .25rem 1rem; }
+  .sheet { max-height: calc(100dvh - .5rem); padding-top: .75rem; }
+}
+
+/* 메뉴 줄의 준비 중 배지(L15): 제목 바로 아래 고정 줄(줄마다 배지 자리가 들쭉날쭉하지 않게) */
+.menu-soon { margin-top: .2rem; }
+.menu-soon .soon { margin-left: 0; }
+
+/* 상태 배지: 내가 확인함(components.reviewBadge) */
+.badge.ok-line { background: transparent; color: var(--ok-text); box-shadow: inset 0 0 0 1.5px currentColor; }
+
+/* 왜 걱정되나요(components.aiExplain): 약속(규칙)으로 본 것 + AI가 본 것 */
+.ai-explain { display: grid; gap: .6rem; margin-top: 1rem; }
+.ae-head { font-size: 1.05rem; font-weight: 800; }
+.ae-group { background: var(--surface-2); border-radius: var(--r-m); padding: .8rem min(1rem, 4vw); }
+.ae-title { display: flex; align-items: center; gap: .4rem; font-size: 1rem; font-weight: 700; color: var(--text-2); margin-bottom: .4rem; }
+.ae-title svg, .ae-list svg, .ae-only svg { width: min(1.2rem, 6vw); height: min(1.2rem, 6vw); flex: none; }
+.ae-list { display: grid; gap: .35rem; }
+.ae-list li { display: flex; align-items: center; gap: .5rem; font-weight: 600; }
+.ae-diff { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .1rem .75rem; }
+.ae-diff-value { white-space: nowrap; color: var(--primary-weak-text); font-variant-numeric: tabular-nums; }
+.ae-ai p + p { margin-top: .3rem; }
+.ae-only { display: flex; gap: .4rem; align-items: flex-start; color: var(--primary-weak-text); font-weight: 600; }
+.ae-only svg { margin-top: .2rem; }

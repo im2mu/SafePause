@@ -4,6 +4,7 @@
  *   돈 보내기는 ? 뒤가 비고(#/send), 알림 보내기는 mode=notify가 붙는다.
  * - 탭마다 작은 ctx를 따로 만든다. 탭을 바꾸면 앞 탭의 정리 함수가 불리고, 앞 탭에서 늦게 온 응답은 버린다(STALE).
  *   고친 글이 있는 탭(알림 보내기)을 떠날 때는 화면을 옮길 때처럼 먼저 묻는다(ctx.session.unsaved).
+ * - 알림 보내기에서 고른 거래·받는 사람 주소 값은 돈 보내기 탭을 갔다 와도 그대로 돌려놓는다(RF-8). 다시 보내기(resend)는 한 번만 쓴다.
  */
 import { h, fill, segTabs, announce } from "../ui.js";
 import { errorNotice } from "../components.js";
@@ -19,6 +20,13 @@ const TABS = [
 ];
 const labelOf = (mode) => (TABS.find((t) => t.value === mode) || TABS[0]).label;
 
+/** 주소 뒤 값을 {이름: 값} 객체로(같은 이름이 여럿이면 쉼표로 잇는다: txn=a&txn=b → txn: "a,b"). */
+function paramsObject(params) {
+  const out = {};
+  for (const [k, v] of params) out[k] = out[k] ? `${out[k]},${v}` : v;
+  return out;
+}
+
 /** 주소 뒤 값으로 고를 탭: mode가 있으면 그것, 없으면 txn·to가 있을 때 알림 보내기, 그 밖은 돈 보내기. */
 export function modeOf(params) {
   const m = params.get("mode");
@@ -32,6 +40,7 @@ export default {
   async render(ctx) {
     let mode = modeOf(ctx.params);
     let busySwitch = false;
+    let notifyParams = null;   // 돈 보내기로 옮기기 전 알림 보내기의 주소 값(돌아오면 그대로 쓴다)
     const panel = h("section", { id: "send-panel", class: "send-panel", role: "tabpanel", "aria-label": labelOf(mode) });
     const tabs = segTabs(TABS, mode, (v) => { switchTo(v); }, { label: "무엇을 보낼까요?", controls: "send-panel" });
     fill(ctx.main,
@@ -90,10 +99,15 @@ export default {
         if (!ok) { tabs.set(mode); return; }   // 계속 쓰기: 탭을 그대로 둔다
         ctx.session.unsaved = null;
       }
+      if (mode === "notify") {
+        notifyParams = paramsObject(ctx.params);
+        delete notifyParams.mode;
+        delete notifyParams.resend;
+      }
       mode = next;
       tabs.set(mode);
       speech.stop();
-      ctx.replaceParams(mode === "notify" ? { mode } : {});
+      ctx.replaceParams(mode === "notify" ? { ...(notifyParams || {}), mode } : {});
       announce(`${labelOf(mode)} 화면이에요.`);
       try {
         await show(new URLSearchParams(ctx.params));

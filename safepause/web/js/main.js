@@ -26,6 +26,7 @@ const ROUTES = {
   "more/eval": () => import("./views/eval.js"),
   "more/export": () => import("./views/export.js"),
   "more/about": () => import("./views/about.js"),
+  "more/guide": () => import("./views/guide.js"),      // 사용법 안내(첫 실행 소개를 다시 보기, 동의 단계 없음)
   onboarding: () => import("./views/onboarding.js"),
 };
 
@@ -232,10 +233,14 @@ function engineSlot() {
   engine.subscribe((s) => {
     if (s.stage === "full") { slot.replaceChildren(); return; }
     const err = s.stage === "error";
+    // 한 문장 한 줄(C4): 띠 글은 p의 text로 넣어 문장마다 나눈다
+    const lines = !err ? [`${s.message}.`, "처음에는 10초쯤 걸려요."]
+      : s.fatal ? [`${s.message}.`, "앱을 닫았다가 다시 열어 주세요."]
+        : [`${s.message}.`, "동의 바꾸기·조력자·모두 지우기는 지금도 쓸 수 있어요.", "AI 분석을 쓰려면 앱을 닫았다가 다시 열어 주세요."];
     fill(slot, h("div", { class: "main engine-wrap" },
       h("div", { class: `engine-bar${err ? " error" : ""}`, role: "status" },
         err ? icon("warning") : h("span", { class: "spinner", "aria-hidden": "true" }),
-        h("span", { text: err ? `${s.message}. 앱을 닫았다가 다시 열어 주세요.` : `${s.message}… 처음에는 10초쯤 걸려요.` }))));
+        h("p", { text: lines.join(" ") }))));
   });
 }
 
