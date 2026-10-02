@@ -446,7 +446,7 @@ def test_telecom_line_without_line_column_is_left_empty() -> None:
     txns, report = load_csv("\n".join(rows) + "\n")
     bills = [t for t in txns if t.channel == Channel.TELECOM_BILL]
     assert len(bills) == 8 and {t.line_id for t in bills} == {""}
-    assert any("통신요금 8건은 회선(전화번호) 정보가 없어 '휴대폰 요금이 여러 개' 판단에서 뺐어요" in w
+    assert any("통신요금 8건은 회선(전화번호) 정보가 없어 휴대폰 요금 여러 회선 판단에서 뺐어요" in w
                for w in report["warnings"])
     results = RiskEngine(seed=0).assess_many(txns, mode="rules")
     assert not any(h.code.value == "multi_line_telecom" for a in results for h in a.rule_hits)
@@ -619,7 +619,7 @@ def test_memo_is_not_counterparty_and_missing_column_is_warned() -> None:
     assert [(t.counterparty, t.counterparty_id, t.memo) for t in txns] == [("", "", "모바일이체")] * 2
     assert "counterparty" not in report["mapping"] and report["mapping"]["memo"] == "적요"
     joined = " ".join(report["warnings"])
-    assert "받는 사람 열을 찾지 못해 '한 사람에게 많이 보내기'는 판단하기 어려워요" in joined
+    assert "받는 사람 열을 찾지 못해 한 사람에게 송금 집중은 판단하기 어려워요" in joined
     assert "이름이 같으면" not in joined
 
 

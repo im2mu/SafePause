@@ -139,7 +139,27 @@ _MAPPING_HINT = (
     '"in_amount": "입금액", "counterparty": "내용", "memo": "적요"}'
 )
 _DATE_FORMAT_HINT = ' 날짜 모양이 다르면 mapping에 날짜 모양을 적어 주세요. 예: {"date_format": "%m/%d/%Y"}'
-_SAVE_AS_CSV = ("엑셀에서 [다른 이름으로 저장]을 누르고 파일 형식을 'CSV UTF-8(쉼표로 분리)'로 골라 저장한 뒤 "
+_KIND_HINT = 'mapping에 "kind"(구분 열) 또는 "default_direction"("out"/"in")을 지정해 주세요.'
+_COUNTERPARTY_HINT = ' 받는 사람 이름이 든 열이 있으면 mapping의 "counterparty"로 알려 주세요.'
+_LINE_HINT = ' 전화번호가 든 열이 있으면 mapping의 "line"으로 알려 주세요.'
+# 화면(파일 올리기)은 열 이름을 직접 알려 주지 않는다(v0.3에서 뺌): mapping 안내를 쉬운 말로 바꾸거나 뺀다.
+# CLI·API에서 mapping을 쓰는 사람에게는 원래 안내가 그대로 간다.
+_PLAIN_HINTS: tuple[tuple[str, str], ...] = (
+    (_MAPPING_HINT, "은행 앱이나 인터넷뱅킹에서 내려받은 거래내역 파일인지 확인해 주세요."),
+    (_DATE_FORMAT_HINT, " 은행에서 내려받은 그대로의 파일인지 확인해 주세요."),
+    (_KIND_HINT, "입금과 출금이 나뉜 거래내역 파일을 올려 주세요."),
+    (_COUNTERPARTY_HINT, ""),
+    (_LINE_HINT, ""),
+)
+
+
+def plain_message(text: str) -> str:
+    """열 이름을 직접 알려 주지 않는 화면용 안내: mapping 안내를 쉬운 말로 바꾸거나 뺀다."""
+    out = str(text)
+    for hint, plain in _PLAIN_HINTS:
+        out = out.replace(hint, plain)
+    return out
+_SAVE_AS_CSV = ("엑셀에서 [다른 이름으로 저장]을 누르고 파일 형식을 [CSV UTF-8(쉼표로 분리)]로 골라 저장한 뒤 "
                 "그 파일을 올려 주세요.")
 _EXPORT_HINT = "은행 앱이나 인터넷뱅킹에서 거래내역을 엑셀 파일로 내려받은 뒤, " + _SAVE_AS_CSV
 _IMAGE_MESSAGE = "사진(이미지) 파일은 읽지 못해요. " + _EXPORT_HINT
@@ -153,7 +173,7 @@ _SIGNATURES: tuple[tuple[bytes, str], ...] = (
     (b"GIF8", _IMAGE_MESSAGE),
 )
 _MARKUP_MESSAGE = ("웹 페이지(HTML) 모양의 파일이라 바로 읽지 못해요. 이 파일을 엑셀에서 연 뒤 "
-                   "[다른 이름으로 저장]에서 'CSV UTF-8(쉼표로 분리)'로 저장해 올려 주세요.")
+                   "[다른 이름으로 저장]에서 [CSV UTF-8(쉼표로 분리)]로 저장해 올려 주세요.")
 _MARKUP_TAGS: tuple[str, ...] = ("<html", "<table", "<!doctype", "<?xml", "<head", "<body", "<meta")
 
 
@@ -269,7 +289,7 @@ def _read_text(src: str | Path | bytes) -> tuple[str, str]:
         _check_markup(text)
         return text, enc
     raise LoaderError("글자 인코딩을 알 수 없어요. UTF-8 또는 CP949(EUC-KR)로 저장해 주세요. "
-                      "엑셀이라면 파일 형식을 'CSV UTF-8(쉼표로 분리)'로 골라 저장하면 돼요.")
+                      "엑셀이라면 파일 형식을 [CSV UTF-8(쉼표로 분리)]로 골라 저장하면 돼요.")
 
 
 def _check_markup(text: str) -> None:
@@ -561,8 +581,7 @@ def _load_mapped(header: list[str], body: list[tuple[int, list[str]]],
         else:
             signed = any(v < 0 for v in column_values(amount_col))
             if not signed:
-                raise LoaderError("금액 열만 있고 입금·출금을 나누는 '구분' 열이 없어요. "
-                                  'mapping에 "kind"(구분 열) 또는 "default_direction"("out"/"in")을 지정해 주세요.')
+                raise LoaderError("금액 열만 있고 입금·출금을 나누는 구분 열이 없어요. " + _KIND_HINT)
     fixed_direction = Direction(str(default_direction)) if default_direction else Direction.OUT
 
     def row_amount(row: list[str]) -> tuple[Direction | None, int, str]:
@@ -673,27 +692,26 @@ def _load_mapped(header: list[str], body: list[tuple[int, list[str]]],
         warnings.append("거래 종류(카드·이체·소액결제 등)는 적요·내용 글자를 보고 추정했어요. "
                         f"틀릴 수 있어요. 추정 결과: {summary}")
     if card_by_word:
-        warnings.append(f"가맹점명 열이 없어 '체크카드' 같은 글자로 카드결제 {card_by_word}건을 추정했어요.")
+        warnings.append(f"가맹점명 열이 없어 체크카드 같은 글자로 카드결제 {card_by_word}건을 추정했어요.")
     if txns and not cols.get("counterparty"):
-        warnings.append("받는 사람 열을 찾지 못해 '한 사람에게 많이 보내기'는 판단하기 어려워요. "
-                        '받는 사람 이름이 든 열이 있으면 mapping의 "counterparty"로 알려 주세요.')
+        warnings.append("받는 사람 열을 찾지 못해 한 사람에게 송금 집중은 판단하기 어려워요." + _COUNTERPARTY_HINT)
     elif txns and not cols.get("counterparty_id"):
         warnings.append("상대 계좌 열이 없어, 이름이 같으면 같은 상대로 봤어요(추정).")
     if tel_without_line:
-        warnings.append(f"통신요금 {tel_without_line}건은 회선(전화번호) 정보가 없어 '휴대폰 요금이 여러 개' "
-                        '판단에서 뺐어요. 전화번호가 든 열이 있으면 mapping의 "line"으로 알려 주세요.')
+        warnings.append(f"통신요금 {tel_without_line}건은 회선(전화번호) 정보가 없어 휴대폰 요금 여러 회선 "
+                        "판단에서 뺐어요." + _LINE_HINT)
     if no_time:
         warnings.append(f"시각이 없는 거래 {no_time}건은 낮 12시로 두었어요. 밤 시간 판단이 정확하지 않을 수 있어요.")
     if bad_time:
         warnings.append(f"시각을 읽지 못한 {bad_time}건은 낮 12시로 두었어요. 밤 시간 판단이 정확하지 않을 수 있어요.")
     if signed:
-        warnings.append("'구분' 열이 없어 금액 부호로 입금·출금을 나눴어요(음수=출금, 양수=입금, 추정).")
+        warnings.append("구분 열이 없어 금액 부호로 입금·출금을 나눴어요(음수=출금, 양수=입금, 추정).")
     if card and txns:
-        warnings.append(f"'{amount_col}' 열을 카드 이용내역으로 보고, 금액을 모두 쓴 돈(출금)으로 봤어요(추정).")
+        warnings.append(f"{amount_col} 열을 카드 이용내역으로 보고, 금액을 모두 쓴 돈(출금)으로 봤어요(추정).")
     if totals:
         warnings.append(f"합계·소계 줄 {totals}개는 거래가 아니라서 뺐어요.")
     if cancels:
-        warnings.append(f"취소로 보이는 {cancels}줄('취소' 글자나 음수 금액)은 건너뛰었어요. "
+        warnings.append(f"취소로 보이는 {cancels}줄(취소라는 글자나 음수 금액)은 건너뛰었어요. "
                         "원래 거래는 그대로 두었어요.")
     return txns, skipped, warnings
 

@@ -18,6 +18,12 @@ v0.2에서 고친 것(전문가 리뷰)
 - 연습 거래 id: 발급·재시도 판정이 같은 규칙(live-숫자 1~9자리)을 쓴다. 올린 파일의 live- id는 바꿔 저장한다.
 - 거래 목록 쪽 나눔(offset·limit): 필요한 쪽만 만든다(4만 건 목록 13.6MB → 한 쪽).
 - numpy·scikit-learn은 필요할 때만 싣는다(앱은 동의·조력자 화면을 AI 준비 전에 먼저 쓸 수 있음).
+
+v0.3(착취를 알아차리는 앱, 송금 기능 없음)
+- 조력자 번호·메일 원본은 이 기기에만 저장한다(문자·메일 앱을 열 때 씀). 화면 목록·내보내기·알림 기록에는 가린 값만.
+- 상담하는 곳(counselors.json), 알림 목록에 담은 거래(flags.json), 직접 보낸 알림 기록(notices.json의 kind "manual").
+- 돈 흐름 분석(insights): 저장된 마지막 거래가 있는 달을 기준 달로 본다.
+- check/decide/payees(돈 보내기 연습)는 화면에서 쓰지 않지만 평가·테스트용으로 남겨 둔다.
 """
 from __future__ import annotations
 
@@ -39,9 +45,12 @@ from typing import Any, Optional
 
 from safepause import __version__
 from safepause.api.constants import (
+    COUNSELOR_PRESETS,
+    INSIGHT_MONTHS,
     LABELED_NOTE,
     LIVE_ID_DIGITS,
     LIVE_ID_PREFIX,
+    MAX_COUNSELORS,
     MAX_HELPERS,
     MAX_MAPPING_CHARS,
     MAX_REMEMBERED_LIVE_IDS,
@@ -51,6 +60,7 @@ from safepause.api.constants import (
     NO_FILE,
     NO_MONITORING,
     NORMAL_LABEL,
+    NOTICES_NOTE,
     PERSONA_KEYS,
     PRACTICE_MEMO,
     PRACTICE_NOTE,
@@ -58,10 +68,22 @@ from safepause.api.constants import (
     SUPERSEDED,
     SYNTHETIC_NOTE,
     TOO_BIG,
+    TOP_PAYEES,
     TRAIN_RATIO,
     TS_NOTE,
+    TXN_NOT_FOUND,
 )
-from safepause.api.schemas import ConsentIn, DecideIn, EvalIn, HelperIn, PendingIn, SampleIn
+from safepause.api.schemas import (
+    ConsentIn,
+    CounselorIn,
+    DecideIn,
+    EvalIn,
+    FlagIn,
+    HelperIn,
+    NoticeRecordIn,
+    PendingIn,
+    SampleIn,
+)
 from safepause.config import Settings
 from safepause.explain.easy_card import channel_words, practice_result, render_card
 from safepause.guardian import policy
@@ -69,6 +91,7 @@ from safepause.guardian.outbox import DELIVERY_NOTE, Outbox
 from safepause.models import (
     Channel,
     Consent,
+    Counselor,
     Decision,
     Direction,
     Helper,
@@ -228,7 +251,7 @@ def _mask_plain(text: str) -> str:
 
 
 def _mask_contact(value: str) -> str:
-    """조력자 연락처를 가려서 저장한다(보여 주기용. 발송 기능이 없어 전체 값을 둘 까닭이 없음).
+    """연락처를 가린다(화면 목록·알림 기록용). v0.3부터 번호·메일 원본은 phone·email에 따로 저장한다.
 
     1) 메일 abcd@x.kr → ab***@x.kr.
     2) 숫자·흔한 구분 기호가 이어진 구간에 숫자가 7개 이상이면 전화번호(010 1234 5678,
@@ -264,7 +287,7 @@ def _summary(txns: Sequence[Transaction]) -> dict[str, Any]:
     }
 
 
-def _item(txn: Transaction, assessment: RiskAssessment) -> dict[str, Any]:
+def _item(txn: Transaction, assessment: RiskAssessment, flagged: bool = False) -> dict[str, Any]:
     return _plain({
         "txn": txn.to_dict(),
         "level": assessment.level.value,
@@ -272,6 +295,7 @@ def _item(txn: Transaction, assessment: RiskAssessment) -> dict[str, Any]:
         "anomaly_score": round(float(assessment.anomaly_score), 4),
         "reasons": [{"code": r.code, "detail": r.detail} for r in assessment.reasons],
         "practice": bool(LIVE_ID_RE.fullmatch(txn.id)),
+        "flagged": bool(flagged),   # 알림 목록에 담은 거래인지(v0.3)
     })
 
 
@@ -414,30 +438,147 @@ def _merge_plans(base: NotifyPlan, asked: NotifyPlan) -> NotifyPlan:
     )
 
 
-def _assign_helper_ids(items: list[HelperIn]) -> list[Helper]:
-    """빈 id·겹치는 id에는 h1, h2… 를 붙인다. 연락처는 가려서 저장한다."""
+def _with_counseling(plan: NotifyPlan, names: Sequence[str]) -> NotifyPlan:
+    """상담 안내의 기관 이름을 사용자가 정한 상담하는 곳 이름으로 바꾼다(없으면 기본 2곳)."""
+    plan.counseling_orgs = list(names) if plan.suggest_counseling else []
+    return plan
+
+
+def _fill_ids(given: Sequence[Optional[str]], prefix: str) -> list[str]:
+    """빈 id·겹치는 id에는 prefix + 번호(h1, c1…)를 붙인다. 이미 쓴 번호는 건너뛴다."""
     used: set[str] = set()
-    helpers: list[Helper] = []
-    pending_ids: list[int] = []
-    for k, item in enumerate(items):
-        hid = (item.id or "").strip()
-        if hid and hid not in used:
-            used.add(hid)
+    out: list[str] = []
+    pending: list[int] = []
+    for k, raw in enumerate(given):
+        value = (raw or "").strip()
+        if value and value not in used:
+            used.add(value)
+            out.append(value)
         else:
-            hid = ""
-            pending_ids.append(k)
-        helpers.append(Helper(
-            id=hid, name=item.name, relation=item.relation, contact=_mask_contact(item.contact),
-            identifiers=list(item.identifiers), min_level=RiskLevel(item.min_level),
-            signal_scope=[s.value for s in dict.fromkeys(item.signal_scope)], active=item.active,
-        ))
+            out.append("")
+            pending.append(k)
     n = 1
-    for k in pending_ids:
-        while f"h{n}" in used:
+    for k in pending:
+        while f"{prefix}{n}" in used:
             n += 1
-        helpers[k].id = f"h{n}"
-        used.add(f"h{n}")
-    return helpers
+        out[k] = f"{prefix}{n}"
+        used.add(out[k])
+    return out
+
+
+def _assign_helper_ids(items: list[HelperIn]) -> list[Helper]:
+    """빈 id·겹치는 id에는 h1, h2… 를 붙인다. 번호·메일 원본은 그대로, 나누지 못한 옛 연락처는 가려서 저장한다."""
+    ids = _fill_ids([item.id for item in items], "h")
+    return [Helper(
+        id=hid, name=item.name, relation=item.relation,
+        contact="" if (item.phone or item.email) else _mask_contact(item.contact),
+        identifiers=list(item.identifiers), min_level=RiskLevel(item.min_level),
+        signal_scope=[s.value for s in dict.fromkeys(item.signal_scope)], active=item.active,
+        phone=item.phone, email=item.email,
+    ) for hid, item in zip(ids, items)]
+
+
+def _helper_view(h: Helper) -> dict[str, Any]:
+    """GET /api/helpers 항목: 원본(phone·email, 문자·메일 앱용) + 가린 표시(목록용)."""
+    legacy = _mask_contact(h.contact)
+    phone_masked = _mask_contact(h.phone) if h.phone else ""
+    email_masked = _mask_contact(h.email) if h.email else ""
+    if legacy and not (h.phone or h.email):   # 옛 가린 값: 표시만 한다(원본이 없어 보낼 수는 없음)
+        if "@" in legacy:
+            email_masked = legacy
+        elif any(ch.isdigit() for ch in legacy):
+            phone_masked = legacy
+    contact = " · ".join(x for x in (phone_masked, email_masked) if x) or legacy
+    return {
+        "id": h.id, "name": h.name, "relation": h.relation, "phone": h.phone, "email": h.email,
+        "phone_masked": phone_masked, "email_masked": email_masked,
+        "identifiers": list(h.identifiers), "min_level": h.min_level.value,
+        "signal_scope": list(h.signal_scope), "active": h.active, "contact": contact,
+    }
+
+
+def _scrub_contacts(text: str, values: Iterable[str]) -> str:
+    """알림 기록 글에 조력자·상담하는 곳의 번호·메일 원본이 있으면 가린 값으로 바꾼다."""
+    for value in sorted({v.strip() for v in values if v and v.strip()}, key=len, reverse=True):
+        text = text.replace(value, _mask_contact(value))
+        digits = re.sub(r"\D", "", value)
+        if "@" not in value and len(digits) >= _MIN_MASK_DIGITS:
+            text = text.replace(digits, _mask_contact(digits))
+    return text
+
+
+def _manual_number(record_id: object) -> int:
+    m = re.fullmatch(r"m(\d{1,9})", str(record_id or ""))
+    return int(m.group(1)) if m else 0
+
+
+# ---- 돈 흐름 분석(insights) ----
+_TIME_BANDS: tuple[tuple[str, str, int, int], ...] = (
+    ("dawn", "0-6", 0, 6), ("morning", "6-12", 6, 12), ("day", "12-18", 12, 18), ("evening", "18-24", 18, 24),
+)
+_PAYEE_CHANNELS = (Channel.TRANSFER, Channel.CARD)   # 많이 보낸 곳: 계좌 이체·카드 결제
+
+
+def _month_key(ts: datetime) -> str:
+    return f"{ts.year:04d}-{ts.month:02d}"
+
+
+def _recent_months(first: datetime, last: datetime, n: int) -> list[str]:
+    """마지막 거래가 있는 달부터 거꾸로 n달(첫 거래가 있는 달보다 앞은 빼고), 시간 순."""
+    keys: list[str] = []
+    year, month = last.year, last.month
+    while len(keys) < n and (year, month) >= (first.year, first.month):
+        keys.append(f"{year:04d}-{month:02d}")
+        year, month = (year, month - 1) if month > 1 else (year - 1, 12)
+    return list(reversed(keys))
+
+
+def _month_stats(month: str, pairs: Sequence[tuple[Transaction, RiskAssessment]]) -> dict[str, Any]:
+    out = [t for t, _ in pairs if t.direction == Direction.OUT]
+    return {
+        "month": month,
+        "out_total": sum(int(t.amount) for t in out),
+        "in_total": sum(int(t.amount) for t, _ in pairs if t.direction == Direction.IN),
+        "out_count": len(out),
+        "flagged": {"caution": sum(1 for _, a in pairs if a.level == RiskLevel.CAUTION),
+                    "high": sum(1 for _, a in pairs if a.level == RiskLevel.HIGH)},
+    }
+
+
+def _channel_shares(pairs: Sequence[tuple[Transaction, RiskAssessment]]) -> list[dict[str, Any]]:
+    totals: dict[str, list[int]] = {}
+    for t, _ in pairs:
+        if t.direction == Direction.OUT:
+            row = totals.setdefault(t.channel.value, [0, 0])
+            row[0] += int(t.amount)
+            row[1] += 1
+    whole = sum(v[0] for v in totals.values())
+    rows = [{"channel": c, "out_total": v[0], "out_count": v[1],
+             "share": round(v[0] / whole, 3) if whole else 0.0} for c, v in totals.items()]
+    return sorted(rows, key=lambda r: (-r["out_total"], -r["out_count"], r["channel"]))
+
+
+def _time_bands(pairs: Sequence[tuple[Transaction, RiskAssessment]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for band, hours, lo, hi in _TIME_BANDS:
+        inside = [(t, a) for t, a in pairs if lo <= t.ts.hour < hi]
+        out.append({"band": band, "hours": hours,
+                    "flagged": sum(1 for _, a in inside if a.level != RiskLevel.NONE),
+                    "out_count": sum(1 for t, _ in inside if t.direction == Direction.OUT)})
+    return out
+
+
+def _top_payees(pairs: Sequence[tuple[Transaction, RiskAssessment]], n: int) -> list[dict[str, Any]]:
+    rows: dict[str, dict[str, Any]] = {}
+    for t, a in pairs:
+        name = re.sub(r"\s+", " ", t.counterparty or "").strip()
+        if t.direction != Direction.OUT or t.channel not in _PAYEE_CHANNELS or not name:
+            continue
+        row = rows.setdefault(name, {"name": name, "out_total": 0, "out_count": 0, "flagged": 0})
+        row["out_total"] += int(t.amount)
+        row["out_count"] += 1
+        row["flagged"] += int(a.level != RiskLevel.NONE)
+    return sorted(rows.values(), key=lambda r: (-r["out_total"], -r["out_count"], r["name"]))[:n]
 
 
 def _metrics_module() -> Any:
@@ -474,13 +615,17 @@ def _decision_message(decision: Decision, plan: NotifyPlan, pending: Optional[Tr
 
 
 def _load_upload(raw: bytes, mapping: Optional[dict[str, Any]]) -> tuple[list[Transaction], dict[str, Any]]:
-    """올린 CSV를 읽는다(데이터 연결 어댑터 사용). 테스트는 이 함수를 바꿔 끼울 수 있다."""
-    from safepause.data.loader import LoaderError
+    """올린 CSV를 읽는다(데이터 연결 어댑터 사용). 테스트는 이 함수를 바꿔 끼울 수 있다.
+    mapping 없이 올리면(화면의 파일 올리기) 안내 글의 mapping 안내를 쉬운 말로 바꾼다."""
+    from safepause.data.loader import LoaderError, plain_message
     from safepause.data.sources import CsvUploadSource
     try:
-        return CsvUploadSource(raw, mapping).load()
+        txns, report = CsvUploadSource(raw, mapping).load()
     except LoaderError as exc:   # 파일 모양 문제: 한국어 안내 그대로(400)
-        raise ServiceError(400, str(exc)) from exc
+        raise ServiceError(400, str(exc) if mapping else plain_message(str(exc))) from exc
+    if not mapping and report and report.get("warnings"):
+        report = {**report, "warnings": [plain_message(w) for w in report["warnings"]]}
+    return txns, report
 
 
 _FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
@@ -569,7 +714,7 @@ class Service:
         with self.lock:
             number = max([_live_number(x) for x in used_ids] + [self._live_high]) + 1
             if number >= 10 ** LIVE_ID_DIGITS:
-                raise ServiceError(409, "연습 거래 번호를 다 썼어요. '내 데이터'에서 모두 지운 뒤 다시 해 주세요.")
+                raise ServiceError(409, "연습 거래 번호를 다 썼어요. 동의 화면에서 모두 지운 뒤 다시 해 주세요.")
             self._live_high = number
             return f"{LIVE_ID_PREFIX}{number:05d}"
 
@@ -667,7 +812,7 @@ class Service:
 
     # ---- 신뢰 조력자(S22/S37) ----
     def get_helpers(self) -> list[dict[str, Any]]:
-        return [h.to_dict() for h in self.store.load_helpers()]
+        return [_helper_view(h) for h in self.store.load_helpers()]
 
     def put_helpers(self, helpers: list[HelperIn]) -> list[dict[str, Any]]:
         if len(helpers) > MAX_HELPERS:
@@ -675,7 +820,27 @@ class Service:
         saved = _assign_helper_ids(helpers)
         with self.lock:
             self.store.save_helpers(saved)
-        return [h.to_dict() for h in saved]
+        return [_helper_view(h) for h in saved]
+
+    # ---- 상담하는 곳(v0.3: 사용자가 직접 추가·지정) ----
+    def get_counselors(self) -> dict[str, Any]:
+        return {"items": [c.to_dict() for c in self.store.load_counselors()],
+                "presets": [dict(p) for p in COUNSELOR_PRESETS]}
+
+    def put_counselors(self, items: list[CounselorIn]) -> dict[str, Any]:
+        if len(items) > MAX_COUNSELORS:
+            raise ServiceError(422, f"상담하는 곳은 {MAX_COUNSELORS}곳까지 정할 수 있어요.")
+        ids = _fill_ids([item.id for item in items], "c")
+        saved = [Counselor(id=cid, name=item.name, kind=item.kind, phone=item.phone, email=item.email,
+                           memo=item.memo, active=item.active) for cid, item in zip(ids, items)]
+        with self.lock:
+            self.store.save_counselors(saved)
+        return {"items": [c.to_dict() for c in saved]}
+
+    def counseling_names(self) -> list[str]:
+        """상담 안내에 쓸 이름: 사용 중인 상담하는 곳(없으면 기본 2곳)."""
+        names = [c.name for c in self.store.load_counselors() if c.active]
+        return names or list(policy.COUNSELING_ORGS)
 
     # ---- 데이터 ----
     def _save_if_current(self, txns: list[Transaction], generation: int, *, need_consent: bool) -> None:
@@ -686,6 +851,7 @@ class Service:
             if need_consent:
                 self._require_monitoring()
             self.store.save_transactions(txns)
+            self.store.clear_flags()   # 거래를 통째로 바꾸면 담은 거래도 비운다(v0.3)
             self.reset()
 
     def data_summary(self) -> dict[str, Any]:
@@ -740,16 +906,19 @@ class Service:
     def transactions(self, level: str = "all", limit: int = 0, offset: int = 0) -> dict[str, Any]:
         snap = self._analysis()
         counts = Counter(a.level.value for a in snap.assessments)
-        wanted = {"all": None, "caution": {RiskLevel.CAUTION, RiskLevel.HIGH}, "high": {RiskLevel.HIGH}}[level]
+        flagged = {f["txn_id"] for f in self.store.load_flags()}
+        wanted = {"all": None, "flagged": None, "caution": {RiskLevel.CAUTION, RiskLevel.HIGH},
+                  "high": {RiskLevel.HIGH}}[level]
         pairs = [(t, a) for t, a in zip(reversed(snap.txns), reversed(snap.assessments))
-                 if wanted is None or a.level in wanted]
+                 if (wanted is None or a.level in wanted) and (level != "flagged" or t.id in flagged)]
         matched = len(pairs)
         page = pairs[offset:offset + limit] if limit else pairs[offset:]
-        items = [_item(t, a) for t, a in page]   # 보여 줄 쪽만 만든다(리뷰 M9)
+        items = [_item(t, a, t.id in flagged) for t, a in page]   # 보여 줄 쪽만 만든다(리뷰 M9)
         return {
             "count": len(snap.txns),
             "matched": matched,
             "offset": offset,
+            "flagged_count": sum(1 for t in snap.txns if t.id in flagged),
             "summary": {lv.value: counts.get(lv.value, 0) for lv in RiskLevel},
             # train_count = 학습 구간 거래 수, train_rows = 실제 학습 행 수(초기 거래를 빼서 더 적을 수 있음)
             "model": {"fitted": snap.engine.fitted, "version": snap.engine.model_version(),
@@ -787,9 +956,11 @@ class Service:
             card = render_card(assessment, pending)
             helpers = self.store.load_helpers()
             # 고르기 전 미리 보기: 아직 한 일이 없으므로 현재형 문장(preview=True)
-            preview = policy.decide(assessment, pending, helpers, consent,
-                                    _recent_high(snap, pending, assessment, self.settings, decisions, now),
-                                    self.settings, now=now, preview=True)
+            names = self.counseling_names()
+            preview = _with_counseling(policy.decide(assessment, pending, helpers, consent,
+                                                     _recent_high(snap, pending, assessment, self.settings,
+                                                                  decisions, now),
+                                                     self.settings, now=now, preview=True), names)
             candidates = policy.ask_helper_candidates(assessment, pending, helpers)
             auto_ids = {n.helper_id for n in preview.notices}
             for c in candidates:   # 자동 알림 대상: 물어보기에서 빼도 조력자 설정대로 알게 됨
@@ -799,7 +970,7 @@ class Service:
             if candidates and all(c["conflict"] for c in candidates):
                 every = policy.ask_helper_plan(assessment, pending, helpers, consent,
                                                helper_ids=[c["id"] for c in candidates], now=now)
-                ask_counseling = every.counseling_orgs
+                ask_counseling = _with_counseling(every, names).counseling_orgs
         return _plain({
             "pending": pending.to_dict(),
             "assessment": assessment.to_dict(),
@@ -843,6 +1014,7 @@ class Service:
                                                helper_ids=body.helper_ids, now=now)
                 asked_count = len(asked.notices)
                 plan = _merge_plans(plan, asked)
+            plan = _with_counseling(plan, self.counseling_names())
 
             # ① 거래 이력: 지금 디스크에 있는 거래에 반영한다(밖에서 지운 거래를 되살리지 않게)
             current = self.store.load_transactions()
@@ -890,16 +1062,124 @@ class Service:
     def cards(self, limit: int = 20) -> dict[str, Any]:
         snap = self._analysis()
         flagged = [(t, a) for t, a in zip(snap.txns, snap.assessments) if a.level != RiskLevel.NONE]
+        marked = {f["txn_id"] for f in self.store.load_flags()}
         items: list[dict[str, Any]] = []
         for t, a in reversed(flagged[-limit:]):
             card = render_card(a, t, past=True)  # 이미 끝난 거래: 과거형, 묻지 않음
             if card is not None:
                 items.append(_plain({"card": card.to_dict(), "txn": t.to_dict(),
-                                     "signals": [h.code.value for h in a.rule_hits]}))
-        return {"total": len(flagged), "items": items}
+                                     "signals": [h.code.value for h in a.rule_hits],
+                                     "flagged": t.id in marked}))
+        return {"total": len(flagged), "items": items, "counseling": self._counseling_hint(snap)}
+
+    def _counseling_hint(self, snap: Snapshot) -> dict[str, Any]:
+        """알림 탭의 상담 안내 띠: 상담하는 곳에 알려 주기 동의 + 마지막 거래 기준 30일 고위험 3건 이상(S23)."""
+        threshold = self.settings.high_repeat_for_counseling
+        recent = 0
+        if snap.txns:
+            last = snap.txns[-1].ts
+            lo = last - timedelta(days=self.settings.window_long_days)
+            recent = sum(1 for t, a in zip(snap.txns, snap.assessments)
+                         if a.level == RiskLevel.HIGH and lo < t.ts <= last)
+        suggest = self.store.load_consent().counseling_referral and recent >= threshold
+        return {"suggest": bool(suggest), "recent_high": recent, "threshold": threshold,
+                "orgs": self.counseling_names() if suggest else []}
 
     def notices(self) -> dict[str, Any]:
-        return {"items": list(reversed(self.store.load_notices())), "delivery_note": DELIVERY_NOTE}
+        """자동 기록(kind "auto")과 직접 보낸 기록(kind "manual")을 함께, 최근 것부터."""
+        items = [r if r.get("kind") == "manual" else {**r, "kind": "auto"}
+                 for r in reversed(self.store.load_notices())]
+        return {"items": items, "delivery_note": NOTICES_NOTE}
+
+    def record_notice(self, body: NoticeRecordIn) -> dict[str, Any]:
+        """문자·메일 앱으로 직접 보낸 알림을 기록한다. 받는 사람은 종류·이름만, 번호·메일 원본은 넣지 않는다."""
+        with self.lock, self.store.transaction():
+            helpers = {h.id: h for h in self.store.load_helpers()}
+            counselors = {c.id: c for c in self.store.load_counselors()}
+            recipients: list[dict[str, str]] = []
+            for r in body.recipients:
+                known = (helpers if r.kind == "helper" else counselors).get(r.id) if r.id else None
+                entry = {"kind": r.kind, "name": _mask_contact(known.name if known else r.name)}
+                if entry not in recipients:
+                    recipients.append(entry)
+            raw = [v for x in [*helpers.values(), *counselors.values()] for v in (x.phone, x.email)]
+            records = self.store.load_notices()
+            number = 1 + max((_manual_number(x.get("id")) for x in records if x.get("kind") == "manual"),
+                             default=0)
+            record = {"id": f"m{number}", "kind": "manual", "channel": body.channel, "recipients": recipients,
+                      "txn_ids": list(body.txn_ids), "message": _scrub_contacts(body.message, raw),
+                      "created_at": self.timestamp()}
+            self.store.append_notice_record(record)
+        return record
+
+    # ---- 알림 목록에 담은 거래(v0.3) ----
+    def _stored_txn_ids(self) -> set[str]:
+        """(잠금 안에서) 저장된 거래 id. 분석 결과가 저장 파일과 맞으면 그것을 쓴다(큰 파일을 다시 읽지 않게)."""
+        if self._snap is not None and self.store.signature() == self._snap_sig:
+            return {t.id for t in self._snap.txns}
+        return {t.id for t in self.store.load_transactions()}
+
+    def get_flags(self) -> dict[str, Any]:
+        snap = self._analysis()
+        index = {t.id: (t, a) for t, a in zip(snap.txns, snap.assessments)}
+        items: list[dict[str, Any]] = []
+        for f in reversed(self.store.load_flags()):   # 최근 담은 것부터, 사라진 거래는 뺀다
+            pair = index.get(f["txn_id"])
+            if pair is not None:
+                items.append({"txn_id": f["txn_id"], "created_at": str(f.get("created_at", "")),
+                              "item": _item(*pair, True)})
+        return {"items": items}
+
+    def add_flag(self, body: FlagIn) -> dict[str, Any]:
+        with self.lock, self.store.transaction():
+            self._require_monitoring()
+            ids = self._stored_txn_ids()
+            if body.txn_id not in ids:
+                raise ServiceError(404, TXN_NOT_FOUND)
+            flags = self.store.load_flags()
+            kept = [f for f in flags if f["txn_id"] in ids]   # 사라진 거래는 이참에 뺀다
+            if not any(f["txn_id"] == body.txn_id for f in kept):
+                kept.append({"txn_id": body.txn_id, "created_at": self.timestamp()})
+            if kept != flags:
+                self.store.save_flags(kept)
+        return {"ok": True, "count": len(kept)}
+
+    def remove_flag(self, body: FlagIn) -> dict[str, Any]:
+        """담기 취소. 빼는 일이라 동의를 보지 않는다(담겨 있지 않아도 그대로 성공)."""
+        with self.lock, self.store.transaction():
+            flags = self.store.load_flags()
+            kept = [f for f in flags if f["txn_id"] != body.txn_id]
+            if len(kept) != len(flags):
+                self.store.save_flags(kept)
+        return {"ok": True, "count": len(kept)}
+
+    # ---- 돈 흐름 분석(v0.3, 기준 달 = 저장된 마지막 거래가 있는 달) ----
+    def insights(self) -> dict[str, Any]:
+        """월별 나간 돈·들어온 돈, 기준 달의 결제 방법별 비율·시간대·많이 보낸 곳."""
+        snap = self._analysis()
+        pairs = list(zip(snap.txns, snap.assessments))   # 시간순
+        flagged_total = {"caution": sum(1 for _, a in pairs if a.level == RiskLevel.CAUTION),
+                         "high": sum(1 for _, a in pairs if a.level == RiskLevel.HIGH)}
+        if not pairs:
+            return {"as_of": None, "months": [], "this_month": None, "prev_month": None, "channels": [],
+                    "time_bands": _time_bands([]), "top_payees": [], "flagged_total": flagged_total}
+        by_month: dict[str, list[tuple[Transaction, RiskAssessment]]] = {}
+        for t, a in pairs:
+            by_month.setdefault(_month_key(t.ts), []).append((t, a))
+        first, last = snap.txns[0].ts, snap.txns[-1].ts
+        keys = _recent_months(first, last, INSIGHT_MONTHS)
+        months = [_month_stats(k, by_month.get(k, [])) for k in keys]
+        current = by_month.get(keys[-1], [])
+        return {
+            "as_of": last.date().isoformat(),
+            "months": months,
+            "this_month": months[-1],
+            "prev_month": months[-2] if len(months) > 1 else None,
+            "channels": _channel_shares(current),
+            "time_bands": _time_bands(current),
+            "top_payees": _top_payees(current, TOP_PAYEES),
+            "flagged_total": flagged_total,
+        }
 
     def decisions(self) -> dict[str, Any]:
         return {"items": list(reversed(self.store.load_decisions()))}
@@ -926,7 +1206,7 @@ class Service:
         """저장된 거래(모두 정상으로 가정)로 알림 비율 = 오탐 근사(metrics.evaluate_file)."""
         snap = self._analysis()
         if not snap.txns:
-            raise ServiceError(400, "저장된 거래가 없어요. '내 거래'에서 먼저 불러와 주세요.")
+            raise ServiceError(400, "저장된 거래가 없어요. 내 거래에서 먼저 불러와 주세요.")
         try:
             result = _metrics_module().evaluate_file(list(snap.txns), TRAIN_RATIO,
                                                      settings=self.settings, seed=self.seed)
@@ -992,7 +1272,8 @@ class Service:
                 "ai_only": ai_only,
             },
             "decisions": dict(Counter(str(d.get("decision", "")) for d in decisions)),
-            "helper_notices": len(notices),
+            "helper_notices": sum(1 for n in notices if n.get("kind") != "manual"),
+            "manual_notices": sum(1 for n in notices if n.get("kind") == "manual"),
         }
         return {"filename": f"safepause-validation-{self.now():%Y%m%d}.json", "mime": "application/json",
                 "text": json.dumps(payload, ensure_ascii=False, indent=2), "summary": payload}

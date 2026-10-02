@@ -26,6 +26,7 @@ else:
 
 from safepause.models import (
     Consent,
+    Counselor,
     as_bool,
     Decision,
     Helper,
@@ -38,7 +39,9 @@ CONSENT_FILE = "consent.json"
 HELPERS_FILE = "helpers.json"
 TRANSACTIONS_FILE = "transactions.json"
 DECISIONS_FILE = "decisions.json"
-NOTICES_FILE = "notices.json"
+NOTICES_FILE = "notices.json"            # 자동 알림 기록 + 직접 보낸 알림 기록(kind "manual")
+COUNSELORS_FILE = "counselors.json"      # 상담하는 곳(v0.3)
+FLAGS_FILE = "flags.json"                # 알림 목록에 담은 거래(v0.3)
 
 # wipe()가 지우는 파일 목록. 이 저장소가 만드는 파일은 모두 여기에 있어야 한다.
 STORE_FILES: tuple[str, ...] = (
@@ -47,13 +50,17 @@ STORE_FILES: tuple[str, ...] = (
     TRANSACTIONS_FILE,
     DECISIONS_FILE,
     NOTICES_FILE,
+    COUNSELORS_FILE,
+    FLAGS_FILE,
 )
 # 지우는 순서: 가장 민감한 거래 기록부터(중간에 실패해도 거래가 먼저 사라지게)
 WIPE_ORDER: tuple[str, ...] = (
     TRANSACTIONS_FILE,
+    FLAGS_FILE,
     NOTICES_FILE,
     DECISIONS_FILE,
     HELPERS_FILE,
+    COUNSELORS_FILE,
     CONSENT_FILE,
 )
 
@@ -275,6 +282,35 @@ class Store:
     def save_helpers(self, helpers: list[Helper]) -> None:
         self._write(HELPERS_FILE, [h.to_dict() for h in helpers])
 
+    # ---- 상담하는 곳(v0.3) ----
+    def load_counselors(self) -> list[Counselor]:
+        rows = self._read_list(COUNSELORS_FILE)
+        try:
+            return [Counselor.from_dict(r) for r in rows]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise self._broken(COUNSELORS_FILE) from exc
+
+    def save_counselors(self, counselors: list[Counselor]) -> None:
+        self._write(COUNSELORS_FILE, [c.to_dict() for c in counselors])
+
+    # ---- 알림 목록에 담은 거래(v0.3): [{txn_id, created_at}] 담은 순서 ----
+    def load_flags(self) -> list[dict[str, Any]]:
+        rows = self._read_records(FLAGS_FILE)
+        if any(not isinstance(r.get("txn_id"), str) for r in rows):
+            raise self._broken(FLAGS_FILE)
+        return rows
+
+    def save_flags(self, flags: list[dict[str, Any]]) -> None:
+        self._write(FLAGS_FILE, flags)
+
+    def clear_flags(self) -> None:
+        """담은 거래를 모두 비운다(거래를 통째로 바꿀 때)."""
+        with self._lock:
+            try:
+                self._unlink(self._path(FLAGS_FILE))
+            except OSError as exc:
+                raise self._cannot_write(FLAGS_FILE) from exc
+
     # ---- 거래 ----
     def load_transactions(self) -> list[Transaction]:
         rows = self._read_list(TRANSACTIONS_FILE)
@@ -308,6 +344,10 @@ class Store:
     # ---- 조력자 알림 기록(실제 발송 없음) ----
     def append_notice(self, notice: HelperNotice) -> None:
         self._append(NOTICES_FILE, notice.to_dict())
+
+    def append_notice_record(self, record: dict[str, Any]) -> None:
+        """직접 보낸 알림 기록 1건(v0.3, kind "manual")을 더한다. 번호·메일 원본은 넣지 않는다(호출자 책임)."""
+        self._append(NOTICES_FILE, record)
 
     def load_notices(self) -> list[dict[str, Any]]:
         return self._read_records(NOTICES_FILE)

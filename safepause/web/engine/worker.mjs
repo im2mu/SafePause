@@ -6,9 +6,11 @@
  */
 import { loadPyodide } from "../pyodide/pyodide.mjs";
 
+// AI 분석 없이 처리하는 가벼운 요청(동의·조력자·상담하는 곳·알림 기록·지우기). 담은 거래·돈 흐름 분석은 거래 분석이 필요해 넣지 않는다
 const BASIC = new Set([
   "GET /api/health", "GET /api/consent", "PUT /api/consent", "GET /api/helpers", "PUT /api/helpers",
-  "GET /api/notices", "GET /api/decisions", "POST /api/wipe",
+  "GET /api/counselors", "PUT /api/counselors",
+  "GET /api/notices", "POST /api/notices/record", "POST /api/wipe",
 ]);
 
 const stage = (s, message, detail = "") => self.postMessage({ type: "stage", stage: s, message, detail });

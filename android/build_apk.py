@@ -134,8 +134,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--www", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--debug", action="store_true", help="디버그 빌드(WebView 원격 디버깅·로그 켜짐)")
-    ap.add_argument("--version-code", type=int, default=2)
-    ap.add_argument("--version-name", default="0.2.0")
+    ap.add_argument("--version-code", type=int, default=3)
+    ap.add_argument("--version-name", default="0.3.0")
     ap.add_argument("--keystore", type=Path, default=HERE / "signing" / "release.jks")
     a = ap.parse_args(argv)
     build(a.sdk, a.jdk, a.www, a.out, debug=a.debug, version_code=a.version_code,

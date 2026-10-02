@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  SafePause 안전 정지 (안드로이드).
-  - 인터넷 권한(INTERNET)을 요청하지 않는다: 거래 데이터가 기기 밖으로 나갈 통로가 운영체제 수준에서 없다.
+  SafePause (안드로이드). 홈 화면 아이콘 이름은 res/values/strings.xml의 app_name.
+  - 권한(uses-permission)을 하나도 요청하지 않는다. 인터넷(INTERNET)도 없어서 거래 데이터가 기기 밖으로 나갈 통로가 운영체제 수준에서 없다.
   - 화면(WebView)과 AI 엔진(Pyodide 파이썬)은 APK 안의 assets에서만 읽는다(MainActivity.shouldInterceptRequest).
-  - 음성 읽기는 기기 안의 TTS 엔진만 쓴다(queries: TTS_SERVICE는 안드로이드 11+ 패키지 가시성 규칙).
+  - 음성 읽기는 기기 안의 TTS 엔진만 쓴다.
+  - 알림 보내기는 문자·메일 앱과 전화 다이얼 화면을 열기만 한다. 보내기·걸기는 사람이 그 앱에서 직접 누른다.
+  - 연락처 고르기는 시스템 선택 창이 고른 한 건만 넘겨주므로 READ_CONTACTS가 필요 없다.
+  - queries는 안드로이드 11+ 패키지 가시성 규칙: 열 앱이 있는지 미리 확인하는 데 쓴다.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="kr.safepause.mobile">
@@ -11,6 +14,34 @@
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <!-- 문자 앱(조력자·상담하는 곳에 알림 글 채워 열기) -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="sms" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+        <!-- 메일 앱 -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
+        <!-- 전화 다이얼 화면(걸지는 않음) -->
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <!-- 연락처 고르기(번호·메일 한 건) -->
+        <intent>
+            <action android:name="android.intent.action.PICK" />
+            <data android:mimeType="vnd.android.cursor.dir/phone_v2" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.PICK" />
+            <data android:mimeType="vnd.android.cursor.dir/email_v2" />
         </intent>
     </queries>
 

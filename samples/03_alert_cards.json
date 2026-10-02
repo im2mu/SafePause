@@ -37,7 +37,8 @@
       "signals": [
         "night_repeat_transfer",
         "payee_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -73,7 +74,8 @@
       },
       "signals": [
         "multi_line_telecom"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -111,7 +113,8 @@
       "signals": [
         "night_repeat_transfer",
         "payee_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -149,7 +152,8 @@
       "signals": [
         "night_repeat_transfer",
         "payee_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -185,7 +189,8 @@
       },
       "signals": [
         "multi_line_telecom"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -222,7 +227,8 @@
       },
       "signals": [
         "micropay_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -259,7 +265,8 @@
       },
       "signals": [
         "micropay_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -296,7 +303,8 @@
       },
       "signals": [
         "micropay_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -333,7 +341,8 @@
       },
       "signals": [
         "micropay_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -370,7 +379,8 @@
       },
       "signals": [
         "micropay_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -407,7 +417,8 @@
       },
       "signals": [
         "micropay_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -444,7 +455,8 @@
       },
       "signals": [
         "new_merchant_high_value"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -481,7 +493,8 @@
       },
       "signals": [
         "new_merchant_high_value"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -518,7 +531,8 @@
       },
       "signals": [
         "new_merchant_high_value"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -555,7 +569,8 @@
       },
       "signals": [
         "payee_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -592,7 +607,8 @@
       },
       "signals": [
         "payee_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -629,7 +645,8 @@
       },
       "signals": [
         "payee_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -666,7 +683,8 @@
       },
       "signals": [
         "payee_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -703,7 +721,8 @@
       },
       "signals": [
         "payee_surge"
-      ]
+      ],
+      "flagged": false
     },
     {
       "card": {
@@ -740,7 +759,17 @@
       },
       "signals": [
         "new_merchant_high_value"
-      ]
+      ],
+      "flagged": false
     }
-  ]
+  ],
+  "counseling": {
+    "suggest": true,
+    "recent_high": 19,
+    "threshold": 3,
+    "orgs": [
+      "지역발달장애인지원센터",
+      "장애인권익옹호기관"
+    ]
+  }
 }

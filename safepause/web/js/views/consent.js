@@ -1,21 +1,23 @@
-/* 동의: 세 가지를 따로 켜고 끄며, 끄면 바로 멈춘다(S18·S37 즉시 철회).
- * '거래 살펴보기'를 끄면 화면 데이터 세대를 올려, 요청 중이던 옛 거래 목록이 다시 그려지지 않게 한다(리뷰 H1). */
-import { h, icon, fill, toast, announce, skeleton } from "../ui.js";
-import { formatWhen } from "../format.js";
+/* 동의: 세 가지를 따로 켜고 끄며, 끄면 바로 멈춘다(S18·S37 즉시 철회). 맨 아래에 모두 지우기.
+ * 거래 살펴보기를 끄거나 모두 지울 때는 화면 데이터 세대를 올려, 요청 중이던 옛 거래 목록이 다시 그려지지 않게 한다(리뷰 H1). */
+import { h, icon, fill, toast, announce, skeleton, busy, confirmSheet } from "../ui.js";
+import { formatWhen, deviceWord } from "../format.js";
 import { errorNotice } from "../components.js";
 import { STALE } from "../api.js";
 
 const ITEMS = [
-  { key: "monitoring", icon: "money", title: "거래 살펴보기",
-    lines: ["내가 돈을 쓰고 보내는 것을 살펴봐요.", "살펴보는 일은 이 기기 안에서만 해요."] },
-  { key: "helper_alerts", icon: "helper", title: "조력자에게 알리기",
-    lines: ["위험이 클 때 내가 고른 조력자에게 알려요.", "누구에게, 언제 알릴지는 '조력자'에서 정해요.",
-      "이 스위치를 꺼도 직접 물어볼 수 있어요.", "카드에서 '조력자에게 물어볼래요'를 고를 때예요."] },
-  { key: "counseling_referral", icon: "person", title: "상담하는 곳 알려 주기",
-    lines: ["상담하는 곳을 알려 줘요.", "지역발달장애인지원센터, 장애인권익옹호기관이에요.", "이럴 때 알려 줘요."],
+  { key: "monitoring", icon: "chart", title: "거래 살펴보기",
+    lines: ["내 거래를 살펴보고 걱정되는 거래를 찾아요.", `살펴보는 일은 ${deviceWord()} 안에서만 해요.`] },
+  { key: "helper_alerts", icon: "users", title: "조력자에게 알리기",
+    lines: ["꼭 확인할 거래가 생기면 내가 고른 조력자에게 알려요.", "이 스위치를 꺼도 알림 보내기에서 직접 알릴 수 있어요."],
+    link: { href: "#/more/helpers", icon: "users", text: "조력자 정하기" } },
+  { key: "counseling_referral", icon: "building", title: "상담하는 곳에 알려 주기",
+    lines: ["상담하는 곳에 알려 줘요.", "이럴 때 알려 줘요."],
     bullets: ["꼭 확인할 일이 30일 동안 3번 이상 생길 때", "알릴 조력자가 모두 돈을 받는 사람일 때"],
-    after: ["보내지 않고 멈춘 것도 함께 세어요."] },
+    link: { href: "#/more/counselors", icon: "building", text: "상담하는 곳 정하기" } },
 ];
+// 모두 지우기에서 함께 지워지는 것
+const WIPED = ["동의한 것", "조력자", "상담하는 곳", "거래", "담은 거래", "보낸 알림 기록"];
 
 export default {
   title: "동의",
@@ -24,20 +26,27 @@ export default {
   async render(ctx) {
     const { main, go } = ctx;
     const list = h("div", { class: "list" }, skeleton(1));
-    const updated = h("p", { class: "muted", style: "margin:.25rem .25rem 1rem" });
+    const updated = h("p", { class: "muted consent-updated" });
     const givenBy = h("div", { class: "segmented", role: "radiogroup", "aria-label": "누가 동의했나요?" });
     const status = h("div", { role: "status" });
+    const wipeOut = h("div", { "aria-live": "polite" });
     fill(main,
-      h("h2", { class: "page-title", tabindex: "-1", text: "동의: 내가 정해요" }),
+      h("h2", { class: "page-title", tabindex: "-1", text: "동의" }),
       h("p", { class: "page-sub", text: "SafePause가 무엇을 해도 되는지 내가 정해요. 언제든지 끌 수 있어요. 끄면 바로 멈춰요." }),
       list, updated,
-      h("h3", { class: "section-title", text: "누가 동의했나요?" }), givenBy, status);
+      h("h3", { class: "section-title", text: "누가 동의했나요?" }), givenBy, status,
 
-    let consent = null;
+      h("h3", { class: "section-title", text: "모두 지우기" }),
+      h("div", { class: "card wipe-card" },
+        h("p", { text: `${deviceWord()}에 저장한 것을 모두 지워요. 지우면 되돌릴 수 없어요.` }),
+        h("ul", { class: "wipe-items", "aria-label": "함께 지워지는 것" }, WIPED.map((t) => h("li", { class: "tag", text: t }))),
+        h("button", { type: "button", class: "btn danger-weak big block", onclick: (e) => busy(e.currentTarget, wipe) },
+          icon("trash"), h("span", { text: "모두 지우기" }))),
+      wipeOut);
+
     const switches = {};
 
     function render(c) {
-      consent = c;
       ctx.session.consent = c;
       if (!list.querySelector(".switch-row")) {
         fill(list, ITEMS.map((it) => {
@@ -45,13 +54,16 @@ export default {
           const sw = h("button", { type: "button", class: "switch", role: "switch", "aria-checked": "false", "aria-labelledby": titleId, "aria-describedby": descId,
             onclick: () => toggle(it, sw) });
           switches[it.key] = sw;
-          return h("div", { class: "switch-row" },
-            h("span", { class: "row-icon blue" }, icon(it.icon)),
-            h("div", { class: "row-main" }, h("h3", { id: titleId, text: it.title }),
+          // 윗줄: 아이콘 · 이름 · 스위치, 아랫줄: 설명(좁은 화면에서도 스위치가 이름 옆에 남게)
+          return h("div", { class: "switch-row consent-row" },
+            h("div", { class: "consent-head" },
+              h("span", { class: "row-icon blue" }, icon(it.icon)),
+              h("h3", { id: titleId, text: it.title }),
+              sw),
+            h("div", { class: "consent-body" },
               h("div", { id: descId }, it.lines.map((t) => h("p", { text: t })),
-                it.bullets ? h("ul", { style: "list-style:disc;padding-left:1.2rem;color:var(--text-3)" }, it.bullets.map((b) => h("li", { text: b }))) : null,
-                (it.after || []).map((t) => h("p", { text: t })))),
-            sw);
+                it.bullets ? h("ul", { class: "consent-bullets" }, it.bullets.map((b) => h("li", { text: b }))) : null),
+              it.link ? h("a", { class: "btn sm weak consent-link", href: it.link.href }, icon(it.link.icon), h("span", { text: it.link.text })) : null));
         }));
         fill(givenBy, [["self", "나(본인)"], ["legal_representative", "법정대리인"]].map(([v, t]) => {
           const input = h("input", { type: "radio", name: "given_by", value: v, onchange: () => changeGivenBy(v) });
@@ -93,6 +105,27 @@ export default {
         if (e === STALE) return;
         fill(status, errorNotice(e, go));
         await reload();   // 저장되지 않은 선택이 남지 않게(리뷰 L1)
+      }
+    }
+
+    // 모두 지우기(즉시 철회권): 확인 → 세대 올리기 → 지우기 → 꺼진 동의로 다시 그림
+    async function wipe() {
+      const ok = await confirmSheet({
+        title: "정말 모두 지울까요?", lines: ["되돌릴 수 없어요."], confirmText: "네, 지울래요", cancelText: "아니요", danger: true,
+      });
+      if (!ok) return;
+      ctx.session.bumpEpoch();   // 지우는 즉시 옛 분석 응답을 버린다(리뷰 H1)
+      try {
+        const r = await ctx.req("POST", "/api/wipe");
+        ctx.session.consent = null;
+        try { sessionStorage.removeItem("safepause.onboard.later"); } catch (e) { /* 무시 */ }
+        fill(wipeOut, h("div", { class: "notice green", role: "status" }, icon("check"), h("p", { text: r.message })));
+        toast(r.message);
+        announce(r.message);
+        await reload();   // 모두 꺼진 동의를 보인다
+      } catch (err) {
+        if (err === STALE) return;
+        fill(wipeOut, errorNotice(err, go));
       }
     }
 

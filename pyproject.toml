@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "safepause"
-version = "0.2.0"
+version = "0.3.0"
 description = "지원의사결정 기반 발달장애인 경제적 착취 사전 예방 AI (2026 AI 라이프 솔루션 챌린지 프로토타입)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -30,7 +30,7 @@ include = ["safepause*"]
 
 [tool.setuptools.package-data]
 # 화면 파일(PC·앱 공통). 옛 setuptools도 읽도록 폴더마다 적는다(**는 62.3+에서만)
-"safepause" = ["web/*", "web/css/*", "web/js/*", "web/js/views/*", "web/engine/*", "web/icons/*", "web/data/*"]
+"safepause" = ["web/*", "web/css/*", "web/css/views/*", "web/js/*", "web/js/views/*", "web/engine/*", "web/icons/*", "web/data/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">안전 정지</string>
+    <!-- 휴대폰 홈 화면 아이콘 이름(런처 이름) -->
+    <string name="app_name" translatable="false">SafePause</string>
 </resources>

@@ -13,6 +13,8 @@ helpers.json
 transactions.json
 decisions.json
 notices.json
+counselors.json
+flags.json
 serve.lock
 .sp-*
 file_eval_*

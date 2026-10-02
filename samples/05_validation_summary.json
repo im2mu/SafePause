@@ -1,7 +1,7 @@
 {
   "kind": "safepause-validation-summary",
   "schema": 1,
-  "app_version": "0.2.0",
+  "app_version": "0.3.0",
   "model_version": "rules-v1+iforest-v1-131",
   "created_at": "2026-10-01T09:00:00",
   "note": "개인을 알아볼 수 있는 정보(이름·계좌·금액·날짜)는 넣지 않았어요. 거래 수와 알림 수만 있어요. 현장 검증에 쓰려면 본인(또는 법정대리인)이 동의한 뒤 직접 전달해 주세요.",
@@ -32,5 +32,6 @@
     "ai_only": 0
   },
   "decisions": {},
-  "helper_notices": 0
+  "helper_notices": 0,
+  "manual_notices": 0
 }

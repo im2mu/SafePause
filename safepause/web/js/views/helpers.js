@@ -1,12 +1,17 @@
 /* 조력자: 내가 믿는 사람. 누구에게, 언제, 무엇을 알릴지 내가 정한다(S22·S37).
- * 한 사람씩 시트에서 고치고 '저장하기'를 누를 때만 저장한다. 저장하지 않은 입력이 있으면 닫기 전에 묻는다(리뷰 M2). */
+ * 휴대폰 번호·이메일 원본은 이 기기에만 저장한다(문자·메일 앱을 열 때 씀). 목록에는 가린 번호·메일만 보인다.
+ * 한 사람씩 시트에서 고치고 저장하기를 누를 때만 저장한다. 저장하지 않은 입력이 있으면 닫기 전에 묻는다(리뷰 M2). */
 import { h, icon, fill, openSheet, confirmSheet, busy, toast, announce, skeleton, emptyState } from "../ui.js";
-import { errorNotice } from "../components.js";
+import { errorNotice, menuRow } from "../components.js";
 import { SIGNALS, SIGNAL_KO, SIGNAL_ICON } from "../labels.js";
+import { canPickContact, pickContact } from "../native.js";
 import { STALE } from "../api.js";
 
 const RELATIONS = ["가족", "지역발달장애인지원센터 전담 인력", "친구", "이웃"];
 const MAX_HELPERS = 10;
+const NO_CHECK = { spellcheck: "false", autocapitalize: "off", autocorrect: "off", autocomplete: "off" };
+const PHONE_OK = /^[0-9+\-\s()]{0,20}$/;               // 서버 models.PHONE_RE와 같음
+const EMAIL_OK = /^[^@\s]{1,64}@[^@\s]+\.[^@\s]+$/;   // 서버 models.EMAIL_RE와 같음
 
 export default {
   title: "조력자",
@@ -17,29 +22,43 @@ export default {
     const consentNote = h("div");
     const listSlot = h("div", null, skeleton(2));
     const status = h("div", { role: "status" });
-    const addBtn = h("button", { type: "button", class: "btn weak big block", onclick: () => edit(null) }, icon("plus"), h("span", { text: "조력자 더하기" }));
+    const addBtn = h("button", { type: "button", class: "btn primary big block page-btn", onclick: () => edit(null) }, icon("plus"), h("span", { text: "조력자 더하기" }));
     fill(main,
       h("h2", { class: "page-title", tabindex: "-1", text: "조력자" }),
       h("p", { class: "page-sub", text: "조력자는 내가 믿는 사람이에요. 누구에게, 언제 알릴지 내가 정해요." }),
-      consentNote,
-      h("div", { class: "notice" }, icon("helper"), h("div", null,
-        h("p", { text: "조력자가 돈을 받는 사람이면 그 조력자에게는 알리지 않아요. 다른 조력자에게만 알려요." }),
-        h("p", { text: "알릴 조력자가 없을 때도 있어요. 그때는 상담하는 곳을 알려 줘요." }),
-        h("p", { text: "'동의'에서 '상담하는 곳 알려 주기'를 켰을 때만이에요." }))),
-      listSlot, addBtn, status);
+      consentNote, listSlot, addBtn, status,
+      h("div", { class: "notice helper-rule" }, icon("info"), h("div", null,
+        h("p", { text: "조력자가 돈을 받는 사람이면 그 조력자에게는 알리지 않아요." }),
+        h("p", { text: "그때는 다른 조력자나 상담하는 곳에 알려요." }))),
+      h("div", { class: "list" },
+        menuRow({ icon: "building", tone: "blue", title: "상담하는 곳도 정하기", sub: "센터·기관에도 알릴 수 있어요.", href: "#/more/counselors" })));
 
     let helpers = [];
 
     function renderList() {
       addBtn.disabled = helpers.length >= MAX_HELPERS;
-      if (!helpers.length) { fill(listSlot, emptyState("users", "아직 조력자가 없어요", "'조력자 더하기'를 눌러 주세요.")); return; }
-      fill(listSlot, h("div", { class: "list" }, helpers.map((hp, i) => h("button", { type: "button", class: "row", onclick: () => edit(i) },
-        h("span", { class: "row-icon blue" }, icon("person")),
+      if (!helpers.length) {
+        fill(listSlot, h("div", { class: "card flat" }, emptyState("users", "아직 조력자가 없어요", "조력자 더하기를 눌러 주세요.")));
+        return;
+      }
+      fill(listSlot, h("div", { class: "list full-title" }, helpers.map((hp, i) => {
+        const contacts = [hp.phone_masked, hp.email_masked].filter(Boolean);
+        return h("button", { type: "button", class: "row", onclick: () => edit(i),
+          "aria-label": [hp.relation ? `${hp.name}, ${hp.relation}` : hp.name, ...contacts, levelText(hp),
+            hp.active === false ? "자동 알림 꺼짐" : ""].filter(Boolean).join(", ") },
+        h("span", { class: "row-icon blue" }, icon("user-check")),
         h("span", { class: "row-main" },
           h("span", { class: "row-title", text: hp.relation ? `${hp.name} (${hp.relation})` : hp.name }),
-          h("span", { class: "row-sub", text: [hp.min_level === "caution" ? "확인할 때도 알려요" : "꼭 확인할 때만 알려요",
-            hp.active === false ? "자동으로 알리기 꺼짐" : null, hp.contact || null].filter(Boolean).join(" · ") })),
-        h("span", { class: "row-chev" }, icon("chevron"))))));
+          contacts.length
+            ? contacts.map((c) => h("span", { class: "row-sub tnum", text: c }))
+            : h("span", { class: "row-sub", text: "연락처가 없어요" }),
+          h("span", { class: "row-tags" },
+            hp.phone ? h("span", { class: "tag" }, icon("chat"), h("span", { text: "문자" })) : null,
+            hp.email ? h("span", { class: "tag" }, icon("mail"), h("span", { text: "메일" })) : null,
+            h("span", { class: "tag", text: levelText(hp) }),
+            hp.active === false ? h("span", { class: "badge grey", text: "자동 알림 꺼짐" }) : null)),
+        h("span", { class: "row-chev" }, icon("chevron")));
+      })));
     }
 
     async function save(next) {
@@ -51,16 +70,19 @@ export default {
 
     function edit(index) {
       const isNew = index === null;
-      const hp = isNew ? { name: "", relation: "", contact: "", identifiers: [], min_level: "high", signal_scope: [], active: true } : helpers[index];
-      const noCheck = { spellcheck: "false", autocapitalize: "off", autocorrect: "off", autocomplete: "off" };
-      const name = h("input", { class: "input", id: "hp-name", type: "text", maxlength: "30", value: hp.name || "", ...noCheck });
-      const relation = h("input", { class: "input", id: "hp-rel", type: "text", maxlength: "40", list: "hp-rel-list", value: hp.relation || "", ...noCheck });
-      const contact = h("input", { class: "input", id: "hp-contact", type: "text", maxlength: "60", value: hp.contact || "", ...noCheck, "aria-describedby": "hp-contact-hint" });
-      const ids = h("textarea", { class: "input", id: "hp-ids", rows: "2", maxlength: "600", ...noCheck, "aria-describedby": "hp-ids-hint" });
+      const hp = isNew ? { name: "", relation: "", phone: "", email: "", identifiers: [], min_level: "high", signal_scope: [], active: true } : helpers[index];
+      const name = h("input", { class: "input", id: "hp-name", type: "text", maxlength: "30", value: hp.name || "", ...NO_CHECK });
+      const relation = h("input", { class: "input", id: "hp-rel", type: "text", maxlength: "40", list: "hp-rel-list", value: hp.relation || "", ...NO_CHECK });
+      const phone = h("input", { class: "input tnum", id: "hp-phone", type: "tel", inputmode: "tel", maxlength: "20", value: hp.phone || "", placeholder: "010-0000-0000", ...NO_CHECK, "aria-describedby": "hp-phone-err" });
+      const email = h("input", { class: "input", id: "hp-email", type: "email", inputmode: "email", maxlength: "80", value: hp.email || "", ...NO_CHECK, "aria-describedby": "hp-email-err" });
+      const phoneErr = h("p", { class: "error-text", id: "hp-phone-err", hidden: true });
+      const emailErr = h("p", { class: "error-text", id: "hp-email-err", hidden: true });
+      const ids = h("textarea", { class: "input", id: "hp-ids", rows: "2", maxlength: "600", ...NO_CHECK, "aria-describedby": "hp-ids-hint" });
       ids.value = (hp.identifiers || []).join(", ");
       let idsTouched = !isNew;
       ids.addEventListener("input", () => { idsTouched = true; });
-      name.addEventListener("input", () => { if (!idsTouched) ids.value = name.value.trim(); });   // 새 조력자: 이름을 계좌번호·이름 칸에도 채움
+      const syncIds = () => { if (!idsTouched) ids.value = name.value.trim(); };   // 새 조력자: 이름을 계좌번호·이름 칸에도 채움
+      name.addEventListener("input", syncIds);
       const levelHigh = h("input", { type: "radio", name: "hp-level", value: "high", checked: hp.min_level !== "caution" });
       const levelCaution = h("input", { type: "radio", name: "hp-level", value: "caution", checked: hp.min_level === "caution" });
       const scope = new Set(hp.signal_scope || []);
@@ -72,42 +94,75 @@ export default {
       let dirty = false;
       const markDirty = () => { dirty = true; };
 
+      // 연락처에서 불러오기(쓸 수 없는 PC에서는 버튼을 숨김). 고른 한 사람의 번호·메일만 받는다
+      function pickBtn(kind, input, clearErr) {
+        if (!canPickContact()) return null;
+        return h("button", { type: "button", class: "btn sm weak", onclick: async () => {
+          const c = await pickContact(kind);
+          if (!c) return;
+          input.value = kind === "phone" ? c.value.replace(/[^\d+\-\s()]/g, "").slice(0, 20) : c.value.trim().slice(0, 80);
+          if (!name.value.trim() && c.name) { name.value = c.name.slice(0, 30); syncIds(); }
+          clearErr();
+          markDirty();
+          announce(kind === "phone" ? "번호를 불러왔어요." : "메일을 불러왔어요.");
+          input.focus();
+        } }, icon("contacts"), h("span", { text: "연락처에서 불러오기" }));
+      }
+      const fieldErr = (input, p, msg) => {
+        input.setAttribute("aria-invalid", msg ? "true" : "false");
+        p.textContent = msg || "";
+        p.hidden = !msg;
+      };
+      phone.addEventListener("input", () => fieldErr(phone, phoneErr, ""));
+      email.addEventListener("input", () => fieldErr(email, emailErr, ""));
+
       const sheet = openSheet((close) => {
         const form = h("form", { novalidate: true, oninput: markDirty, onchange: markDirty, onsubmit: (e) => e.preventDefault() },
           h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: isNew ? "새 조력자" : `조력자: ${hp.name}` }),
           h("div", { class: "field" }, h("label", { for: "hp-name", text: "이름" }), name),
           h("div", { class: "field" }, h("label", { for: "hp-rel", text: "관계" }), relation,
             h("datalist", { id: "hp-rel-list" }, RELATIONS.map((r) => h("option", { value: r })))),
-          h("div", { class: "field" }, h("label", { for: "hp-contact", text: "연락처 (가려서 저장해요)" }), contact,
-            h("p", { class: "hint", id: "hp-contact-hint", text: "전화번호는 가운데를, 메일은 앞 두 글자 뒤를 가려서 저장해요. 연락처로 보내는 것은 없어요." })),
-          h("div", { class: "field" }, h("label", { for: "hp-ids", text: "이 사람의 계좌번호·이름 (쉼표나 줄바꿈으로 나눠요)" }), ids,
-            h("p", { class: "hint", id: "hp-ids-hint", text: "받는 사람이 여기 적은 계좌번호나 이름과 같으면, 이번에는 이 조력자에게 알리지 않아요." })),
-          h("fieldset", { class: "field", style: "border:0;padding:0;margin:0 0 1.1rem" },
+          h("div", { class: "field" },
+            h("div", { class: "field-head" }, h("label", { for: "hp-phone", text: "휴대폰 번호" }), pickBtn("phone", phone, () => fieldErr(phone, phoneErr, ""))),
+            phone, phoneErr),
+          h("div", { class: "field" },
+            h("div", { class: "field-head" }, h("label", { for: "hp-email", text: "이메일" }), pickBtn("email", email, () => fieldErr(email, emailErr, ""))),
+            email, emailErr,
+            h("p", { class: "hint", text: "번호나 메일이 있어야 문자·메일로 알릴 수 있어요." })),
+          h("div", { class: "field" }, h("label", { for: "hp-ids", text: "이 사람의 계좌번호·이름" }), ids,
+            h("p", { class: "hint", id: "hp-ids-hint", text: "쉼표나 줄바꿈으로 나눠 적어요. 받는 사람이 여기 적은 계좌번호나 이름과 같으면, 이번에는 이 조력자에게 알리지 않아요." })),
+          h("fieldset", { class: "field form-group" },
             h("legend", { class: "field-label", text: "언제 알릴까요?" }),
             h("label", { class: "check-row" }, levelHigh, h("span", { class: "grow", text: "꼭 확인할 때만 (처음 설정)" })),
             h("label", { class: "check-row" }, levelCaution, h("span", { class: "grow", text: "확인할 때도" }))),
-          h("fieldset", { class: "field", style: "border:0;padding:0;margin:0 0 1.1rem" },
+          h("fieldset", { class: "field form-group" },
             h("legend", { class: "field-label", text: "무엇을 알릴까요?" }),
-            h("label", { class: "check-row" }, allBox, h("span", { class: "grow", text: "모든 것" })),
-            SIGNALS.map((code, i) => h("label", { class: "check-row" }, sigBoxes[i], icon(SIGNAL_ICON[code]), h("span", { class: "grow", text: SIGNAL_KO[code] })))),
-          h("label", { class: "check-row" }, active, h("span", { class: "grow", text: "이 조력자에게 자동으로 알리기" })),
-          h("p", { class: "hint", id: "hp-active-hint", text: "끄면 자동으로는 알리지 않아요. 카드에서 '조력자에게 물어볼래요'로 고를 때만 알려요." }),
+            h("label", { class: "check-row sig-row" }, allBox, h("span", { class: "sig-ic", "aria-hidden": "true" }, icon("check-line")), h("span", { class: "grow", text: "모든 것" })),
+            SIGNALS.map((code, i) => h("label", { class: "check-row sig-row" }, sigBoxes[i],
+              h("span", { class: "sig-ic", "aria-hidden": "true" }, icon(SIGNAL_ICON[code])), h("span", { class: "grow", text: SIGNAL_KO[code] })))),
+          h("label", { class: "check-row auto-row" }, active, h("span", { class: "grow strong", text: "이 조력자에게 자동으로 알리기" })),
+          h("p", { class: "hint", id: "hp-active-hint", text: "끄면 자동으로는 알리지 않아요. 알림 보내기에서 직접 고를 때만 알려요." }),
           err,
           h("div", { class: "sheet-actions" },
             h("button", {
               type: "button", class: "btn primary big block",
               onclick: (e) => busy(e.currentTarget, async () => {
                 const nm = name.value.trim();
+                const ph = phone.value.trim();
+                const em = email.value.trim();
+                err.hidden = true;
                 if (!nm) { err.textContent = "이름을 적어 주세요."; err.hidden = false; name.focus(); return; }
+                if (ph && (!PHONE_OK.test(ph) || !/\d/.test(ph))) { fieldErr(phone, phoneErr, "전화번호는 숫자로 적어 주세요."); phone.focus(); return; }
+                if (em && !EMAIL_OK.test(em)) { fieldErr(email, emailErr, "이메일 모양이 아니에요."); email.focus(); return; }
                 const all = allBox.checked;
                 const sc = all ? [] : sigBoxes.filter((b) => b.checked).map((b) => b.value);
                 if (!all && !sc.length) { err.textContent = "알릴 것을 하나 이상 골라 주세요."; err.hidden = false; allBox.focus(); return; }
                 const item = {
-                  id: hp.id || null, name: nm, relation: relation.value.trim(), contact: contact.value.trim(),
+                  id: hp.id || null, name: nm, relation: relation.value.trim(), phone: ph, email: em,
                   identifiers: ids.value.split(/[,\n]/).map((s) => s.trim()).filter(Boolean),
                   min_level: levelCaution.checked ? "caution" : "high", signal_scope: sc, active: active.checked,
                 };
-                const next = helpers.map((x) => ({ ...x }));
+                const next = helpers.map(toPayload);
                 if (isNew) next.push(item); else next[index] = item;
                 try {
                   await save(next);
@@ -128,7 +183,7 @@ export default {
                 const ok = await confirmSheet({ title: `${hp.name}을(를) 뺄까요?`, lines: ["조력자 목록에서 빠져요."], confirmText: "네, 뺄래요", danger: true });
                 if (!ok) return;
                 try {
-                  await save(helpers.filter((_, i) => i !== index));
+                  await save(helpers.filter((_, i) => i !== index).map(toPayload));
                   dirty = false; ctx.session.unsaved = null;
                   close();
                   toast("조력자를 뺐어요.");
@@ -157,11 +212,11 @@ export default {
       const [list, consent] = await Promise.all([ctx.req("GET", "/api/helpers"), ctx.req("GET", "/api/consent")]);
       helpers = list;
       fill(consentNote, consent.helper_alerts
-        ? h("p", { class: "muted", style: "margin:0 .25rem .75rem", text: "조력자에게 알리기: 켜짐." })
+        ? h("p", { class: "muted consent-state" }, icon("check-line"), h("span", { text: "조력자에게 알리기: 켜짐" }))
         : h("div", { class: "notice orange" }, icon("warning"), h("div", null,
-          h("p", { text: "조력자에게 알리기가 꺼져 있어요. 자동으로 알리려면 '동의'에서 켜 주세요." }),
-          h("p", { text: "(카드에서 '조력자에게 물어볼래요'를 직접 고르면 그때는 알려요.)" }),
-          h("a", { class: "btn sm weak", href: "#/more/consent", style: "margin-top:.5rem" }, icon("toggle"), h("span", { text: "동의로 가기" })))));
+          h("p", { text: "조력자에게 알리기가 꺼져 있어요. 자동으로 알리려면 동의 화면에서 켜 주세요." }),
+          h("p", { text: "알림 보내기에서는 언제든지 직접 알릴 수 있어요." }),
+          h("a", { class: "btn sm weak notice-action", href: "#/more/consent" }, icon("toggle"), h("span", { text: "동의로 가기" })))));
       renderList();
     } catch (e) {
       if (e === STALE) return;
@@ -170,3 +225,15 @@ export default {
     }
   },
 };
+
+function levelText(hp) {
+  return hp.min_level === "caution" ? "확인할 때도 알림" : "꼭 확인할 때만 알림";
+}
+
+// 저장 요청 모양(서버 HelperIn): 가린 표시(phone_masked 등)는 보내지 않는다
+function toPayload(x) {
+  return {
+    id: x.id || null, name: x.name, relation: x.relation || "", phone: x.phone || "", email: x.email || "",
+    identifiers: x.identifiers || [], min_level: x.min_level || "high", signal_scope: x.signal_scope || [], active: x.active !== false,
+  };
+}

@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from safepause.data import synth
 from safepause.explain.easy_card import PAST_QUESTION, PICTOGRAMS, readability_issues
+from safepause.api.constants import NOTICES_NOTE
 from safepause.guardian.outbox import DELIVERY_NOTE
 from safepause.models import AlertCard, RiskLevel
 from safepause.server.app import EvalUnavailable, create_app
@@ -105,7 +106,7 @@ def test_health(client: TestClient) -> None:
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "ok" and body["offline"] is True
-    assert body["version"] == "0.2.0"
+    assert body["version"] == "0.3.0"
     assert r.headers["cache-control"] == "no-store"
 
 
@@ -304,7 +305,7 @@ def test_upload_with_explicit_mapping(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize("content,mapping,fragment", [
-    ("가,나\n1,2\n".encode("utf-8"), None, "mapping"),
+    ("가,나\n1,2\n".encode("utf-8"), None, "거래내역 파일인지 확인해 주세요"),   # 화면은 열 이름을 알려 주지 않는다(v0.3)
     (b"", None, "비어"),
     ("거래일시,출금액,입금액\n".encode("utf-8"), "{bad json", "JSON"),
     ("거래일시,출금액,입금액\n".encode("utf-8"), "[1, 2]", "모양"),
@@ -490,8 +491,9 @@ def test_decide_send_is_never_blocked(client: TestClient) -> None:
     # 고위험 + 조력자 알림 동의 → 알림 기록(실제 발송 없음)
     assert d["notices_recorded"] == 1
     notices = client.get("/api/notices").json()
-    assert notices["delivery_note"] == DELIVERY_NOTE
+    assert notices["delivery_note"] == NOTICES_NOTE              # v0.3: 자동·직접 기록을 함께 보여 주는 안내
     latest = notices["items"][0]
+    assert latest["kind"] == "auto"
     assert latest["helper_name"] == "엄마" and latest["txn_id"] == "live-00003"
     assert latest["level"] == "high"
     assert "결정은" in latest["message"] and "이야기해 주세요" in latest["message"]
@@ -647,7 +649,7 @@ def test_cards_are_readable_and_recent_first(client: TestClient) -> None:
 
 
 def test_records_empty_initially(client: TestClient) -> None:
-    assert client.get("/api/notices").json() == {"items": [], "delivery_note": DELIVERY_NOTE}
+    assert client.get("/api/notices").json() == {"items": [], "delivery_note": NOTICES_NOTE}
     assert client.get("/api/decisions").json() == {"items": []}
 
 
@@ -739,6 +741,9 @@ def test_wipe_removes_everything(client: TestClient, home: Path) -> None:
     night_high(client)
     decide(client, night(), "send")
     assert client.get("/api/notices").json()["items"]
+    assert client.put("/api/counselors", json=[{"name": "센터"}]).status_code == 200
+    first = client.get("/api/transactions", params={"limit": 1}).json()["items"][0]["txn"]["id"]
+    assert client.post("/api/flags", json={"txn_id": first}).status_code == 200
 
     r = client.post("/api/wipe")
     assert r.status_code == 200
@@ -755,7 +760,10 @@ def test_wipe_removes_everything(client: TestClient, home: Path) -> None:
     set_consent(client, monitoring=True)
     body = client.get("/api/transactions").json()
     assert body["count"] == 0 and body["items"] == []
-    assert client.get("/api/cards").json() == {"total": 0, "items": []}
+    cards = client.get("/api/cards").json()
+    assert cards["total"] == 0 and cards["items"] == [] and cards["counseling"]["suggest"] is False
+    assert client.get("/api/counselors").json()["items"] == []
+    assert client.get("/api/flags").json() == {"items": []}
 
     assert client.post("/api/wipe").json()["removed"] == ["consent.json"]   # 다시 지워도 안전
 
@@ -867,10 +875,13 @@ def test_helper_contact_is_masked(client: TestClient) -> None:
         {"name": "아빠", "contact": "01098765432"},
     ])
     assert [h["contact"] for h in saved] == ["010-****-5678", "ce***@example.org", "010-****-5432"]
-    again = put_helpers(client, saved)                          # 가린 값을 다시 저장해도 그대로
-    assert [h["contact"] for h in again] == [h["contact"] for h in saved]
+    assert [(h["phone"], h["email"]) for h in saved] == [("010-1234-5678", ""), ("", "center.kim@example.org"),
+                                                         ("01098765432", "")]
+    assert [h["phone_masked"] or h["email_masked"] for h in saved] == [h["contact"] for h in saved]
+    again = put_helpers(client, saved)                          # GET 모양 그대로 다시 저장해도 같음
+    assert again == saved
     raw = (client.app.state.safepause.store.root / "helpers.json").read_text(encoding="utf-8")
-    assert "1234-5678" not in raw and "center.kim" not in raw
+    assert '"phone": "010-1234-5678"' in raw                   # 원본은 이 기기 저장 파일에만
 
 
 def test_ask_helper_respects_scope_and_choice(client: TestClient) -> None:
@@ -1095,11 +1106,9 @@ def test_helper_contact_masks_common_phone_formats(client: TestClient) -> None:
     saved = put_helpers(client, [{"name": f"사람{i}", "contact": c} for i, c in enumerate(raw)])
     got = [h["contact"] for h in saved]
     assert got[:5] == ["010-****-5678"] * 5
-    assert got[5] == "엄마(010-****-5678)"
+    assert got[5] == "010-****-5678"                             # v0.3: 옛 contact에서 번호만 꺼내 phone에
+    assert saved[5]["phone"] == "010-1234-5678"
     assert got[6] == "02-****-4567"
-    stored = (client.app.state.safepause.store.root / "helpers.json").read_text(encoding="utf-8")
-    for fragment in ("1234-5678", "1234 5678", "1234–5678", "123-4567"):
-        assert fragment not in stored, fragment
     assert [h["contact"] for h in put_helpers(client, saved)] == got   # 다시 저장해도 그대로
 
 
@@ -1119,7 +1128,7 @@ def test_ask_helper_without_helpers_says_so(client: TestClient) -> None:
     assert d["notices_recorded"] == 0 and d["asked_count"] == 0
     assert d["result_title"] == "물어볼 조력자가 없어요"
     assert d["result_lines"][0] == "김*호에게 30만 원을 아직 보내지 않았어요."
-    assert "'조력자' 화면" in d["result_lines"][1]
+    assert "조력자 화면" in d["result_lines"][1]
     assert "물어봐요" not in " ".join([d["result_title"], *d["result_lines"]])
     record = client.get("/api/decisions").json()["items"][0]
     assert record["decision"] == "ask_helper" and record["asked"] == 0
@@ -1327,8 +1336,7 @@ def test_helper_contact_masks_any_separator(client: TestClient, raw: str) -> Non
     """[변경 r3] 구분 기호와 관계없이 숫자 7개 이상이면 가린다(010으로 시작하면 010-****-5678)."""
     saved = put_helpers(client, [{"name": "엄마", "contact": raw}])
     assert saved[0]["contact"] == "010-****-5678"
-    stored = (client.app.state.safepause.store.root / "helpers.json").read_text(encoding="utf-8")
-    assert "1234" not in stored
+    assert saved[0]["phone"] == "01012345678"                     # v0.3: 문자 앱을 열 수 있게 숫자만 남긴 원본
 
 
 def test_helper_contact_masking_keeps_other_text() -> None:

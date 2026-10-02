@@ -1,0 +1,120 @@
+/* 전체 탭과 하위 화면(more·consent·helpers·counselors·settings·export·about·eval·onboarding) 전용 스타일. 공용 토큰·부품은 css/app.css에 있다(docs/v03_frontend_api.md).
+ * 글자 크기는 rem만(1rem 이상), 터치 영역 2.4rem 이상, 색은 공용 토큰만 쓴다(어두운 모드 자동). */
+
+/* ---- 전체: 메뉴 줄 오른쪽 값(동의 켜짐 수·조력자 수·글자 크기 등) ---- */
+.menu-row .row-main.with-val { display: flex; flex-wrap: wrap; align-items: center; gap: .1rem .75rem; }
+.with-val > .row-title { flex: 0 1 auto; min-width: 0; }
+.menu-val { margin-left: auto; color: var(--text-3); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.menu-val:empty { display: none; }
+.menu-row .row-main { min-width: 0; }
+.more-local { margin-top: 1.5rem; }
+.more-local strong { display: block; margin-bottom: .2rem; }
+.more-foot { margin: 1.25rem 0 .5rem; }
+
+/* 버전 정보 시트: 이름 · 값 줄 */
+.ver-list { margin: .5rem 0 0; display: grid; }
+.ver-list > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem 1rem; padding: .8rem 0; }
+.ver-list > div + div { border-top: 1px solid var(--line); }
+.ver-list dt { color: var(--text-3); font-weight: 600; }
+.ver-list dd { margin: 0; font-weight: 700; text-align: right; }
+.sheet .soon-icon .logo-bars { stroke: var(--primary-weak); stroke-width: 2.4; }
+
+/* ---- 동의 ---- */
+.consent-updated { margin: .25rem .25rem 1rem; }
+/* 스위치 줄: 윗줄(아이콘·이름·스위치) + 아랫줄(설명). 좁은 화면·큰 글씨에서도 스위치가 이름 옆에 남는다 */
+.switch-row.consent-row { display: block; padding-left: min(1.25rem, 4.5vw); padding-right: min(1.25rem, 4.5vw); container-type: inline-size; }
+.consent-head { display: flex; align-items: center; gap: min(.75rem, 3vw); }
+.consent-head h3 { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 1rem; font-weight: 700; }
+/* 스위치는 큰 글씨에서도 화면 폭의 1/5까지만 커진다(이름 칸이 한 글자 폭으로 줄지 않게, 높이 48px 이상 유지) */
+.consent-head .switch { margin-top: 0; width: min(3.6rem, 20vw); height: min(2.4rem, 13.4vw); }
+.consent-head .switch::after { width: min(2rem, 11.2vw); height: min(2rem, 11.2vw); top: min(.2rem, 1.1vw); left: min(.2rem, 1.1vw); }
+.consent-head .switch[aria-checked="true"]::after { transform: translateX(min(1.2rem, 6.6vw)); }
+.consent-body { margin-top: .4rem; padding-left: calc(min(2.4rem, 10vw) + min(.75rem, 3vw)); color: var(--text-3); }
+.consent-body p { color: var(--text-3); }
+/* 아주 큰 글씨(줄 폭이 글자 10자 미만): 꾸밈 아이콘과 들여쓰기를 빼서 이름·설명 칸을 넓힌다 */
+@container (max-width: 10em) {
+  .consent-head .row-icon { display: none; }
+  .consent-body { padding-left: 0; }
+}
+.consent-bullets { list-style: disc; padding-left: 1.2rem; margin-top: .3rem; color: var(--text-3); }
+.consent-bullets li + li { margin-top: .15rem; }
+.consent-link { margin-top: .7rem; }
+.wipe-card p { color: var(--text-2); }
+.wipe-items { display: flex; flex-wrap: wrap; gap: .4rem; margin: .8rem 0 1.1rem; }
+.wipe-items .tag { color: var(--text-2); }
+
+/* ---- 조력자·상담하는 곳: 목록 ---- */
+.consent-state { display: flex; align-items: center; gap: .4rem; margin: 0 .25rem .75rem; color: var(--ok-text); font-weight: 600; }
+.consent-state svg { width: 1.2rem; height: 1.2rem; flex: none; }
+.helper-rule { margin-top: 1.25rem; }
+.helper-rule + .list { margin-top: .25rem; }
+.page-btn { margin-bottom: .75rem; }
+
+/* 입력 칸 제목 + 연락처에서 불러오기 버튼(한 줄, 좁으면 줄바꿈) */
+.field-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .35rem .75rem; margin-bottom: .4rem; }
+.field-head > label { font-size: 1rem; font-weight: 600; color: var(--text-2); }
+.form-group { border: 0; padding: 0; margin: 0 0 1.1rem; min-width: 0; }
+.auto-row { margin-top: .25rem; }
+.auto-row + .hint { margin: 0 0 .5rem; }
+
+/* 무엇을 알릴까요: 신호 선 아이콘(둥근 바탕) + 명사형 이름 */
+.sig-row { gap: .65rem; padding: .45rem 0; }
+.sig-ic { width: 2.4rem; height: 2.4rem; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--primary-weak); color: var(--primary); }
+.sig-ic svg { width: 1.3rem; height: 1.3rem; }
+.sig-row input:disabled ~ .sig-ic { background: var(--bg-sub); color: var(--text-3); }
+.sig-row input:disabled ~ .grow { color: var(--text-3); }
+
+/* 상담하는 곳: 추천 카드 */
+/* 목록 이름이 길면(기관 이름 등) 줄여 쓰지 않고 줄을 바꾼다 */
+.full-title .row-title { white-space: normal; overflow: visible; }
+.preset-list { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); margin-bottom: .75rem; }
+.preset-list .preset-card { margin-bottom: 0; display: flex; flex-direction: column; gap: .6rem; }
+.preset-top { display: flex; align-items: flex-start; gap: .75rem; }
+.preset-main { flex: 1; min-width: 0; display: grid; gap: .15rem; }
+.preset-name { font-weight: 700; }
+.preset-phone { display: inline-flex; align-items: center; gap: .3rem; color: var(--text-2); font-weight: 700; }
+.preset-phone svg { width: 1.1rem; height: 1.1rem; flex: none; color: var(--text-3); }
+.preset-card .btn { margin-top: auto; }
+
+/* ---- 앱 설정 ---- */
+.pref-head { display: inline-flex; align-items: center; gap: .5rem; }
+.pref-head svg { width: 1.3rem; height: 1.3rem; color: var(--text-3); flex: none; }
+.pref-card { display: grid; gap: .9rem; }
+.pref-seg { grid-template-columns: repeat(auto-fit, minmax(min(3.1rem, 100%), 1fr)); }   /* 보통 글씨는 3칸, 아주 큰 글씨는 2칸 */
+.segmented label > .pref-opt { flex-direction: column; gap: .2rem; min-height: 4.2rem; padding: .55rem .25rem; }
+.pref-opt svg { width: 1.4rem; height: 1.4rem; }
+.pref-sample { font-weight: 800; line-height: 1.1; color: var(--text-2); }
+.pref-sample.fs-m { font-size: 1.1rem; }
+.pref-sample.fs-l { font-size: 1.35rem; }
+.pref-sample.fs-xl { font-size: 1.6rem; }
+.segmented input:checked + .pref-opt .pref-sample { color: var(--primary); }
+.pref-preview { background: var(--surface-2); border-radius: var(--r-m); padding: .85rem 1rem; font-weight: 600; }
+
+/* ---- 결과 내보내기 ---- */
+.export-list { display: grid; gap: .75rem; margin-bottom: .75rem; }
+.export-list .export-card { margin-bottom: 0; display: grid; gap: .35rem; }
+.export-top { display: flex; align-items: center; gap: min(.75rem, 3vw); margin-bottom: .25rem; }
+.export-main { flex: 1; min-width: 0; display: grid; }
+.export-title { font-weight: 700; }
+.export-type { color: var(--text-3); }
+.export-btn { margin-top: .6rem; }
+
+/* ---- 첫 실행 ---- */
+.onboard-hero.brand-mark { width: 4rem; height: 4rem; border-radius: 1.25rem; margin-bottom: .6rem; }
+.onboard-hero.brand-mark svg { width: 2.5rem; height: 2.5rem; }
+.onboard-brand { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; color: var(--primary); margin-bottom: 1rem; }
+.onboard-sub { margin-bottom: 1rem; }
+.onboard-note { margin-top: 1.25rem; }
+.onboard-foot.foot-flow { position: static; }
+
+/* ---- AI와 데이터 설명·AI 성능 확인 ---- */
+.about-bullets { list-style: disc; padding-left: 1.2rem; margin-top: .5rem; color: var(--text-2); }
+.about-bullets li + li { margin-top: .2rem; }
+.about-gap { margin-top: .5rem; }
+.about-wrap { white-space: normal; }
+.eval-note { margin: .4rem .25rem .6rem; }
+.eval-mine { margin-top: 1rem; }
+
+@media (max-width: 420px) {
+  .pref-seg { gap: .2rem; }
+}

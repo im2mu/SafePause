@@ -11,6 +11,7 @@ import pytest
 from safepause.models import (
     Channel,
     Consent,
+    Counselor,
     Decision,
     Direction,
     Helper,
@@ -151,6 +152,8 @@ def test_wipe_removes_everything(tmp_path) -> None:
     s.save_transactions([_txn()])
     s.append_decision("t00001", Decision.SEND, RiskLevel.NONE, "2026-09-30T10:00:00")
     s.append_notice(HelperNotice("h1", "엄마", "t00001", RiskLevel.HIGH, "m", "2026-09-30T10:00:00"))
+    s.save_counselors([Counselor(id="c1", name="센터", phone="1644-8295")])
+    s.save_flags([{"txn_id": "t00001", "created_at": "2026-09-30T10:00:00"}])
     (tmp_path / ".sp-leftover.tmp").write_text("x", encoding="utf-8")
     other = tmp_path / "user_file.txt"  # 저장소가 만들지 않은 파일은 건드리지 않는다
     other.write_text("keep", encoding="utf-8")
@@ -162,6 +165,7 @@ def test_wipe_removes_everything(tmp_path) -> None:
     assert s.load_consent() == Consent()
     assert s.load_helpers() == [] and s.load_transactions() == []
     assert s.load_decisions() == [] and s.load_notices() == []
+    assert s.load_counselors() == [] and s.load_flags() == []
     assert s.wipe() == []  # 두 번 지워도 오류 없음
 
 

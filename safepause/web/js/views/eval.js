@@ -28,7 +28,7 @@ export default {
       h("h3", { class: "section-title", text: "직접 다시 계산해 보기" }),
       h("div", { class: "card" },
         h("div", { class: "field" }, h("label", { for: "eval-seeds", text: "반복 횟수 (seed 수, 인물 3명씩)" }), seeds),
-        h("fieldset", { class: "field", style: "border:0;padding:0;margin:0 0 1rem" }, h("legend", { class: "field-label", text: "어떤 방식으로 확인할까요?" }),
+        h("fieldset", { class: "field form-group" }, h("legend", { class: "field-label", text: "어떤 방식으로 확인할까요?" }),
           modeBoxes.map((b) => h("label", { class: "check-row" }, b, h("span", { class: "grow", text: `${MODE_KO[b.value]} (${b.value})` })))),
         MODE === "engine" ? h("p", { class: "hint", text: "휴대폰에서는 1번에 10초쯤, 10번이면 1~2분 걸려요." }) : null,
         h("button", { type: "button", class: "btn primary big block", onclick: (e) => busy(e.currentTarget, run) }, icon("chart"), h("span", { text: "확인 시작" }))),
@@ -36,7 +36,7 @@ export default {
       h("h3", { class: "section-title", text: "내 거래로 확인" }),
       h("div", { class: "card" },
         h("p", { text: "저장된 거래를 모두 평소 거래로 보고, 알림이 얼마나 나오는지 세어요. 잘못 알리는 정도를 어림하는 방법이에요." }),
-        h("button", { type: "button", class: "btn weak big block", style: "margin-top:1rem", onclick: (e) => busy(e.currentTarget, mine) }, icon("list"), h("span", { text: "내 거래로 확인" }))),
+        h("button", { type: "button", class: "btn weak big block eval-mine", onclick: (e) => busy(e.currentTarget, mine) }, icon("list"), h("span", { text: "내 거래로 확인" }))),
       mineOut);
 
     // ① 제출 보고서 수치: 앱에 넣은 원자료 파일(web/data/eval_reference.json)
@@ -64,10 +64,10 @@ export default {
             trow("시나리오 주의 이상 탐지율", ["rules", "fused", "anomaly"].map((m) => percent(sub[m].scenario_caution)), H3),
             trow("정상 거래 고위험률", ["rules", "fused", "anomaly"].map((m) => percent(sub[m].normal_high_rate, 2)), H3),
             trow("정상 거래 알림률(주의 이상)", ["rules", "fused", "anomaly"].map((m) => percent(sub[m].normal_alert_rate, 2)), H3)))),
-        h("p", { class: "muted", style: "margin:0 .25rem", text: `seed ${ref.seeds} 검증 세트(룰 보완에 쓰지 않은 세트). ${ref.note}` }),
-        h("p", { class: "muted", style: "margin:.4rem .25rem 0", text: "이 앱 안의 AI 엔진은 PC판과 같은 코드예요. 아래 '직접 다시 계산'은 seed 1부터 계산해서 값이 달라요." }));
+        h("p", { class: "muted eval-note", text: `seed ${ref.seeds} 검증 세트(룰 보완에 쓰지 않은 세트). ${ref.note}` }),
+        h("p", { class: "muted eval-note", text: "이 앱 안의 AI 엔진은 PC판과 같은 코드예요. 아래 직접 다시 계산해 보기는 seed 1부터 계산해서 값이 달라요." }));
     } catch (e) {
-      fill(refSlot, h("p", { class: "muted", text: "보고서 수치 파일을 읽지 못했어요." }));
+      fill(refSlot, h("div", { class: "notice" }, icon("info"), h("p", { text: "보고서 수치 파일을 읽지 못했어요." })));
     }
 
     async function run() {
@@ -83,7 +83,7 @@ export default {
         const HM = ms.map((m) => MODE_KO[m] || m);
         const codes = Object.keys(first.scenario_recall || {});
         fill(runOut,
-          h("p", { class: "muted", style: "margin:.25rem .25rem .6rem", text: `인물 ${r.personas.length}명 × seed ${r.seeds.length}개 = 사례 ${first.n_cases ?? "-"}개. 앞 ${first.baseline_days ?? "-"}일로 배우고 뒤 ${first.eval_days ?? "-"}일을 확인했어요. (${r.elapsed_sec}초)` }),
+          h("p", { class: "muted eval-note", text: `인물 ${r.personas.length}명 × seed ${r.seeds.length}개 = 사례 ${first.n_cases ?? "-"}개. 앞 ${first.baseline_days ?? "-"}일로 배우고 뒤 ${first.eval_days ?? "-"}일을 확인했어요. (${r.elapsed_sec}초)` }),
           h("div", { class: "table-wrap" }, h("table", null, h("caption", { text: "요약" }),
             h("thead", null, h("tr", null, h("th", { text: "지표" }), ms.map((m) => h("th", { text: MODE_KO[m] || m })))),
             h("tbody", null,
@@ -97,8 +97,8 @@ export default {
             h("thead", null, h("tr", null, h("th", { text: "종류" }), ms.map((m) => h("th", { text: MODE_KO[m] || m })))),
             h("tbody", null, codes.map((code) => trow(SIGNAL_KO[code] || code,
               pick((x) => { const s = x.scenario_recall[code]; return `${percent(s.recall_caution)} / ${percent(s.recall_high)}`; }), HM))))) : null,
-          h("p", { class: "muted", style: "margin:0 .25rem", text: `모델: ${[...new Set(res.flatMap((x) => x.model_versions || []))].join(", ") || "-"}` }),
-          h("p", { style: "margin:.4rem .25rem" }, h("strong", { text: r.note })));
+          h("p", { class: "muted eval-note", text: `모델: ${[...new Set(res.flatMap((x) => x.model_versions || []))].join(", ") || "-"}` }),
+          h("p", { class: "eval-note" }, h("strong", { text: r.note })));
         announce("성능 확인을 마쳤어요.");
       } catch (e) {
         if (e === STALE) return;
@@ -123,7 +123,7 @@ export default {
               trow("알림 이유 (규칙)", [bySignal || "없음"]),
               trow("AI만 알린 것", [`${r.anomaly_only}건`])))),
           r.labeled_note ? h("div", { class: "notice orange" }, icon("info"), h("p", { text: r.labeled_note })) : null,
-          h("p", { style: "margin:.4rem .25rem" }, h("strong", { text: r.note })));
+          h("p", { class: "eval-note" }, h("strong", { text: r.note })));
       } catch (e) {
         if (e === STALE) return;
         fill(mineOut, errorNotice(e, go));

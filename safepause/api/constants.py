@@ -28,10 +28,38 @@ TS_NOTE = ("연습 거래는 저장된 거래의 마지막 날에 이어서 적�
            "그래서 날짜가 오늘과 달라요. 시각만 고른 대로예요.")
 TOO_BIG = "파일이 너무 커요(5MB까지)."
 NO_MONITORING = ("거래 살펴보기에 동의하지 않아서 분석하지 않았어요. "
-                 "'동의' 화면에서 '거래 살펴보기'를 켜 주세요.")
+                 "동의 화면에서 거래 살펴보기를 켜 주세요.")
 SUPERSEDED = ("지우기(또는 동의 끄기)가 먼저 처리돼서 이번 거래는 저장하지 않았어요. "
               "필요하면 다시 해 주세요.")
 NO_FILE = "올린 파일을 찾지 못했어요. CSV 파일을 골라 다시 올려 주세요."
 SYNTHETIC_NOTE = "합성 데이터 기준, 실제 피해 데이터 검증 아님"
 LABELED_NOTE = ("지금 저장된 거래에는 연습용으로 섞은 걱정되는 거래가 있어요. "
                 "이 숫자는 잘못 알린 비율이 아니에요.")
+
+# ---- v0.3: 상담하는 곳·담은 거래·보낸 알림 ----
+MAX_COUNSELORS = 20
+COUNSELOR_KINDS: tuple[str, ...] = ("disability_center", "rights_agency", "police", "finance", "other")
+# 추천 상담하는 곳(확인된 번호만). 출처
+# - 장애인권익옹호기관 1644-8295: 중앙장애인권익옹호기관 naapd.or.kr/abuse/report(전국 공통, 전화·문자·카카오톡)
+# - 금융감독원 1332: 금융감독원 fss.or.kr 서민금융1332
+# - 경찰 112: 국번 없이
+# - 지역발달장애인지원센터: 지역마다 번호가 달라 비워 둔다(사용자가 적음)
+COUNSELOR_PRESETS: tuple[dict[str, str], ...] = (
+    {"kind": "rights_agency", "name": "장애인권익옹호기관 (장애인학대 신고)", "phone": "1644-8295", "email": "",
+     "memo": "전국 같은 번호예요. 전화·문자·카카오톡으로 알릴 수 있어요."},
+    {"kind": "finance", "name": "금융감독원 불법금융 신고", "phone": "1332", "email": "",
+     "memo": "돈 문제로 속은 것 같으면 상담할 수 있어요."},
+    {"kind": "police", "name": "경찰 (금융사기 신고)", "phone": "112", "email": "",
+     "memo": "국번 없이 112예요."},
+    {"kind": "disability_center", "name": "지역발달장애인지원센터", "phone": "", "email": "",
+     "memo": "지역마다 번호가 달라요. 우리 지역 센터 번호를 적어 주세요."},
+)
+NOTICE_CHANNELS: tuple[str, ...] = ("sms", "email", "call", "copy")
+MAX_NOTICE_RECIPIENTS = 10
+MAX_NOTICE_TXNS = 20
+MAX_NOTICE_MESSAGE = 1000
+MAX_TXN_ID_CHARS = 200                      # 담기·알림 기록에서 받는 거래 id 길이 한도(표준 CSV id는 파일 그대로라 넉넉히)
+NOTICES_NOTE = "이 기기에 적어 둔 기록이에요. 실제로 보냈는지는 문자·메일 앱에서 확인해 주세요."
+TXN_NOT_FOUND = "그 거래를 찾지 못했어요."
+INSIGHT_MONTHS = 6                          # 돈 흐름 분석: 최근 몇 달까지 보여 줄지
+TOP_PAYEES = 3

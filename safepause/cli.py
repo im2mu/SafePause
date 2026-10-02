@@ -45,7 +45,7 @@ DEFAULT_ANALYZE_LIMIT = 30
 DEMO_SAMPLES = 3
 REPORT_PRIVACY_NOTE = ("이 보고서에는 받는 곳·금액·시각이 들어 있어요. "
                        "wipe(모두 지우기)는 이 보고서를 지우지 않아요. 필요 없으면 직접 지워 주세요.")
-WIPE_SERVER_HINT = ("SafePause 화면(serve)이 켜져 있으면, 화면의 '전체 → 내 데이터 → 모두 지우기'를 쓰거나 "
+WIPE_SERVER_HINT = ("SafePause 화면(serve)이 켜져 있으면, 화면의 전체 → 동의 → 모두 지우기를 쓰거나 "
                     "서버 창을 끈 뒤 지워 주세요.")
 SERVE_LOCK_FILE = "serve.lock"   # 저장 폴더마다 serve 하나만(두 창이 같은 기록을 덮어쓰지 않게)
 SERVE_LOCK_OFFSET = 1 << 30      # 파일 앞쪽에 서버 주소를 적고 먼 뒤쪽 바이트를 잠근다(Windows에서도 앞쪽은 읽힘)

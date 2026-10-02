@@ -37,7 +37,18 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from safepause import __version__, config
 from safepause.api.constants import MAX_UPLOAD_BYTES, NO_FILE, TOO_BIG
 from safepause.api.router import INTERNAL_ERROR
-from safepause.api.schemas import ConsentIn, DecideIn, EvalIn, HelperIn, PendingIn, SampleIn, validation_detail
+from safepause.api.schemas import (
+    ConsentIn,
+    CounselorIn,
+    DecideIn,
+    EvalIn,
+    FlagIn,
+    HelperIn,
+    NoticeRecordIn,
+    PendingIn,
+    SampleIn,
+    validation_detail,
+)
 from safepause.api.service import (   # noqa: F401  (v0.1 이름: 테스트·도구가 여기서 가져간다)
     EvalUnavailable,
     Evaluator,
@@ -248,6 +259,15 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
     def put_helpers(helpers: list[HelperIn]) -> list[dict[str, Any]]:
         return service.put_helpers(helpers)
 
+    # ---- 상담하는 곳(v0.3) ----
+    @app.get("/api/counselors")
+    def get_counselors() -> dict[str, Any]:
+        return service.get_counselors()
+
+    @app.put("/api/counselors")
+    def put_counselors(counselors: list[CounselorIn]) -> dict[str, Any]:
+        return service.put_counselors(counselors)
+
     # ---- 데이터 ----
     @app.get("/api/data/summary")
     def data_summary() -> dict[str, Any]:
@@ -271,10 +291,28 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
 
     # ---- 내 거래 + 평가 ----
     @app.get("/api/transactions")
-    def transactions(level: Literal["all", "caution", "high"] = "all",
+    def transactions(level: Literal["all", "caution", "high", "flagged"] = "all",
                      limit: int = Query(0, ge=0, le=100_000),
                      offset: int = Query(0, ge=0, le=10_000_000)) -> dict[str, Any]:
         return service.transactions(level, limit, offset)
+
+    # ---- 알림 목록에 담은 거래(v0.3) ----
+    @app.get("/api/flags")
+    def get_flags() -> dict[str, Any]:
+        return service.get_flags()
+
+    @app.post("/api/flags")
+    def add_flag(body: FlagIn) -> dict[str, Any]:
+        return service.add_flag(body)
+
+    @app.post("/api/flags/remove")
+    def remove_flag(body: FlagIn) -> dict[str, Any]:
+        return service.remove_flag(body)
+
+    # ---- 돈 흐름 분석(v0.3) ----
+    @app.get("/api/insights")
+    def insights() -> dict[str, Any]:
+        return service.insights()
 
     @app.get("/api/payees")
     def payees() -> dict[str, Any]:
@@ -297,6 +335,10 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
     @app.get("/api/notices")
     def notices() -> dict[str, Any]:
         return service.notices()
+
+    @app.post("/api/notices/record")
+    def record_notice(body: NoticeRecordIn) -> dict[str, Any]:
+        return service.record_notice(body)
 
     @app.get("/api/decisions")
     def decisions() -> dict[str, Any]:

@@ -1,5 +1,19 @@
-/* 쉬운 숫자·시각 표기. 규칙은 파이썬 explain/easy_card.py와 같다(천 원·만 원 단위 반올림, '새벽 2시'). */
+/* 쉬운 숫자·시각 표기. 규칙은 파이썬 explain/easy_card.py와 같다(천 원·만 원 단위 반올림, '새벽 2시').
+ * 목록·표의 금액은 moneyText("50,000원") 하나만 쓴다(쉬운 말 금액을 옆에 또 붙이지 않음). */
+import { isApp, isMobile } from "./native.js";
+
 export const nf = new Intl.NumberFormat("ko-KR");
+
+/** 이 앱이 열린 곳: 앱이나 휴대폰 브라우저면 "이 휴대폰", 아니면 "이 컴퓨터". */
+export function deviceWord() {
+  return isApp() || isMobile() ? "이 휴대폰" : "이 컴퓨터";
+}
+
+/** 목록·표의 금액: moneyText(50000) → "50,000원", moneyText(50000, "-") → "-50,000원", moneyText(50000, "+") → "+50,000원". */
+export function moneyText(value, sign = "") {
+  const n = Math.round(Number(value) || 0);
+  return sign ? `${sign}${nf.format(Math.abs(n))}원` : `${nf.format(n)}원`;
+}
 
 export function formatWon(value) {
   const n = Math.abs(Math.round(Number(value) || 0));
@@ -54,6 +68,13 @@ export function parseTs(text) {
 export function formatWhen(text) {
   const d = parseTs(text);
   return d ? `${formatDate(d)} ${formatTime(d)}` : (text || "");
+}
+
+/** "2026-06" → "6월"(full이면 "2026년 6월"). 돈 흐름 분석의 달 이름. */
+export function formatMonth(text, full = false) {
+  const m = /^(\d{4})-(\d{2})/.exec(text || "");
+  if (!m) return text || "";
+  return full ? `${+m[1]}년 ${+m[2]}월` : `${+m[2]}월`;
 }
 
 export function formatDay(text) {

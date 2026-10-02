@@ -15,9 +15,12 @@ from pydantic import BaseModel, ValidationError
 from safepause.api.schemas import (
     CardsQuery,
     ConsentIn,
+    CounselorList,
     DecideIn,
     EvalIn,
+    FlagIn,
     HelperList,
+    NoticeRecordIn,
     PendingIn,
     SampleIn,
     TxnQuery,
@@ -47,6 +50,12 @@ def _helpers(body: Any) -> Any:
     return HelperList.validate_python(body)
 
 
+def _counselors(body: Any) -> Any:
+    if body is None:
+        raise _MissingBody()
+    return CounselorList.validate_python(body)
+
+
 def _eval_run(s: Service, q: dict[str, str], body: Any, raw: Optional[bytes]) -> Any:
     return s.eval_run(EvalIn.model_validate(body) if body is not None else None)
 
@@ -73,15 +82,22 @@ ROUTES: dict[tuple[str, str], Handler] = {
     ("PUT", "/api/consent"): lambda s, q, b, r: s.put_consent(_model(ConsentIn, b)),
     ("GET", "/api/helpers"): lambda s, q, b, r: s.get_helpers(),
     ("PUT", "/api/helpers"): lambda s, q, b, r: s.put_helpers(_helpers(b)),
+    ("GET", "/api/counselors"): lambda s, q, b, r: s.get_counselors(),
+    ("PUT", "/api/counselors"): lambda s, q, b, r: s.put_counselors(_counselors(b)),
     ("GET", "/api/data/summary"): lambda s, q, b, r: s.data_summary(),
     ("POST", "/api/data/sample"): lambda s, q, b, r: s.data_sample(_model(SampleIn, b)),
     ("POST", "/api/data/upload"): _upload,
     ("GET", "/api/transactions"): _transactions,
+    ("GET", "/api/flags"): lambda s, q, b, r: s.get_flags(),
+    ("POST", "/api/flags"): lambda s, q, b, r: s.add_flag(_model(FlagIn, b)),
+    ("POST", "/api/flags/remove"): lambda s, q, b, r: s.remove_flag(_model(FlagIn, b)),
+    ("GET", "/api/insights"): lambda s, q, b, r: s.insights(),
     ("GET", "/api/payees"): lambda s, q, b, r: s.payees(),
     ("POST", "/api/safepause/check"): lambda s, q, b, r: s.check(_model(PendingIn, b)),
     ("POST", "/api/safepause/decide"): lambda s, q, b, r: s.decide(_model(DecideIn, b)),
     ("GET", "/api/cards"): _cards,
     ("GET", "/api/notices"): lambda s, q, b, r: s.notices(),
+    ("POST", "/api/notices/record"): lambda s, q, b, r: s.record_notice(_model(NoticeRecordIn, b)),
     ("GET", "/api/decisions"): lambda s, q, b, r: s.decisions(),
     ("POST", "/api/eval/run"): _eval_run,
     ("POST", "/api/eval/file"): lambda s, q, b, r: s.eval_file(),

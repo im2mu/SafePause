@@ -6,6 +6,7 @@ local time (Asia/Seoul assumed); the app never converts time zones.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -159,17 +160,55 @@ class AlertCard:
         return d
 
 
+# ---- 연락처(v0.3: 번호·메일 원본은 이 기기에만 저장. 문자·메일 앱을 열 때 필요) ----
+PHONE_RE = re.compile(r"^[0-9+\-\s()]{0,20}$")       # 숫자·+·-·공백·괄호만, 20자까지
+EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]+$")
+_EMAIL_FIND = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+")
+_PHONE_RUN = re.compile(r"\+?\(?\d[\d\s().\-]*\d")
+_MIN_PHONE_DIGITS = 7
+
+
+def split_legacy_contact(value: object) -> tuple[str, str, str]:
+    """옛 contact 하나 → (phone, email, 그대로 둘 값).
+
+    '@'가 있으면 메일, 없으면 번호로 본다. 이미 가린 값(*가 있음)이나 번호·메일을 찾지 못한 글은
+    세 번째 값으로 그대로 둔다(문자·메일 앱을 열 수 없으므로 표시용).
+    """
+    text = str(value or "").strip()
+    if not text:
+        return "", "", ""
+    if "*" in text:
+        return "", "", text
+    if "@" in text:
+        m = _EMAIL_FIND.search(text)
+        return ("", m.group(0), "") if m and EMAIL_RE.fullmatch(m.group(0)) else ("", "", text)
+    if PHONE_RE.fullmatch(text) and sum(ch.isdigit() for ch in text) >= 3:
+        return text, "", ""
+    for run in _PHONE_RUN.findall(text):   # '엄마(010-1234-5678)', '02-123-4567 내선 123'
+        run = run.strip()
+        if run.startswith("(") and ")" not in run:
+            run = run[1:]
+        if sum(ch.isdigit() for ch in run) >= _MIN_PHONE_DIGITS and PHONE_RE.fullmatch(run):
+            return run, "", ""
+    digits = re.sub(r"\D", "", text)       # '010ㆍ1234ㆍ5678'처럼 다른 기호로 나눠 적은 번호
+    if _MIN_PHONE_DIGITS <= len(digits) <= 15:
+        return ("+" if text.startswith("+") else "") + digits, "", ""
+    return "", "", text
+
+
 @dataclass
 class Helper:
     """신뢰 조력자. 당사자가 직접 지정하고, 알림 대상·범위도 당사자가 정한다 (S22, S37)."""
     id: str
     name: str
     relation: str                          # 예: "가족", "지역발달장애인지원센터 전담 인력"
-    contact: str = ""                      # 표시용(마스킹). 실제 발송은 하지 않음
+    contact: str = ""                      # 옛 연락처(가린 값 등 번호·메일로 나누지 못한 것). 표시용
     identifiers: list[str] = field(default_factory=list)  # 이 조력자의 계좌번호·이름 등 (이해충돌 판별)
     min_level: RiskLevel = RiskLevel.HIGH  # 이 등급 이상만 알림 (기본: 고위험만, S22)
     signal_scope: list[str] = field(default_factory=list)  # 비어 있으면 모든 시그널
     active: bool = True
+    phone: str = ""                        # 휴대폰 번호 원본(이 기기에만 저장)
+    email: str = ""                        # 이메일 원본(이 기기에만 저장)
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -178,12 +217,43 @@ class Helper:
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "Helper":
+        phone = str(d.get("phone", "") or "").strip()
+        email = str(d.get("email", "") or "").strip()
+        contact = str(d.get("contact", "") or "").strip()
+        if contact and not phone and not email:   # 옛 저장 파일: 읽을 때만 나눈다
+            phone, email, contact = split_legacy_contact(contact)
+        elif phone or email:
+            contact = ""
         return Helper(
             id=str(d["id"]), name=str(d["name"]), relation=str(d.get("relation", "")),
-            contact=str(d.get("contact", "")), identifiers=[str(x) for x in d.get("identifiers", [])],
+            contact=contact, identifiers=[str(x) for x in d.get("identifiers", [])],
             min_level=RiskLevel(d.get("min_level", "high")),
             signal_scope=[str(x) for x in d.get("signal_scope", [])],
             active=as_bool(d.get("active", True)),
+            phone=phone, email=email,
+        )
+
+
+@dataclass
+class Counselor:
+    """상담하는 곳(v0.3). 당사자가 직접 추가·지정한다. kind는 COUNSELOR_KINDS 중 하나."""
+    id: str
+    name: str
+    kind: str = "other"           # disability_center | rights_agency | police | finance | other
+    phone: str = ""
+    email: str = ""
+    memo: str = ""
+    active: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @staticmethod
+    def from_dict(d: dict[str, Any]) -> "Counselor":
+        return Counselor(
+            id=str(d["id"]), name=str(d["name"]), kind=str(d.get("kind", "other") or "other"),
+            phone=str(d.get("phone", "") or ""), email=str(d.get("email", "") or ""),
+            memo=str(d.get("memo", "") or ""), active=as_bool(d.get("active", True)),
         )
 
 

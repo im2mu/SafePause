@@ -1,5 +1,6 @@
 /* SafePause 아이콘. 외부 파일·CDN 없이 인라인 SVG로 그린다.
- * PICTO: 쉬운 말 카드 픽토그램(64x64, 기존 v0.1 그림 그대로). UI: 화면용 선 아이콘(24x24). */
+ * PICTO: 쉬운 말 카드 픽토그램(64x64, 기존 v0.1 그림 그대로). UI: 화면용 선 아이콘(24x24, 굵기 2, 둥근 끝).
+ * v0.3: 신호용 sig-*(무엇을 알릴까요·거래 표시), 연결·연락·설정용 아이콘을 더했다. 이름 목록은 docs/v03_frontend_api.md. */
 export const PICTO = {
  "check": "<circle cx=\"32\" cy=\"32\" r=\"26\"/><path d=\"M19 33l9 9 18-19\"/>",
  "ear": "<path d=\"M22 28a14 14 0 1 1 28 0c0 7-5 10-8 13s-3 6-4 9a8 8 0 0 1-12 3\"/><path d=\"M30 28a6 6 0 0 1 12 0c0 3-2 5-4 6\"/><path d=\"M12 18c-4 6-4 16 0 22\" stroke-width=\"3.5\"/>",
@@ -38,5 +39,36 @@ export const UI = {
  "refresh": "<path d=\"M20 11a8 8 0 1 0-2.3 5.7\"/><path d=\"M20 4v7h-7\"/>",
  "database": "<ellipse cx=\"12\" cy=\"6\" rx=\"7\" ry=\"3\"/><path d=\"M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6\"/><path d=\"M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3\"/>",
  "code": "<path d=\"M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14\"/>",
- "phone-msg": "<rect x=\"6\" y=\"2\" width=\"12\" height=\"20\" rx=\"2.5\"/><path d=\"M10 18.5h4\"/>"
+ "phone-msg": "<rect x=\"6\" y=\"2\" width=\"12\" height=\"20\" rx=\"2.5\"/><path d=\"M10 18.5h4\"/>",
+ "sig-night": "<path d=\"M20 13.5A8 8 0 1 1 10.5 4a6.2 6.2 0 0 0 9.5 9.5Z\"/><path d=\"M17.5 3v3.5M15.75 4.75h3.5\"/>",
+ "sig-person": "<circle cx=\"15\" cy=\"8\" r=\"3.5\"/><path d=\"M9 20.5c0-3.6 2.7-6 6-6s6 2.4 6 6\"/><path d=\"M2.5 12.5h6\"/><path d=\"M6 9.5l3 3-3 3\"/>",
+ "sig-phone-pay": "<rect x=\"3.5\" y=\"3\" width=\"10\" height=\"18\" rx=\"2.5\"/><path d=\"M7.5 17.5h2\"/><circle cx=\"18\" cy=\"7.5\" r=\"3\"/><path d=\"M18 14v7M15.5 16.5 18 14l2.5 2.5\"/>",
+ "sig-store": "<path d=\"M4 9.5 5.5 4h13L20 9.5\"/><path d=\"M4 9.5c0 1.5 1.2 2.5 2.7 2.5s2.6-1 2.6-2.5c0 1.5 1.2 2.5 2.7 2.5s2.7-1 2.7-2.5c0 1.5 1.1 2.5 2.6 2.5S20 11 20 9.5\"/><path d=\"M5.5 12v8.5h13V12\"/><path d=\"M10 20.5v-5h4v5\"/>",
+ "sig-sim": "<path d=\"M10 2.5h6l4 4V17a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V4.5a2 2 0 0 1 2-2Z\"/><rect x=\"10.5\" y=\"10\" width=\"7\" height=\"5.5\" rx=\"1\"/><path d=\"M4.5 6.5v13A2.5 2.5 0 0 0 7 22h9\"/>",
+ "bank": "<path d=\"M3 9h18L12 3.5Z\"/><path d=\"M5.5 12v6M10 12v6M14 12v6M18.5 12v6\"/><path d=\"M3 21h18\"/>",
+ "card": "<rect x=\"2.5\" y=\"5\" width=\"19\" height=\"14\" rx=\"2.5\"/><path d=\"M2.5 10h19\"/><path d=\"M6.5 15h4\"/>",
+ "contacts": "<rect x=\"5.5\" y=\"3\" width=\"15\" height=\"18\" rx=\"2\"/><circle cx=\"13\" cy=\"10\" r=\"2.5\"/><path d=\"M9 17c.6-2 2.1-3 4-3s3.4 1 4 3\"/><path d=\"M3 7.5h3.5M3 12h3.5M3 16.5h3.5\"/>",
+ "mail": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><path d=\"m3.5 7 8.5 6.5L20.5 7\"/>",
+ "chat": "<path d=\"M5 4h14a1.5 1.5 0 0 1 1.5 1.5v10A1.5 1.5 0 0 1 19 17h-8.5L6 20.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-10A1.5 1.5 0 0 1 5 4Z\"/><path d=\"M8 9h8M8 12.5h5\"/>",
+ "call": "<path d=\"M6.5 3.5h3l1.5 4-2 1.5a10 10 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 4.5 5.5a2 2 0 0 1 2-2Z\"/>",
+ "bookmark": "<path d=\"M6.5 3.5h11a1 1 0 0 1 1 1V21L12 16.5 5.5 21V4.5a1 1 0 0 1 1-1Z\"/>",
+ "bookmark-fill": "<path d=\"M6.5 3.5h11a1 1 0 0 1 1 1V21L12 16.5 5.5 21V4.5a1 1 0 0 1 1-1Z\" fill=\"currentColor\"/>",
+ "building": "<path d=\"M4.5 21V4.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1V21\"/><path d=\"M14.5 9h4a1 1 0 0 1 1 1v11\"/><path d=\"M2.5 21h19\"/><path d=\"M8 7.5h3M8 11.5h3M8 15.5h3\"/>",
+ "text-size": "<path d=\"M3 19 8.5 5 14 19\"/><path d=\"M5.2 14h6.6\"/><path d=\"M15.5 19l3-7.5 3 7.5\"/><path d=\"M16.6 16.5h3.8\"/>",
+ "moon-sun": "<circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M12 3.5a8.5 8.5 0 0 1 0 17Z\" fill=\"currentColor\"/>",
+ "help": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1 1-1.1 1.8v.5\"/><circle cx=\"12\" cy=\"17\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/>",
+ "doc": "<path d=\"M14 3H7a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 7 21h10a1.5 1.5 0 0 0 1.5-1.5V7.5Z\"/><path d=\"M14 3v4.5h4.5\"/><path d=\"M9 8.5h2M9 12h6M9 15.5h6\"/>",
+ "link": "<path d=\"M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1\"/><path d=\"M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1\"/>",
+ "headset": "<path d=\"M4 14v-2a8 8 0 0 1 16 0v2\"/><rect x=\"3\" y=\"13.5\" width=\"4\" height=\"6\" rx=\"1.5\"/><rect x=\"17\" y=\"13.5\" width=\"4\" height=\"6\" rx=\"1.5\"/><path d=\"M19 19.5c0 1.2-1.5 2-4 2h-2\"/>",
+ "copy": "<rect x=\"8.5\" y=\"8.5\" width=\"12\" height=\"12.5\" rx=\"2\"/><path d=\"M15.5 8.5V5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v9.5a2 2 0 0 0 2 2h3\"/>",
+ "edit": "<path d=\"M15.5 4.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z\"/><path d=\"M13.5 6.5l3 3\"/>",
+ "logo": "<path d=\"M8.3 2.5h7.4l5.8 5.8v7.4l-5.8 5.8H8.3l-5.8-5.8V8.3Z\" fill=\"currentColor\" stroke=\"none\"/><path class=\"logo-bars\" d=\"M10 9v6M14 9v6\"/>",
+ "stop-circle": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><rect x=\"9\" y=\"9\" width=\"6\" height=\"6\" rx=\"1\" fill=\"currentColor\"/>",
+ "cash": "<rect x=\"2.5\" y=\"6\" width=\"19\" height=\"12\" rx=\"2\"/><circle cx=\"12\" cy=\"12\" r=\"2.5\"/><path d=\"M6 9.5v.01M18 14.5v.01\"/>",
+ "calendar": "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"15.5\" rx=\"2\"/><path d=\"M3.5 10h17M8 3v4M16 3v4\"/>",
+ "user-check": "<circle cx=\"10\" cy=\"8\" r=\"3.5\"/><path d=\"M3.5 20c0-3.6 2.9-6 6.5-6 1.6 0 3 .5 4.2 1.3\"/><path d=\"M15 18.5l2 2 4-4\"/>",
+ "settings": "<path d=\"M4 7h10M18 7h2M4 17h2M10 17h10\"/><circle cx=\"16\" cy=\"7\" r=\"2\"/><circle cx=\"8\" cy=\"17\" r=\"2\"/>",
+ "chevron-down": "<path d=\"M5 9l7 7 7-7\"/>",
+ "minus": "<path d=\"M5 12h14\"/>",
+ "check-line": "<path d=\"M5 12.5l4.5 4.5L19 7.5\"/>"
 };

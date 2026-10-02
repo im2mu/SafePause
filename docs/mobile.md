@@ -1,12 +1,14 @@
-# 안드로이드 앱 (SafePause v0.2)
+# 안드로이드 앱 (SafePause v0.3)
 
 ## 1. 한눈에
 
 | 항목 | 내용 |
 |---|---|
-| 파일 | `SafePause-0.2.0.apk` (약 30MB, 쓰는 동안 인터넷 연결 불필요) |
+| 파일 | `SafePause-0.3.0.apk` (약 30MB, 쓰는 동안 인터넷 연결 불필요) |
+| 홈 화면 이름 | `SafePause` (`res/values/strings.xml`의 app_name, 아이콘은 그림만) |
+| 버전 | versionCode 3 / versionName 0.3.0 |
 | 지원 | Android 8.0(API 26) 이상, targetSdk 35(Android 15) |
-| 권한 | **없음** (INTERNET 권한도 요청하지 않음) |
+| 권한 | **없음** (INTERNET·READ_CONTACTS·CALL_PHONE 모두 요청하지 않음). 연락처는 시스템 선택 창이 고른 한 건만 받고, 전화는 다이얼 화면만 연다 |
 | 화면 | PC판과 같은 파일(`safepause/web`) — 토스 계열 모바일 우선 화면 |
 | AI 엔진 | 앱 안 파이썬(Pyodide 314.0.7, Python 3.14) + NumPy·SciPy·scikit-learn. **PC판과 같은 파이썬 코드**(`safepause` 패키지) |
 | 저장 | 앱 전용 저장소(IndexedDB). 기기 백업·기기 이전에서 뺌(`allowBackup=false`, data_extraction_rules) |
@@ -20,7 +22,10 @@
         │                                        저장: /spdata(IDBFS, 앱 전용 IndexedDB)
         ▼
 [MainActivity.java]  https://app.safepause.local/* 요청만 APK assets에서 꺼내 줌. 그 밖의 주소는 403.
-  JS 다리 SafePauseNative: 기기 TTS(인터넷이 필요한 음성은 쓰지 않음), 파일 저장(시스템 저장 창)
+  JS 다리 SafePauseNative: 기기 TTS(인터넷이 필요한 음성은 쓰지 않음), 파일 저장(시스템 저장 창),
+    v0.3: openExternal(sms:·smsto:·mailto:·tel:만, 문자·메일 앱/다이얼 화면 열기), pickContact(phone|email, 시스템 연락처 선택 창),
+    capabilities()(문자·메일·다이얼·연락처 앱이 있는지, TTS 준비), 읽기가 끝나면 window.__safepauseSpeechDone(소리 버튼 토글)
+  Manifest <queries>: TTS_SERVICE, SENDTO(sms·smsto·mailto), DIAL(tel), PICK(phone_v2·email_v2)
   파일 고르기: 시스템 문서 선택 창(ACTION_OPEN_DOCUMENT, CSV)
 ```
 
@@ -31,7 +36,19 @@
   `docs/eval/eval_results_holdout.json`·`eval_results_subtle_holdout.json`의 528개 값과 비교해 **차이 0**을 확인했습니다
   (numpy 2.4.6·scikit-learn 1.8.0, PC는 numpy 2.5.3·scikit-learn 1.9.1).
 
-## 3. 확인한 것 (에뮬레이터: Android 15 google_apis x86_64, WebView 124)
+## 3. 확인한 것
+
+### v0.3 (2026-10-02, 빌드·데스크톱 Chrome)
+
+| 확인 | 결과 |
+|---|---|
+| 빌드 | `build_apk.py --debug`: aapt2·javac·d8·zipalign·서명·검증 통과 |
+| aapt2 dump badging | label `SafePause`, versionCode 3 / 0.3.0, 요청 권한 0개, queries 7개 |
+| 앱 안 엔진(묶음 www를 Chrome에서 엔진 모드로) | full 단계 약 8초. 상담하는 곳·담기·보낸 알림 기록·돈 흐름 분석 API가 router로 정상 응답, 잘못된 요청은 한국어 422, 기록 글의 번호 원본은 가려 저장 |
+
+에뮬레이터·실기기 확인이 아직 남은 것: 홈 화면 이름 표시, 문자 앱(sms_body)·메일 앱(제목·본문) 채우기, 연락처 선택 창 결과, TTS 끝남 알림으로 소리 버튼이 돌아오는지.
+
+### v0.2 (에뮬레이터: Android 15 google_apis x86_64, WebView 124)
 
 | 확인 | 결과 |
 |---|---|
@@ -57,7 +74,7 @@ Pyodide 314.0.7 파일(아래). 모두 한 번만 내려받으면 됩니다.
 # 2) 화면·엔진 묶음 만들기(wheel sha256을 pyodide-lock.json과 대조)
 python android/assemble_www.py --pyodide android/pyodide-dist --out android/www-build
 # 3) APK 빌드·서명(서명 키가 없으면 android/signing/release.jks를 새로 만듦)
-python android/build_apk.py --sdk <SDK 폴더> --jdk <JDK 폴더> --www android/www-build --out dist/SafePause-0.2.0.apk
+python android/build_apk.py --sdk <SDK 폴더> --jdk <JDK 폴더> --www android/www-build --out dist/SafePause-0.3.0.apk
 ```
 
 - 서명 키(`android/signing/`)는 저장소·배포 zip에 넣지 않습니다(.gitignore). **같은 키로 서명해야 설치된 앱을 지우지 않고

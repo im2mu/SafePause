@@ -1,20 +1,22 @@
-/* 화면 도우미: DOM 만들기, 아이콘, 토스트, 시트(대화상자), 알림 읽기.
+/* 화면 도우미: DOM 만들기, 아이콘, 토스트, 시트(대화상자), 알림 읽기, 앱 설정(글자 크기·화면 모드).
  * - 서버·엔진이 준 글(받는 사람 이름 등)은 모두 textContent로 넣는다(HTML로 해석하지 않음 → XSS 차단).
  * - 시트는 열 때 배경을 inert로 만들고, 닫을 때 초점을 되돌린다. 열린 시트는 안드로이드 뒤로 가기로 닫힌다.
+ * - 설명 글(p)은 한 문장에 한 줄씩 보인다: h("p", {text})가 문장 끝에서 나눠 span.sent로 넣는다(data-nosplit이면 그대로).
  */
 import { PICTO, UI } from "./icons.js";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-/** h("div", {class, text, onclick, ...}, ...children) */
+/** h("div", {class, text, onclick, ...}, ...children). p의 text는 문장마다 한 줄(span.sent)로 나눈다. */
 export function h(tag, attrs, ...children) {
   const el = document.createElement(tag);
+  let text;
   if (attrs) {
     for (const [key, value] of Object.entries(attrs)) {
       if (value === null || value === undefined || value === false) continue;
       if (key === "class") el.className = value;
-      else if (key === "text") el.textContent = value;
+      else if (key === "text") text = value;
       else if (key === "dataset") Object.assign(el.dataset, value);
       // CSP(style-src 'self')는 style 속성 문자열을 막는다. CSSOM(el.style)으로 넣으면 허용된다.
       else if (key === "style") el.style.cssText = String(value);
@@ -24,7 +26,31 @@ export function h(tag, attrs, ...children) {
       else el.setAttribute(key, value === true ? "" : String(value));
     }
   }
+  if (text !== undefined) setText(el, text);
   append(el, children);
+  return el;
+}
+
+// 문장 끝: 한글·닫는 괄호 뒤의 . ? ! 또는 ? ! 다음의 빈칸(1.5만·v0.3.0 같은 숫자 속 점은 나누지 않음)
+const SENT_SPLIT = /(?<=[가-힣)\]][.?!]|[?!])\s+(?=\S)/;
+
+/** 글을 문장 단위로 나눈다. "A요. B요." → ["A요.", "B요."] */
+export function splitSentences(text) {
+  return String(text ?? "").split(SENT_SPLIT).filter((x) => x !== "");
+}
+
+/** 글을 넣는다. p(문단)는 문장마다 span.sent(한 줄)로 나눈다. data-nosplit이 있으면 나누지 않는다. */
+export function setText(el, text) {
+  const s = text === null || text === undefined ? "" : String(text);
+  const parts = el.tagName === "P" && !el.hasAttribute("data-nosplit") ? splitSentences(s) : [];
+  if (parts.length < 2) { el.textContent = s; return el; }
+  // 문장 사이 빈칸은 span 끝에 남겨 둔다(복사·소리로 읽기에서 문장이 붙지 않게)
+  el.replaceChildren(...parts.map((part, i) => {
+    const sp = document.createElement("span");
+    sp.className = "sent";
+    sp.textContent = i < parts.length - 1 ? `${part} ` : part;
+    return sp;
+  }));
   return el;
 }
 
@@ -164,7 +190,7 @@ export function closeTopSheet() {
   const top = openSheets[openSheets.length - 1];
   if (!top) return false;
   if (top.dismissible) top.close();
-  else if (typeof top.onEscape === "function") top.onEscape();   // 안전 정지 카드: 닫지 않고 '안 보낼래요'로 초점
+  else if (typeof top.onEscape === "function") top.onEscape();   // 닫을 수 없는 시트(저장 안 한 입력 등): 시트가 정한 동작
   return true;   // 닫을 수 없는 시트는 뒤로 가기로 앞 화면에 넘어가지 않게 삼킨다
 }
 
@@ -204,4 +230,117 @@ export function skeleton(n = 3) {
 
 export function emptyState(iconName, title, text) {
   return h("div", { class: "empty" }, icon(iconName), h("b", { text: title }), text ? h("p", { text }) : null);
+}
+
+// ---- 준비 중 기능 --------------------------------------------------------------
+/** 준비 중 기능에 늘 붙이는 문장. */
+export const SOON_TEXT = "정식 버전에서 열려요.";
+
+/** 준비 중 배지(목록·시트 제목 옆). */
+export function soonBadge() {
+  return h("span", { class: "soon", text: "준비 중" });
+}
+
+/**
+ * 준비 중 기능 안내 시트. 동작하는 척하지 않고, 정식 버전에서 할 일을 비활성으로 보여 준다.
+ * opts: {icon, title, lines[], steps?: [{title, sub?, options?: []}], action?: "연결하기", extra?: Node | (close) => Node}
+ * - action이 있으면 "연결하기(준비 중)" 비활성 버튼을 둔다.
+ * - extra는 지금 쓸 수 있는 다른 방법(버튼 등)을 넣는 자리다.
+ * 돌려주는 값: openSheet와 같은 {close, el}
+ */
+export function comingSoonSheet({ icon: ic = "info", title, lines = [], steps = [], action = "", extra = null } = {}) {
+  return openSheet((close) => [
+    h("div", { class: "soon-head" }, h("span", { class: "soon-icon" }, icon(ic)), soonBadge()),
+    h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: title }),
+    lines.length ? h("div", { class: "soon-lines" }, lines.map((t) => h("p", { text: t }))) : null,
+    steps.length ? h("ol", { class: "soon-steps", "aria-label": "정식 버전에서 하는 순서" }, steps.map((st, i) => h("li", { class: "soon-step", "aria-disabled": "true" },
+      h("span", { class: "soon-step-no", "aria-hidden": "true", text: String(i + 1) }),
+      h("div", { class: "soon-step-main" },
+        h("b", { text: st.title }),
+        st.sub ? h("p", { class: "muted", text: st.sub }) : null,
+        st.options && st.options.length ? h("div", { class: "soon-options" }, st.options.map((o) => h("span", { class: "chip off", "aria-disabled": "true", text: o }))) : null)))) : null,
+    h("div", { class: "notice" }, icon("info"), h("p", { text: SOON_TEXT })),
+    typeof extra === "function" ? extra(close) : extra,
+    h("div", { class: "sheet-actions" },
+      action ? h("button", { type: "button", class: "btn primary big block", disabled: true, text: `${action}(준비 중)` }) : null,
+      h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => close() })),
+  ], { label: title });
+}
+
+// ---- 탭(segmented) -------------------------------------------------------------
+/**
+ * 한 줄 탭. items: [{value, label, icon?, count?}], onChange(value)는 탭을 바꿀 때 불린다.
+ * opts: {label(탭 묶음 이름), controls(바뀌는 영역 id)}
+ * 돌려주는 값: {el, set(value)}  (set은 onChange를 부르지 않는다)
+ */
+export function segTabs(items, active, onChange, { label = "보기", controls = null } = {}) {
+  const el = h("div", { class: "seg-tabs", role: "tablist", "aria-label": label });
+  const buttons = items.map((it) => h("button", {
+    type: "button", class: "seg-tab", role: "tab", "data-v": it.value, "aria-controls": controls,
+    onclick: () => choose(it.value, false),
+  }, it.icon ? icon(it.icon) : null, h("span", { text: it.label }),
+  it.count === undefined || it.count === null ? null : h("span", { class: "seg-count", text: String(it.count) })));
+  append(el, buttons);
+  el.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") return;
+    const i = buttons.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    const n = buttons.length;
+    const next = e.key === "Home" ? 0 : e.key === "End" ? n - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + n) % n;
+    choose(buttons[next].dataset.v, true);
+  });
+  function set(value) {
+    for (const b of buttons) {
+      const on = b.dataset.v === String(value);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+      b.tabIndex = on ? 0 : -1;
+    }
+  }
+  function choose(value, focus) {
+    const changed = buttons.some((b) => b.dataset.v === String(value) && b.getAttribute("aria-selected") !== "true");
+    set(value);
+    if (focus) { const b = buttons.find((x) => x.dataset.v === String(value)); if (b) b.focus(); }
+    if (changed && typeof onChange === "function") onChange(value);
+  }
+  set(active);
+  return { el, set };
+}
+
+// ---- 앱 설정: 글자 크기·화면 모드(이 기기에만 저장) -------------------------------------
+const PREFS = {
+  font: { key: "safepause.font", values: ["m", "l", "xl"], fallback: "m" },        // 보통·크게·아주 크게
+  theme: { key: "safepause.theme", values: ["auto", "light", "dark"], fallback: "auto" },   // 자동·밝게·어둡게
+};
+const THEME_BG = { light: "#f2f4f6", dark: "#101013" };
+
+/** getPref("font") → "m"|"l"|"xl", getPref("theme") → "auto"|"light"|"dark". 못 읽으면 기본값. */
+export function getPref(name) {
+  const p = PREFS[name];
+  if (!p) return null;
+  let v = null;
+  try { v = localStorage.getItem(p.key); } catch (e) { v = null; }
+  return p.values.includes(v) ? v : p.fallback;
+}
+
+/** 설정을 저장하고 바로 적용한다. 저장을 못 해도(사생활 보호 창 등) 이번 화면에는 적용한다. */
+export function setPref(name, value) {
+  const p = PREFS[name];
+  if (!p || !p.values.includes(value)) return false;
+  try { localStorage.setItem(p.key, value); } catch (e) { /* 저장 못 해도 적용은 한다 */ }
+  applyPrefs({ [name]: value });
+  return true;
+}
+
+/** 시작할 때 main.js가 부른다. html[data-font]·html[data-theme]를 맞춘다. */
+export function applyPrefs(over = {}) {
+  const root = document.documentElement;
+  const font = over.font || getPref("font");
+  const theme = over.theme || getPref("theme");
+  if (font === "m") delete root.dataset.font; else root.dataset.font = font;
+  if (theme === "auto") delete root.dataset.theme; else root.dataset.theme = theme;
+  for (const meta of $$('meta[name="theme-color"]')) {
+    const darkMedia = /dark/.test(meta.getAttribute("media") || "");
+    meta.setAttribute("content", theme === "auto" ? THEME_BG[darkMedia ? "dark" : "light"] : THEME_BG[theme]);
+  }
 }

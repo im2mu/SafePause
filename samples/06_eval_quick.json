@@ -57,7 +57,7 @@
         "anomaly_mode_high_score": 0.98
       },
       "environment": {
-        "safepause": "0.2.0",
+        "safepause": "0.3.0",
         "python": "3.12.10",
         "numpy": "2.5.3",
         "scikit-learn": "1.9.1"
@@ -258,7 +258,7 @@
         "anomaly_mode_high_score": 0.98
       },
       "environment": {
-        "safepause": "0.2.0",
+        "safepause": "0.3.0",
         "python": "3.12.10",
         "numpy": "2.5.3",
         "scikit-learn": "1.9.1"
@@ -451,7 +451,7 @@
         "anomaly_mode_high_score": 0.98
       },
       "environment": {
-        "safepause": "0.2.0",
+        "safepause": "0.3.0",
         "python": "3.12.10",
         "numpy": "2.5.3",
         "scikit-learn": "1.9.1"

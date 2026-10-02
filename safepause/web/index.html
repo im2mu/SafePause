@@ -8,9 +8,16 @@
   <meta name="theme-color" content="#101013" media="(prefers-color-scheme: dark)">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
-  <title>안전 정지 SafePause</title>
+  <!-- 홈 화면에 더할 때 보이는 이름(안드로이드 앱 런처 이름 strings.xml app_name과 같음) -->
+  <meta name="application-name" content="SafePause">
+  <meta name="apple-mobile-web-app-title" content="SafePause">
+  <title>SafePause</title>
   <link rel="icon" href="icons/stop.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/views/home.css">
+  <link rel="stylesheet" href="css/views/txns.css">
+  <link rel="stylesheet" href="css/views/notify.css">
+  <link rel="stylesheet" href="css/views/more.css">
   <script type="module" src="js/main.js"></script>
 </head>
 <!-- spellcheck="false": 브라우저의 온라인 맞춤법 검사가 받는 사람·계좌번호 글을 밖으로 보내지 않게(S35) -->

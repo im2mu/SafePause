@@ -329,7 +329,7 @@ def test_wheel_contains_web(tmp_path: Path) -> None:
     import zipfile
     whl = next(tmp_path.glob("safepause-*.whl"))
     names = set(zipfile.ZipFile(whl).namelist())
-    for needed in ("safepause/web/index.html", "safepause/web/js/main.js", "safepause/web/js/views/send.js",
+    for needed in ("safepause/web/index.html", "safepause/web/js/main.js", "safepause/web/js/views/alerts.js",
                    "safepause/web/css/app.css", "safepause/web/icons/stop.svg", "safepause/web/data/eval_reference.json"):
         assert needed in names, needed
 
