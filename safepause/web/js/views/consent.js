@@ -1,22 +1,24 @@
 /* 동의: 세 가지를 따로 켜고 끄며, 끄면 바로 멈춘다(S18·S37 즉시 철회). 맨 아래에 모두 지우기.
  * 거래 살펴보기를 끄거나 모두 지울 때는 화면 데이터 세대를 올려, 요청 중이던 옛 거래 목록이 다시 그려지지 않게 한다(리뷰 H1). */
-import { h, icon, fill, setText, toast, announce, skeleton, busy, confirmSheet } from "../ui.js";
+import { h, icon, fill, setText, toast, announce, skeleton, busy, confirmSheet, paragraphs } from "../ui.js";
 import { formatWhen, deviceWord, keepUnits } from "../format.js";
 import { errorNotice } from "../components.js";
 import { STALE } from "../api.js";
 import { clearBankApp } from "./bankapp.js";
 
+// 설명(lines)은 문단 목록이다: 문단 하나 = 문장 배열(문장마다 한 줄, 같은 문단은 촘촘하게)
 const ITEMS = [
   { key: "monitoring", icon: "chart", title: "거래 살펴보기",
-    lines: ["내 거래를 살펴보고 걱정되는 거래를 찾아요.", `살펴보는 일은 ${deviceWord()} 안에서만 해요.`] },
-  // 실제 동작: 알릴 때가 되면 알림 보내기에서 그 조력자를 미리 골라 두고 적어 둔다. 보내기는 본인이 문자·메일 앱에서 누른다
+    lines: [["내 거래를 살펴보고 걱정되는 거래를 찾아요.", `살펴보는 일은 ${deviceWord()} 안에서만 해요.`]] },
+  // 실제 동작(policy.decide·notify_suggest): 조력자 설정(등급·범위·자동으로 알리기)에 맞는 사람을 알림 보내기에서 미리 골라 두고,
+  // 돈 보내기에서 걱정되는 거래를 확인하면 알릴 수 있게 적어 둔다(적어 둔 기록). 보내기는 본인이 문자·메일 앱에서 누른다
   { key: "helper_alerts", icon: "users", title: "조력자에게 알리기",
-    lines: ["꼭 확인할 거래가 생기면 내가 고른 조력자에게 알릴 수 있게 골라 둬요.", "보내기는 내가 눌러요.",
-      "이 스위치를 꺼도 알림 보내기에서 직접 알릴 수 있어요."],
+    lines: [["걱정되는 거래를 알릴 때 조력자 설정에 맞는 사람을 미리 골라 둬요.", "돈 보내기에서 걱정되는 거래를 확인하면 알릴 수 있게 적어 둬요."],
+      ["보내기는 내가 문자·메일 앱에서 눌러요.", "이 스위치를 꺼도 알림 보내기에서 직접 알릴 수 있어요."]],
     link: { href: "#/more/helpers", icon: "users", text: "조력자 정하기" } },
   // 상담하는 곳으로 저절로 가는 것은 없다(C2): 알릴 때가 되면 알림 탭 띠와 알림 보내기 추천으로 알려 준다
   { key: "counseling_referral", icon: "building", title: "상담하는 곳에 알려 주기",
-    lines: ["상담하는 곳에 알려 줘요.", "알릴 때가 되면 알려 드려요. 보내기는 내가 눌러요."],
+    lines: [["상담하는 곳에 알려 줘요.", "알릴 때가 되면 알림 탭에서 알려 드리고, 알림 보내기에서 상담하는 곳을 추천해요.", "보내기는 내가 눌러요."]],
     bulletsHead: "알릴 때는 이래요.",
     bullets: ["꼭 확인할 일이 30일 동안 3번 이상 생길 때", "알릴 조력자가 모두 돈을 받는 사람일 때"],
     link: { href: "#/more/counselors", icon: "building", text: "상담하는 곳 정하기" } },
@@ -69,9 +71,9 @@ export default {
               h("h3", { id: titleId, text: it.title }),
               sw),
             h("div", { class: "consent-body" },
-              h("div", { id: descId }, it.lines.map((t) => h("p", { text: t })),
+              h("div", { id: descId }, paragraphs(it.lines).map((t) => h("p", { text: t })),
                 it.bulletsHead ? h("p", { class: "consent-bullets-head", text: it.bulletsHead }) : null,
-                it.bullets ? h("ul", { class: "consent-bullets" }, it.bullets.map((b) => h("li", { text: b }))) : null),
+                it.bullets ? h("ul", { class: "bullets consent-bullets" }, it.bullets.map((b) => h("li", { text: b }))) : null),
               it.link ? h("a", { class: "btn sm weak consent-link", href: it.link.href }, icon(it.link.icon), h("span", { text: it.link.text })) : null));
         }));
         fill(givenBy, [["self", "나(본인)"], ["legal_representative", "법정대리인"]].map(([v, t]) => {

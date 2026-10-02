@@ -9,6 +9,10 @@
     2,
     3
   ],
+  "seed_start": 1,
+  "seed_end": 3,
+  "intensity": "standard",
+  "report_set": false,
   "modes": [
     "fused",
     "rules",

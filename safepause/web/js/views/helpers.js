@@ -6,6 +6,7 @@ import { h, icon, fill, setText, openSheet, confirmSheet, busy, toast, announce,
 import { errorNotice, menuRow } from "../components.js";
 import { SIGNALS, SIGNAL_KO, SIGNAL_ICON } from "../labels.js";
 import { canPickContact, pickContact } from "../native.js";
+import { breakableEmail } from "../format.js";
 import { STALE } from "../api.js";
 
 const RELATIONS = ["가족", "지역발달장애인지원센터 전담 인력", "친구", "이웃"];
@@ -28,9 +29,8 @@ export default {
       h("h2", { class: "page-title", tabindex: "-1", text: "조력자" }),
       h("p", { class: "page-sub", text: "조력자는 내가 믿는 사람이에요. 누구에게, 언제 알릴지 내가 정해요." }),
       consentNote, listSlot, addBtn, status,
-      h("div", { class: "notice helper-rule" }, icon("info"), h("div", null,
-        h("p", { text: "조력자가 돈을 받는 사람이면 그 조력자에게는 알리지 않게 골라 둬요." }),
-        h("p", { text: "그때는 다른 조력자나 상담하는 곳에 알릴 수 있어요." }))),
+      h("div", { class: "notice helper-rule" }, icon("info"),
+        h("p", { text: "조력자가 돈을 받는 사람이면 그 조력자에게는 알리지 않게 골라 둬요. 그때는 다른 조력자나 상담하는 곳에 알릴 수 있어요." })),
       h("div", { class: "list" },
         menuRow({ icon: "building", tone: "blue", title: "상담하는 곳도 정하기", sub: "센터·기관에도 알릴 수 있어요.", href: "#/more/counselors" })));
 
@@ -51,7 +51,9 @@ export default {
         h("span", { class: "row-main" },
           h("span", { class: "row-title", text: hp.relation ? `${hp.name} (${hp.relation})` : hp.name }),
           contacts.length
-            ? contacts.map((c) => h("span", { class: "row-sub tnum", text: c }))
+            ? contacts.map((c) => (c === hp.phone_masked
+              ? h("span", { class: "row-sub tnum tel-text", text: c })
+              : h("span", { class: "row-sub email-text", text: breakableEmail(c) })))
             : h("span", { class: "row-sub", text: "연락처가 없어요" }),
           h("span", { class: "row-tags" },
             hp.phone ? h("span", { class: "tag" }, icon("chat"), h("span", { text: "문자" })) : null,
@@ -149,7 +151,8 @@ export default {
             SIGNALS.map((code, i) => h("label", { class: "check-row sig-row" }, sigBoxes[i],
               h("span", { class: "sig-ic", "aria-hidden": "true" }, icon(SIGNAL_ICON[code])), h("span", { class: "grow", text: SIGNAL_KO[code] })))),
           h("label", { class: "check-row auto-row" }, active, h("span", { class: "grow strong", text: "이 조력자에게 자동으로 알리기" })),
-          h("p", { class: "hint", id: "hp-active-hint", text: "끄면 자동으로는 알리지 않아요. 알림 보내기에서 직접 고를 때만 알려요." }),
+          // 실제 동작: 켜 두면 알릴 때 미리 골라 두고 적어 둔다(보내지는 않음). 끄면 직접 고를 때만
+          h("p", { class: "hint", id: "hp-active-hint", text: "켜 두면 걱정되는 거래를 알릴 때 이 사람을 미리 골라 두고 적어 둬요. 끄면 알림 보내기에서 직접 골라요. 보내기는 늘 내가 눌러요." }),
           err,
           h("div", { class: "sheet-actions" },
             h("button", {
@@ -190,7 +193,7 @@ export default {
               type: "button", class: "btn danger-weak big block",
               onclick: async () => {
                 const who = withObject(hp.name);
-                const ok = await confirmSheet({ title: who ? `${who} 뺄까요?` : "이 조력자를 뺄까요?", lines: who ? ["조력자 목록에서 빠져요."] : [hp.name, "조력자 목록에서 빠져요."], confirmText: "네, 뺄래요", danger: true });
+                const ok = await confirmSheet({ title: who ? `${who} 뺄까요?` : "이 조력자를 뺄까요?", lines: who ? ["조력자 목록에서 빠져요."] : [[hp.name], ["조력자 목록에서 빠져요."]], confirmText: "네, 뺄래요", danger: true });
                 if (!ok) return;
                 try {
                   await save(helpers.filter((_, i) => i !== index).map(toPayload));
@@ -224,8 +227,7 @@ export default {
       fill(consentNote, consent.helper_alerts
         ? h("p", { class: "muted consent-state" }, icon("check-line"), h("span", { text: "조력자에게 알리기: 켜짐" }))
         : h("div", { class: "notice orange" }, icon("warning"), h("div", null,
-          h("p", { text: "조력자에게 알리기가 꺼져 있어요. 자동으로 알리려면 동의 화면에서 켜 주세요." }),
-          h("p", { text: "알림 보내기에서는 언제든지 직접 알릴 수 있어요." }),
+          h("p", { text: "조력자에게 알리기가 꺼져 있어요. 알릴 조력자를 미리 골라 두려면 동의 화면에서 켜 주세요. 알림 보내기에서는 언제든지 직접 알릴 수 있어요." }),
           h("a", { class: "btn sm weak notice-action", href: "#/more/consent" }, icon("toggle"), h("span", { text: "동의로 가기" })))));
       renderList();
     } catch (e) {

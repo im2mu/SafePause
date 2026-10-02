@@ -299,7 +299,7 @@ export default {
       tile({ ic: "card", title: "카드 결제내역 불러오기", soon: true, onclick: () => openCardConnect(ctx, connectOpts) }),
       tile({ ic: "sig-phone-pay", title: "휴대폰 결제내역 불러오기", soon: true, onclick: () => openPhonePayConnect(ctx, connectOpts) }),
       tile({ ic: "upload", title: "파일 올리기", sub: EXT_NOW.join(" "), onclick: openUpload }),
-      tile({ ic: "sparkle", title: "연습용 거래 불러오기", sub: "가상의 거래로 미리 해 봐요", onclick: openSample, wide: true }));
+      tile({ ic: "sparkle", title: "연습용 거래 불러오기", sub: "가상의 거래로 미리 살펴봐요", onclick: openSample, wide: true }));
 
     const listTitle = h("h3", { class: "section-title", tabindex: "-1", text: "거래 목록" });
     fill(main,

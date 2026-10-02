@@ -196,17 +196,20 @@ function deltaText(tm, prev, cmp, prevWord) {
 function summaryCard(tm, prev, cmp, mWord, prevWord) {
   const d = deltaText(tm, prev, cmp, prevWord);
   const concern = concernOf(tm);
-  const speakText = [`${mWord}에 ${moneyText(tm.out_total)}이 나갔어요.`, d.text,
-    concern ? `걱정되는 거래가 ${nf.format(concern)}건 있었어요.` : "걱정되는 거래는 없었어요."].join(" ");
+  // 무엇과 견줬는지는 비교 문장과 한 문단으로(지난달 같은 기간에 나간 돈). 아래 목록에는 기준 달 값만 둔다(지난달 값을 섞지 않음)
+  const base = prev && cmp ? `${prevWord} 1~${cmp.prev_days || cmp.days}일에는 ${moneyText(cmp.prev_same_period_out)}이 나갔어요.` : "";
+  const speakText = [`${mWord}에 ${moneyText(tm.out_total)}이 나갔어요.`, d.text, base,
+    concern ? `걱정되는 거래가 ${nf.format(concern)}건 있었어요.` : "걱정되는 거래는 없었어요."].filter(Boolean).join(" ");
   const speak = speakButton(speakText, { cls: "btn sm" });
   return h("section", { class: "card home-card home-summary", "aria-labelledby": "home-sum-title" },
     h("h4", { id: "home-sum-title", class: "kpi-label", text: `${mWord}에 나간 돈` }),
     h("p", { class: "kpi-value home-big", "data-nosplit": true, text: moneyText(tm.out_total) }),
     h("p", { class: `delta ${d.cls} home-delta`, "data-nosplit": true },
-      d.mark ? h("span", { class: "home-mark", "aria-hidden": "true", text: d.mark }) : null, h("span", { text: keepUnits(d.text) })),
-    h("ul", { class: "home-facts" },
-      // 무엇과 견줬는지 숫자로 보인다(지난달 같은 기간에 나간 돈)
-      prev && cmp ? fact("calendar", `${prevWord} 1~${cmp.prev_days || cmp.days}일에 나간 돈`, moneyText(cmp.prev_same_period_out)) : null,
+      d.mark ? h("span", { class: "home-mark", "aria-hidden": "true", text: d.mark }) : null,
+      h("span", { class: "home-delta-text" },
+        h("span", { class: "sent", text: keepUnits(d.text) }),
+        base ? h("span", { class: "sent home-base", text: keepUnits(base) }) : null)),
+    h("ul", { class: "home-facts", "aria-label": `${mWord} 거래 요약` },
       fact("cash", "들어온 돈", moneyText(tm.in_total)),
       fact("list", "나간 거래", `${nf.format(tm.out_count || 0)}건`),
       concern

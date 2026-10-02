@@ -1,7 +1,7 @@
 /* 여러 화면이 같이 쓰는 부품: 등급·상태 배지, 거래 줄, 담기·내가 한 거예요 버튼, 메뉴 줄, 쉬운 말 카드,
  * 왜 걱정되나요(약속(규칙) + AI), 소리로 듣기, 오류 안내.
  * 아이콘은 모두 선 아이콘(ui.icon, 24 viewBox 굵기 2)이다. 큰 픽토그램(ui.picto)은 돈 보내기 확인 카드 본문에만 쓴다(D4). */
-import { h, icon, toast, setText, soonBadge } from "./ui.js";
+import { h, icon, toast, setText, soonBadge, keepNodes } from "./ui.js";
 import { formatWon, formatTime, formatDate, formatWhen, parseTs, nf, sentence, moneyText, keepUnits } from "./format.js";
 import { LEVEL, CHANNEL_KO, CHANNEL_ICON, SIGNAL_ICON, signalLabel, FLAG_TEXT, REVIEW_TEXT, NOTIFIED_TEXT, AI_TEXT } from "./labels.js";
 import { isConsentError, ApiError, STALE } from "./api.js";
@@ -61,10 +61,11 @@ export function txnSignals(item) {
 /**
  * 목록 줄의 작은 글(시각 · 방법 등). 조각마다 줄을 바꾸지 않고, 줄이 바뀌면 줄 앞의 가운뎃점은 보이지 않는다
  * ("저녁 8시 47분 ·" 다음 줄 "카드 결제"처럼 점이 끝에 매달리거나 "카드 / 결제"로 끊기지 않게).
+ * 조각(flex 칸)은 칸에 들어가면 한 줄로 두고, 칸보다 긴 조각만 안의 빈칸에서 줄을 바꾼다.
+ * 조각 안 숫자·날짜·시각·금액은 묶음이라 끊기지 않는다(ui.keepNodes: 2026년 / 6월 27일 / (토)처럼 묶음 사이에서만).
  */
 export function subParts(parts, cls = "row-sub") {
-  // 조각 안 빈칸은 줄을 바꾸지 않는 빈칸으로(조각이 칸보다 길 때만 CSS가 안에서 줄을 바꾼다)
-  return h("span", { class: `${cls} parts` }, parts.filter(Boolean).map((t) => h("span", { text: String(t).replace(/ /g, " ") })));
+  return h("span", { class: `${cls} parts` }, parts.filter(Boolean).map((t) => h("span", null, keepNodes(String(t)))));
 }
 
 /** 날짜와 시각을 따로: ["2026년 6월 27일 (토)", "새벽 4시 41분"](subParts에서 날짜·시각 사이에서만 줄을 바꾸게). */

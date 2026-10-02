@@ -3,6 +3,8 @@
  * - 시트는 열 때 배경을 inert로 만들고, 닫을 때 초점을 연 버튼으로 되돌린다(그 버튼이 없어졌으면 위 시트 제목·본문). 열린 시트는 안드로이드 뒤로 가기로 닫힌다.
  * - 시트 안의 소리로 듣기는 시트를 닫으면 멈춘다(components.speakButton이 버튼이 화면에서 떨어지는 것을 보고 멈춤).
  * - 설명 글(p)은 한 문장에 한 줄씩 보인다: h("p", {text})가 문장 끝에서 나눠 span.sent로 넣는다(data-nosplit이면 그대로).
+ * - p 안의 숫자 + 단위·날짜·시각·금액은 줄 끝에서 떨어지지 않는 묶음(span.nowrap)으로, 전화번호는 하이픈 뒤에서만
+ *   줄을 바꾸는 묶음(span.tel-text)으로 넣는다(keepNodes, docs/v03_typography.md 4). textContent는 원래 글과 같다.
  */
 import { PICTO, UI } from "./icons.js";
 
@@ -40,16 +42,64 @@ export function splitSentences(text) {
   return String(text ?? "").split(SENT_SPLIT).filter((x) => x !== "");
 }
 
-/** 글을 넣는다. p(문단)는 문장마다 span.sent(한 줄)로 나눈다. data-nosplit이 있으면 나누지 않는다. */
+// 줄 끝에서 떨어지면 안 되는 묶음: 시각(새벽 4시 41분) · 날짜(6월 27일) · 금액(5만 원, 3만 5천 원, 63만7천원, 50,000원)
+// · 전화번호 · 두 글자 낱말 둘을 가운뎃점으로 이은 말(문자·메일). 해(2026년)·요일((토))은 묶지 않는다
+// (묶음이 길면 큰 글씨 좁은 칸에서 넘친다)
+const KEEP_RE = /(?:새벽|아침|오전|낮|오후|저녁|밤)[ \u00a0]\d{1,2}시(?:[ \u00a0]\d{1,2}분)?|\d{1,2}월[ \u00a0]\d{1,2}일|\d[\d,.]*(?:억|만|천)?(?:[ \u00a0]?\d[\d,.]*(?:만|천))*[ \u00a0]?원|(?<![\d*])[\d*]{2,4}-[\d*]{3,4}-[\d*]{4}(?![\d*])|(?<![가-힣·])[가-힣]{1,2}·[가-힣]{1,2}(?![가-힣·])/g;
+const HANGUL_TAIL = /^[가-힣]{3,}/;
+// 기관 이름처럼 긴 낱말(앞 4글자 이상 + 뒤 기관 말)은 그 사이에서 줄을 바꿀 수 있게 한다(지역발달장애인 / 지원센터).
+// 낱말 끝 한두 글자(센 / 터)만 다음 줄로 밀리지 않게 한다
+const LONG_NAME_RE = /[가-힣]{4,}?(?=(?:지원센터|옹호기관|보호기관|전문기관|상담소|센터|기관)[가-힣]{0,2}(?:[^가-힣]|$))/g;
+
+/** 글 조각에 긴 기관 이름의 줄 바꿀 자리(wbr)를 넣는다. */
+function softBreaks(text, out) {
+  let last = 0;
+  LONG_NAME_RE.lastIndex = 0;
+  for (let m = LONG_NAME_RE.exec(text); m; m = LONG_NAME_RE.exec(text)) {
+    const cut = m.index + m[0].length;
+    out.push(document.createTextNode(text.slice(last, cut)), document.createElement("wbr"));
+    last = cut;
+  }
+  if (last < text.length) out.push(document.createTextNode(text.slice(last)));
+}
+
+/**
+ * 글을 묶음 노드로: 글 조각(Text)과 span.nowrap(숫자 + 단위·날짜·시각·금액·문자·메일)·span.tel-text(전화번호).
+ * 금액 묶음 바로 뒤에 한글이 세 글자 이상 붙으면(63만7천원이었어요) 그 사이에, 긴 기관 이름은 기관 말 앞에
+ * 줄을 바꿔도 되는 자리(wbr)를 둔다(넘쳐서 낱말 끝 한두 글자만 다음 줄로 밀리지 않게). textContent는 원래 글과 같다.
+ */
+export function keepNodes(text) {
+  const s = String(text ?? "");
+  const out = [];
+  let last = 0;
+  KEEP_RE.lastIndex = 0;
+  for (let m = KEEP_RE.exec(s); m; m = KEEP_RE.exec(s)) {
+    if (m.index > last) softBreaks(s.slice(last, m.index), out);
+    const span = document.createElement("span");
+    span.className = /^[\d*]+-/.test(m[0]) ? "tel-text" : "nowrap";
+    span.textContent = m[0];
+    out.push(span);
+    last = m.index + m[0].length;
+    if (/원$/.test(m[0]) && HANGUL_TAIL.test(s.slice(last))) out.push(document.createElement("wbr"));
+  }
+  if (last < s.length) softBreaks(s.slice(last), out);
+  return out;
+}
+
+/**
+ * 글을 넣는다. p(문단)는 문장마다 span.sent(한 줄)로 나누고(data-nosplit이 있으면 나누지 않음), 숫자 묶음을 지킨다(keepNodes).
+ * p가 아닌 요소는 글을 그대로 넣는다.
+ */
 export function setText(el, text) {
   const s = text === null || text === undefined ? "" : String(text);
-  const parts = el.tagName === "P" && !el.hasAttribute("data-nosplit") ? splitSentences(s) : [];
-  if (parts.length < 2) { el.textContent = s; return el; }
+  if (el.tagName !== "P") { el.textContent = s; return el; }
+  const parts = el.hasAttribute("data-nosplit") ? [s] : splitSentences(s);
+  if (parts.length < 2) { el.replaceChildren(...keepNodes(s)); return el; }
   // 문장 사이 빈칸은 span 끝에 남겨 둔다(복사·소리로 읽기에서 문장이 붙지 않게)
   el.replaceChildren(...parts.map((part, i) => {
     const sp = document.createElement("span");
     sp.className = "sent";
-    sp.textContent = i < parts.length - 1 ? `${part} ` : part;
+    sp.append(...keepNodes(i < parts.length - 1 ? `${part} ` : part));
     return sp;
   }));
   return el;
@@ -236,7 +286,8 @@ export function confirmSheet({ title, lines = [], confirmText, cancelText = "아
     let result = false;
     openSheet((close) => [
       h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: title }),
-      lines.map((t) => h("p", { class: "sheet-sub", text: t })),
+      // 확인 창의 설명은 한 문단(문장마다 한 줄). 이름처럼 따로 둘 줄은 배열로: [[이름], ["문장."]]
+      paragraphs(lines).map((t) => h("p", { class: "sheet-sub", text: t })),
       h("div", { class: "sheet-actions" },
         h("button", { type: "button", class: `btn big block ${danger ? "danger" : "primary"}`, text: confirmText,
           onclick: () => { result = true; close(); } }),
@@ -284,11 +335,19 @@ export function soonBadge() {
  * - extra는 지금 쓸 수 있는 다른 방법(버튼 등)을 넣는 자리다.
  * 돌려주는 값: openSheet와 같은 {close, el}
  */
+/** 문장 목록을 문단 글로: ["가.", "나."] → ["가. 나."], [["가.", "나."], ["다."]] → ["가. 나.", "다."]. */
+export function paragraphs(lines) {
+  const list = (lines || []).filter((x) => x !== null && x !== undefined && x !== "");
+  if (list.some(Array.isArray)) return list.map((x) => (Array.isArray(x) ? x.filter(Boolean).join(" ") : String(x))).filter(Boolean);
+  return list.length ? [list.join(" ")] : [];
+}
+
 export function comingSoonSheet({ icon: ic = "info", title, lines = [], steps = [], action = "", extra = null } = {}) {
   return openSheet((close) => [
     h("div", { class: "soon-head" }, h("span", { class: "soon-icon" }, icon(ic)), soonBadge()),
     h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: title }),
-    lines.length ? h("div", { class: "soon-lines" }, lines.map((t) => h("p", { text: t }))) : null,
+    // 설명은 한 문단(문장마다 한 줄). 뜻이 다른 문단으로 나누려면 lines에 배열을 넣는다: [["가.", "나."], ["다."]]
+    lines.length ? h("div", { class: "soon-lines" }, paragraphs(lines).map((t) => h("p", { text: t }))) : null,
     steps.length ? h("ol", { class: "soon-steps", "aria-label": "정식 버전에서 하는 순서" }, steps.map((st, i) => h("li", { class: "soon-step", "aria-disabled": "true" },
       h("span", { class: "soon-step-no", "aria-hidden": "true", text: String(i + 1) }),
       h("div", { class: "soon-step-main" },

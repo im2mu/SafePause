@@ -12,7 +12,6 @@
 /* ==== 돈 보내기 입력 ====================================================== */
 .mn-must { align-items: flex-start; margin-top: 1rem; }   /* 필수 문장 안내는 폼 아래(첫 화면에서 받는 사람 칸이 보이게, L5·D7) */
 .mn-must .strong { font-weight: 800; }
-.mn-must p + p { margin-top: .35rem; }
 .mn-form { padding-top: 1.25rem; }
 .mn-payees { margin-top: .6rem; }
 .mn-payees-title { font-weight: 600; color: var(--text-3); margin-bottom: .1rem; }
@@ -62,12 +61,11 @@
 .pictos .picto { width: min(3.5rem, 22vw); height: min(3.5rem, 22vw); }   /* 큰 글씨에서도 세 그림이 한 줄에 */
 .pause.level-high .pictos { color: var(--danger); }
 .pause.level-caution .pictos { color: var(--caution-text); }
-.pause-title { font-size: 1.35rem; font-weight: 800; line-height: 1.35; outline: none; }
+.pause-title { font-size: 1.35rem; font-weight: 800; outline: none; }
 .pause .pause-lines { margin: 0 0 1rem; }
 .pause-question { font-size: 1.15rem; font-weight: 800; text-align: center; margin: 1.1rem 0 .25rem; }
 .helper-note { display: flex; gap: .6rem; align-items: flex-start; font-size: 1rem; color: var(--text-2); background: var(--surface-2); border-radius: var(--r-m); padding: .85rem 1rem; margin-top: .5rem; }
-.helper-note svg { width: 1.25rem; height: 1.25rem; flex: none; margin-top: .15rem; }
-.helper-note p + p { margin-top: .35rem; }
+.helper-note svg { width: 1.25rem; height: 1.25rem; flex: none; margin-top: max(0px, calc((1lh - 1.25rem) / 2)); }
 .pause-error:not(:empty) { margin-top: .75rem; }
 .pause-lines li > p { margin: 0; }
 .pause-speak { margin-top: .75rem; }
@@ -100,19 +98,19 @@
 .result-hero.stop .big-icon { background: var(--danger-weak); color: var(--danger); }
 .result-hero.ask .big-icon { background: var(--ok-weak); color: var(--ok-text); }
 .result-hero.ok .big-icon { background: var(--ok-weak); color: var(--ok-text); }
-.result-hero h2 { font-size: 1.35rem; font-weight: 800; line-height: 1.35; outline: none; }
+.result-hero h2 { font-size: 1.35rem; font-weight: 800; outline: none; }
 .result-ok { display: inline-flex; align-items: center; gap: .35rem; margin-top: .5rem; color: var(--ok-text); font-weight: 700; }
 .result-ok svg { width: 1.2rem; height: 1.2rem; flex: none; }
-.result-lines { display: grid; gap: .4rem; margin: .25rem 0 1rem; }
+.result-lines { margin: .25rem 0 1rem; }   /* 결과 설명은 한 문단(money.js) */
 .result-lines p { color: var(--text-2); }
 .result-main { margin-top: .25rem; }
 .result-notes { display: grid; gap: .6rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .result-notes > .btn { justify-self: stretch; }
-.mn-notes { display: grid; gap: .25rem; }
+.mn-notes p { color: var(--text-3); }
 .result-notes .notice { margin-bottom: 0; }
 /* 결과의 필수 문장(은행 앱 버튼 바로 아래) */
 .mn-must-line { display: flex; gap: .5rem; align-items: flex-start; margin-top: .75rem; color: var(--primary-weak-text); font-weight: 700; }
-.mn-must-line svg { width: 1.25rem; height: 1.25rem; flex: none; margin-top: .2rem; }
+.mn-must-line svg { width: 1.25rem; height: 1.25rem; flex: none; margin-top: max(0px, calc((1lh - 1.25rem) / 2)); }
 
 /* 보낼 것 요약(은행 앱에 옮겨 적기 쉽게) */
 .mn-summary { margin: .25rem 0 1rem; padding: .25rem 1rem; border-radius: var(--r-m); background: var(--surface-2); }
@@ -123,10 +121,10 @@
 
 /* ==== 내 은행 앱 ========================================================== */
 .ba-actions { display: grid; gap: .5rem; margin-top: .25rem; }
-.ba-open-text { display: grid; text-align: left; line-height: 1.3; min-width: 0; }
+.ba-open-text { display: grid; text-align: left; line-height: var(--lh-ui); min-width: 0; }
 .ba-open-name { font-weight: 600; opacity: .9; overflow-wrap: anywhere; }
 .ba-why { display: flex; gap: .45rem; align-items: flex-start; color: var(--text-3); font-weight: 600; }
-.ba-why svg { width: 1.15rem; height: 1.15rem; flex: none; margin-top: .25rem; }
+.ba-why svg { width: 1.15rem; height: 1.15rem; flex: none; margin-top: max(0px, calc((1lh - 1.15rem) / 2)); }
 .ba-fail:empty { display: none; }
 .ba-fail .notice { margin-bottom: 0; }
 

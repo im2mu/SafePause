@@ -204,7 +204,8 @@ export default {
     function paintMore() {
       const t = TIMES.find((x) => x.value === timeSeg.value()) || TIMES[0];
       const id = toIdInput.value.trim();
-      moreSub.textContent = [`보낼 시각 ${t.label}`, id ? "계좌번호 적음" : ""].filter(Boolean).join(" · ");
+      // 이름과 값(시각 지금)은 묶어 둔다: 큰 글씨에서 값만 다음 줄에 홀로 남지 않게(보낼 / 시각 지금)
+      fill(moreSub, "보낼 ", h("span", { class: "nowrap", text: `시각 ${t.label}` }), id ? " · 계좌번호 적음" : "");
     }
     toIdInput.addEventListener("input", paintMore);
 
@@ -418,7 +419,7 @@ export default {
           const orgs = (r.ask_helper_preview && r.ask_helper_preview.counseling_orgs) || [];
           fill(body,
             h("h2", { class: "sheet-title focus-target", id: "card-ask-title", tabindex: "-1", text: "물어볼 조력자가 없어요" }),
-            lines.map((t) => h("p", { class: "sheet-sub", text: t })),
+            h("p", { class: "sheet-sub", text: lines.join(" ") }),
             orgs.length ? h("div", { class: "notice blue" }, icon("building"), h("div", null, h("p", { text: COUNSELING_TITLE }), h("ul", null, orgs.map((o) => h("li", { text: o }))))) : null,
             errorSlot,
             speakButton(() => ["물어볼 조력자가 없어요.", ...lines, ...(orgs.length ? [COUNSELING_TITLE, ...orgs] : [])].map(sentence).join(" ")));
@@ -509,14 +510,24 @@ export default {
       return h("dl", { class: "mn-summary" }, rows.map(([k, v]) => h("div", { class: "mn-sum-row" }, h("dt", { text: k }), h("dd", { text: v }))));
     }
 
-    /** 알림 보내기 주소(확인한 거래를 미리 고름). opts: {helpers, ask, channel, counselors} */
-    function notifyRoute(txnId, { helpers = [], ask = false, channel = "", counselors = false } = {}) {
+    /**
+     * 알림 보내기 주소(확인한 거래를 미리 고름). opts: {helpers, ask, channel, counselors, check}
+     * check(저장하지 않은 확인 거래)가 있으면 받는 사람 이름·금액·방법과 돈을 받는 조력자 id를 주소에 남긴다
+     * (새로 고치거나 앱이 다시 열려도 알림 보내기가 그 거래와 돈 받은 조력자 경고를 다시 그리게). 계좌번호·시각은 넣지 않는다.
+     */
+    function notifyRoute(txnId, { helpers = [], ask = false, channel = "", counselors = false, check = null } = {}) {
       const q = new URLSearchParams({ mode: "notify" });
       if (txnId) q.set("txn", txnId);
       if (helpers.length) q.set("helper", helpers.join(","));
       if (counselors) q.set("to", "counselors");
       if (ask) q.set("ask", "1");
       if (channel) q.set("channel", channel);
+      if (txnId && check && check.to && check.amount > 0) {
+        q.set("chk_to", String(check.to).slice(0, 40));
+        q.set("chk_amt", String(Math.round(check.amount)));
+        q.set("chk_ch", check.channel || "transfer");
+        if (check.conflicts.length) q.set("chk_conflict", check.conflicts.join(","));
+      }
       return `send?${q.toString()}`;
     }
 
@@ -532,6 +543,9 @@ export default {
       const txnId = r.pending && r.pending.id;
       const added = Boolean(r.added_to_history);
       const cands = candidatesOf(lastCheck);
+      // 거래 이력에 적지 않은 확인 거래: 알림 보내기 주소에 최소 정보를 남긴다(새로 고침 대비)
+      const chk = added ? null : { to: p.to, amount: Number(p.amount) || 0, channel,
+        conflicts: cands.filter((c) => c.conflict).map((c) => String(c.id)) };
       const askedIds = (helperIds || []).map(String);
       const asked = decision === "ask_helper" ? cands.filter((c) => askedIds.includes(String(c.id)) && !c.conflict) : [];
       const caps = capabilities();
@@ -550,7 +564,7 @@ export default {
       const notes = [];
       if (decision !== "ask_helper") {
         if (plan.note_to_person && !(showCounseling && plan.note_to_person === COUNSELING_TITLE)) notes.push(...clean([plan.note_to_person]));
-        if (r.notices_recorded > 0) notes.push(`${deviceWord()}에 적어 두기만 했어요.`, "문자나 메일은 알림 보내기에서 직접 보내요.");
+        if (r.notices_recorded > 0) notes.push(`${deviceWord()}에 적어 두기만 했어요. 문자나 메일은 알림 보내기에서 직접 보내요.`);
       }
       const tsNote = added ? clean([r.ts_note || (lastCheck && lastCheck.ts_note) || ""])[0] || "" : "";
       const spoken = [title, ...lines];
@@ -567,20 +581,20 @@ export default {
         if (decision === "ask_helper" && asked.length) {
           notifyBtns = (askWays.length ? askWays : [{ value: "", label: TO_NOTIFY, icon: "chat" }]).map((w, i) => h("button", {
             type: "button", class: `btn ${i === 0 ? "primary" : "weak"} big block result-main`,
-            onclick: () => toNotify(notifyRoute(txnId, { helpers: asked.map((c) => String(c.id)), ask: true, channel: w.value })),
+            onclick: () => toNotify(notifyRoute(txnId, { helpers: asked.map((c) => String(c.id)), ask: true, channel: w.value, check: chk })),
           }, icon(w.icon), keepDot(w.label)));
         } else if (decision === "ask_helper") {
           notifyBtns = h("button", { type: "button", class: "btn primary big block result-main",
-            onclick: () => toNotify(notifyRoute(txnId, { counselors: true })) }, icon("chat"), keepDot(TO_NOTIFY));
+            onclick: () => toNotify(notifyRoute(txnId, { counselors: true, check: chk })) }, icon("chat"), keepDot(TO_NOTIFY));
         } else if (lastCheck && lastCheck.card) {
           notifyBtns = h("button", { type: "button", class: `btn ${decision === "cancel" ? "primary" : "weak"} big block result-main`,
-            onclick: () => toNotify(notifyRoute(txnId)) }, icon("chat"), keepDot(TO_NOTIFY));
+            onclick: () => toNotify(notifyRoute(txnId, { check: chk })) }, icon("chat"), keepDot(TO_NOTIFY));
         }
         return [
           h("div", { class: `result-hero ${kind}` },
             h("div", { class: "big-icon" }, icon(kind === "stop" ? "stop" : kind === "ask" ? "helper" : transfer ? "bank" : "check")),
             h("h2", { class: "focus-target", tabindex: "-1", text: title })),
-          lines.length ? h("div", { class: "result-lines" }, lines.map((line) => h("p", { text: line }))) : null,
+          lines.length ? h("div", { class: "result-lines" }, h("p", { text: lines.join(" ") })) : null,
           decision === "send" ? summary(p, chosenTime) : null,
           decision === "send" && transfer ? bankAppActions() : null,
           decision === "send" && transfer ? mustLine() : null,
@@ -627,7 +641,7 @@ export default {
       openSheet((close) => [
         h("div", { class: "result-hero" }, h("div", { class: "big-icon" }, icon(transfer ? "bank" : "check")),
           h("h2", { class: "focus-target", tabindex: "-1", text: title })),
-        h("div", { class: "result-lines" }, lines.map((t) => h("p", { text: t }))),
+        h("div", { class: "result-lines" }, h("p", { text: lines.join(" ") })),
         summary(req, req.time || ""),
         transfer ? bankAppActions() : null,
         transfer ? mustLine() : null,

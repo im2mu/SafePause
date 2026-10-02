@@ -411,6 +411,108 @@ def test_one_sentence_per_line() -> None:
     assert ".sent { display: block; }" in CSS
 
 
+# ---- 화면 글 정리 기준(docs/v03_typography.md): 간격 토큰·리듬·줄 높이·글 폭·묶음·문단 ------------------------
+def _root_tokens() -> dict[str, str]:
+    root = re.search(r":root \{(.*?)\n\}", CSS_FILES["app.css"], re.S).group(1)
+    return {k: v.strip() for k, v in re.findall(r"(--[\w-]+):\s*([^;]+);", root)}
+
+
+def _rem(tokens: dict[str, str], value: str) -> float:
+    """토큰 값을 rem 수로(var(--space-5) → 1.5)."""
+    if m := re.fullmatch(r"var\((--[\w-]+)\)", value):
+        return _rem(tokens, tokens[m.group(1)])
+    return float(re.fullmatch(r"([0-9.]+)rem", value).group(1))
+
+
+def _rule(selector: str, text: str | None = None) -> str:
+    body = re.search(r"(?m)^" + re.escape(selector) + r" \{([^}]*)\}", text or CSS_FILES["app.css"])
+    assert body, selector
+    return body.group(1)
+
+
+def test_spacing_tokens_and_rhythm() -> None:
+    # 1·8: 간격 토큰(새 규칙은 토큰만), 문장 < 목록 < 문단 < 구역
+    t = _root_tokens()
+    for name, value in (("--space-1", ".25rem"), ("--space-2", ".5rem"), ("--space-3", ".75rem"), ("--space-4", "1rem"),
+                        ("--space-5", "1.5rem"), ("--space-6", "2rem"), ("--gap-sent", ".15rem"), ("--gap-para", ".6rem"),
+                        ("--pad-card", "1.25rem"), ("--gap-sheet-title", ".4rem"), ("--gap-sheet-sub", "1.1rem")):
+        assert t.get(name) == value, name
+    sent, items, para, section = (_rem(t, t[k]) for k in ("--gap-sent", "--gap-list", "--gap-para", "--gap-section"))
+    assert sent < items < para < section and section >= 1.5
+    assert ".sent + .sent { margin-top: var(--gap-sent); }" in CSS      # 같은 문단 문장
+    assert "p + p { margin-top: var(--gap-para); }" in CSS              # 문단
+    assert "var(--gap-section)" in _rule(".section-title")              # 구역
+    # 7: 카드(안쪽 1.25rem, 제목 → 본문 .35rem, 본문 → 버튼 1rem)·시트(제목 → 부제 .4rem, 부제 → 내용 1.1rem)·마지막 요소 여백 0
+    assert "var(--pad-card)" in _rule(".card")
+    assert "margin-bottom: var(--gap-list)" in _rule(".card h2, .card h3")
+    assert ".card > :is(.btn, .btn-row, .card-actions) { margin-top: var(--gap-action); }" in CSS and t["--gap-action"] == "var(--space-4)"
+    assert "margin-bottom: var(--gap-sheet-title)" in _rule(".sheet-title")
+    assert "margin-bottom: var(--gap-sheet-sub)" in _rule(".sheet-sub")
+    assert ":is(.card, .notice, .list, .sheet) > :last-child" in CSS
+    # 목록: 점 목록은 들여쓰기 하나·항목 간격 .35rem, 안내 상자 아이콘은 첫 줄 가운데(1lh)
+    assert "padding-left: var(--indent)" in CSS and "> li + li { margin-top: var(--gap-list); }" in CSS
+    assert "calc((1lh - min(1.375rem, 6vw)) / 2)" in _rule(".notice > svg")
+
+
+def test_line_height_system_and_measure() -> None:
+    # 3·5: 줄 높이는 글 종류마다 하나(본문 1.6·보조글 1.55·제목 1.3·큰 숫자 1.2·버튼·칩·배지 1.3), 설명 글 폭 34em
+    t = _root_tokens()
+    assert (t["--lh-body"], t["--lh-sub"], t["--lh-title"], t["--lh-num"], t["--lh-ui"]) == ("1.6", "1.55", "1.3", "1.2", "1.3")
+    assert "line-height: var(--lh-body)" in _rule("body")
+    assert t["--measure"] == "34em" and "p { max-width: var(--measure); }" in CSS
+    # 모든 CSS의 줄 높이는 토큰만 쓴다(그림 안 한 글자 상자의 1만 예외: 번호 동그라미·글자 크기 견본)
+    for name, text in CSS_FILES.items():
+        for value in re.findall(r"line-height:\s*([^;}]+)", re.sub(r"/\*.*?\*/", "", text, flags=re.S)):
+            assert value.strip().startswith("var(--lh-") or value.strip() == "1", (name, value)
+
+
+def test_keep_bundles_and_short_text() -> None:
+    # 4: 숫자 + 단위·시각·금액·전화번호는 끊기지 않는 묶음(p의 글은 setText가, 작은 글 조각은 subParts가 keepNodes로)
+    ui = (JS / "ui.js").read_text(encoding="utf-8")
+    assert "export function keepNodes" in ui and "sp.append(...keepNodes(" in ui and "el.replaceChildren(...keepNodes(s))" in ui
+    for piece in (r"\d{1,2}분)?", r"월[ \u00a0]\d{1,2}일", r"[ \u00a0]?원", r"-[\d*]{4}"):
+        assert piece in ui, piece
+    comp = (JS / "components.js").read_text(encoding="utf-8")
+    sub = comp[comp.index("export function subParts"):comp.index("export function whenParts")]
+    assert "keepNodes(String(t))" in sub and ".replace(/ /g" not in sub   # 조각 전체를 줄 바꾸지 않는 빈칸으로 만들지 않음
+    assert ".nowrap { white-space: nowrap; }" in CSS and ".tel-text { overflow-wrap: normal; }" in CSS
+    # 2절: 버튼·칩·배지·토스트 안 글은 촘촘하게(한 줄에 들어가면 한 줄)
+    assert ":is(.btn, .chip, .badge, .tag, .toast) .sent + .sent" in CSS
+
+
+def test_paragraphs_group_related_sentences() -> None:
+    # 2: 한 문장짜리 p를 줄줄이 쓰지 않는다. 설명 줄 목록은 문단으로 묶어 그린다(ui.paragraphs·join)
+    for name, js in ALL_JS.items():
+        if name.startswith("pyodide/"):
+            continue
+        assert not re.search(r"lines\.map\(\((?:t|line)\) => h\(\"p\"", js), name
+    ui = (JS / "ui.js").read_text(encoding="utf-8")
+    assert "export function paragraphs" in ui
+    assert 'paragraphs(lines).map((t) => h("p", { class: "sheet-sub", text: t }))' in ui   # 확인 창
+    assert "paragraphs(lines).map" in ui                                           # 준비 중 시트
+    for view in ("consent.js", "onboarding.js"):
+        assert "paragraphs(" in _read_view(view), view
+
+
+def test_reverify_layout_contracts_2026_10_03() -> None:
+    # 재검증 남은 문제: 같은 일 묶기는 목록 전체, 홈 비교 줄은 목록 밖, 저장하지 않은 확인 거래는 주소로 다시 그림
+    alerts = _read_view("alerts.js")
+    group = alerts[alerts.index("function groupCards"):alerts.index("function renderGroup")]
+    assert "out.find((x) => x.key === key" in group and "out[out.length - 1]" not in group
+    home = _read_view("home.js")
+    assert 'fact("calendar"' not in home and "home-base" in home
+    money, notify = _read_view("money.js"), _read_view("notify.js")
+    route = money[money.index("function notifyRoute"):money.index("function showResult")]
+    for key in ("chk_to", "chk_amt", "chk_ch", "chk_conflict"):
+        assert f'"{key}"' in route and key in notify, key
+    assert "to_id" not in route                                                    # 계좌번호는 주소에 넣지 않는다
+    assert "function checkedFromUrl" in notify and "fitActions" in notify
+    notify_css = CSS_FILES["views/notify.css"]
+    assert ".np-person > .row-main { display: contents; }" in notify_css           # 큰 글씨 받는 사람 줄
+    assert ".np-pick-sheet .np-pick-actions.flow" in notify_css                     # 거래 고르기 고정 버튼 풀기
+    assert "overflow: hidden" not in _rule(".row-title")                           # 추천 배지·이름이 잘리지 않게
+
+
 def test_device_word_and_money_text() -> None:
     # R19·R21: 장소는 이 휴대폰·이 컴퓨터, 금액은 한 번만
     fmt = (JS / "format.js").read_text(encoding="utf-8")
@@ -603,7 +705,7 @@ def test_engine_basic_after_ai_failure_and_fifo() -> None:
 def test_common_layout_rules_for_large_text() -> None:
     # L3·L4·L9·L10·L11·L14·L8: 큰 글씨·좁은 화면·가로 화면 공용 규칙
     assert ".bottom-nav .nav-item { min-height: 0;" in CSS                       # L3 아래 탭 이름이 잘리지 않게
-    assert ".notice svg { width: min(1.375rem, 6vw)" in CSS                       # L4 안내 상자 아이콘 상한
+    assert ".notice > svg { width: min(1.375rem, 6vw)" in CSS                     # L4 안내 상자 아이콘 상한(첫 줄 가운데)
     assert ".notice > svg + * { flex: 1 1 9em;" in CSS                           # L4 아주 큰 글씨: 아이콘을 글 위 줄로
     assert ".table-wrap td.num::before { white-space: normal;" in CSS            # L9 숫자는 끊지 않고 칸 이름만 줄바꿈
     assert ".switch::before {" in CSS and "max(100%, 48px)" in CSS               # L11 스위치 누르는 자리 48px
@@ -627,3 +729,27 @@ def test_integration_contracts_2026_10_03() -> None:
     assert '"내가 확인한 거래"' in consent and '"돈 보내기 확인 기록"' in consent          # IA-7: reviews.json·decisions.json도 지움
     java = (ROOT / "android" / "src" / "kr" / "safepause" / "mobile" / "MainActivity.java").read_text(encoding="utf-8")
     assert '"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"' in java  # 앱 파일 고르기 창에서 .xlsx 선택
+
+
+def test_eval_recompute_contract_2026_10_03() -> None:
+    # 성능 확인 화면의 보고서 수치 다시 계산: 보고서와 같은 설정으로 요청하고, 같은 설정일 때만, 같은 키 짝으로 견준다
+    import ast
+    js = _read_view("eval.js")
+    assert "const REPORT_RUN = { seeds: 20, seed_start: 21 };" in js
+    constants = (ROOT / "safepause" / "api" / "constants.py").read_text(encoding="utf-8")
+    assert "REPORT_SEED_START, REPORT_SEEDS = 21, 20" in constants            # 백엔드 report_set 판정과 같은 seed 범위
+    assert 'const REPORT_SETS = ["standard", "subtle"];' in js
+    assert "r.report_set !== true || r.intensity !== key" in js                 # 다른 설정으로 계산된 응답은 견주지 않음
+    loop = js[js.index("for (; i < REPORT_SETS.length; i += 1) {"):]
+    assert loop.index("if (!ctx.alive())") < loop.index('ctx.req("POST", "/api/eval/run"')   # 떠난 뒤 다음 세트를 보내지 않음
+    assert 'b.setAttribute("aria-disabled", "true")' in js and 'b.removeAttribute("aria-disabled")' in js
+    # REF_PATHS(화면) == REFERENCE_PATHS(tests/test_eval_run_api.py): 키와 경로가 모두 같아야 화면 견주기가 테스트와 같다
+    block = re.search(r"const REF_PATHS = \{(.*?)\n\};", js, re.S).group(1)
+    screen = {k: tuple(re.findall(r'"([a-z_]+)"', v)) for k, v in re.findall(r"(\w+): \[([^\]]*)\]", block)}
+    tree = ast.parse((ROOT / "tests" / "test_eval_run_api.py").read_text(encoding="utf-8"))
+    node = next(n for n in tree.body if isinstance(n, ast.AnnAssign) and getattr(n.target, "id", "") == "REFERENCE_PATHS")
+    assert screen == ast.literal_eval(node.value)
+    ref = json.loads((WEB / "data" / "eval_reference.json").read_text(encoding="utf-8"))
+    for key in ("standard", "subtle"):
+        for mode, vals in ref["sets"][key]["modes"].items():
+            assert set(vals) == set(screen) | {"by_scenario"}, (key, mode)     # 기준값 파일의 키를 화면이 모두 견준다

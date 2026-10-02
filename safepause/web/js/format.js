@@ -62,11 +62,21 @@ export function keepUnits(text) {
 }
 
 /**
- * 메일 주소를 화면에 보일 때 @ 앞에서만 줄을 바꿀 수 있게 한다(L8: example.co / m처럼 한 글자가 남지 않게).
+ * 메일 주소를 화면에 보일 때 @ 앞과 도메인 점 뒤에서만 줄을 바꿀 수 있게 한다(L8: example.co / m처럼 한 글자가 남지 않게).
+ * 점 뒤는 남는 글이 세 글자 이상일 때만 끊는다(co.kr의 kr처럼 두 글자가 홀로 남지 않게).
  * 보이는 글에만 쓴다(문자·메일 앱 주소에는 원래 값을 쓴다).
  */
 export function breakableEmail(text) {
-  return String(text ?? "").replace("@", "​@");
+  const s = String(text ?? "");
+  const at = s.indexOf("@");
+  if (at < 0) return s;
+  const domain = s.slice(at);
+  let out = "";
+  for (let i = 0; i < domain.length; i += 1) {
+    out += domain[i];
+    if (domain[i] === "." && domain.length - i - 1 >= 3) out += "\u200b";
+  }
+  return `${s.slice(0, at)}\u200b${out}`;
 }
 
 export function formatWon(value) {

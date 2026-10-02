@@ -5,6 +5,7 @@
 돈 보내기(보내기 전 확인 → 내 은행 앱)는 `docs/v03_spec_money.md`가 기준이다(0절 송금 기능 없음을 고친 문서). 이 문서의 1.5절·5절·7절·14절에 화면 쪽을 적었다.
 
 - **2026-10-03 수정(적대적 검증 145건 반영)**: 결정·계약은 `docs/v03_fixplan.md`가 이 문서보다 우선한다. 이 문서의 15절에 화면 공용 계약(새 함수·상수·CSS)을 예시와 함께 모았다.
+- **2026-10-03 화면 글 정리(`docs/v03_typography.md`)**: 간격 토큰·문장 < 문단 < 구역 리듬·줄 높이 다섯 가지·글 폭 34em·숫자 묶음(`ui.keepNodes`)·문단 묶기(`ui.paragraphs`). 16절에 화면 담당이 지킬 것을 모았다.
 - 공용 파일(화면 기반 담당): `index.html`, `js/main.js`, `js/api.js`, `js/ui.js`, `js/components.js`, `js/format.js`, `js/labels.js`, `js/icons.js`, `js/speech.js`, `js/native.js`, `js/engine-client.js`, `js/views/connect.js`, `engine/worker.mjs`, `css/app.css`, `icons/`(파비콘 `logo.svg`), `tests/test_static_ui.py`.
 - 화면 파일(화면 담당): `js/views/*.js`(connect.js 빼고), `css/views/{home,txns,notify,money,more}.css`, `js/charts.js`(홈 담당이 새로 만듦).
 - 공용 모듈에 필요한 것이 생기면 직접 고치지 말고 화면 기반 담당(총괄)에게 요청한다.
@@ -49,6 +50,7 @@
 | `#/send?to=counselors` | 알림 보내기 탭 + 상담하는 곳 목록을 펼쳐 둠 | notify.js |
 | `#/send?mode=notify&txn=<id>&helper=<조력자 id>&ask=1&channel=sms\|email` | 돈 보내기의 물어볼래요 → [문자로 물어보기]·[메일로 물어보기]: 그 조력자만 미리 체크, 묻는 글, 그 방법을 먼저 고름. 저장하지 않은 확인 거래는 `checkedItem(id)`로 미리 고르고 suggest에 `pending`으로 넘긴다 | notify.js |
 | `#/send?mode=notify&resend=<보낸 알림 id>` | 보낸 알림의 다시 보내기: 그 기록의 받는 사람·글·거래로 채움(고치지 않으면 떠날 때 묻지 않음) | notify.js |
+| `#/send?mode=notify&txn=live-…&chk_to=<받는 사람 이름>&chk_amt=<금액>&chk_ch=transfer\|card\|micropay&chk_conflict=<조력자 id,…>` | 돈 보내기에서 확인만 하고 저장하지 않은 거래(안 보낼래요·물어볼래요 → 알림 보내기). 새로 고치거나 앱이 다시 열려 이 창의 기억(`checkedItem`)이 사라져도 그 거래와 돈 받은 조력자 경고를 다시 그린다. 계좌번호·시각은 넣지 않는다(개인정보 최소). money.js `notifyRoute`가 붙이고 notify.js `syncUrl`이 지킨다 | notify.js |
 | `#/alerts?tab=cards\|flags\|sent` | 걱정되는 거래 / 담은 거래 / 보낸 알림 탭(옛 이름 `risky`·`flagged`도 받음) | alerts.js |
 | `#/txns?q=<이름>&period=all\|1m\|3m` | 내 거래 이름 검색·기간(홈 많이 보낸 곳 TOP 3가 보냄) | txns.js |
 | `#/txns?open=upload\|sample\|bank\|card\|phone` | 파일 올리기 / 연습용 거래 / 은행·카드·휴대폰 결제 연결(준비 중) 시트를 바로 엶 | txns.js (connect.js가 보냄) |
@@ -129,6 +131,8 @@ import { h, fill, append, setText, splitSentences, $, $$, icon, picto, toast, an
 ### 2.1 h()와 한 문장 한 줄(R18)
 
 - `h(tag, attrs, ...children)`. attrs: `class`, `text`, `dataset`, `style`(CSSOM으로 넣음, 인라인 style 속성 아님), `onclick` 같은 `on*`, `value`, `checked`, `disabled`, `selected`, 그 밖은 setAttribute. `null·undefined·false`는 건너뛴다.
+- **p의 글은 숫자 묶음을 지킨다(`keepNodes`)**: 시각(`새벽 4시 41분`)·날짜(`6월 27일`)·금액(`5만 원`, `3만 5천 원`, `63만7천원`, `50,000원`)·두 글자 낱말 둘을 이은 말(`문자·메일`)은 `span.nowrap`, 전화번호는 `span.tel-text`(하이픈 뒤에서만 줄바꿈). 금액 바로 뒤에 한글이 세 글자 이상 붙으면(`63만7천원이었어요`) 그 사이, 긴 기관 이름은 기관 말 앞(`지역발달장애인 / 지원센터`)에 `wbr`을 둔다. `textContent`는 원래 글과 같다. 해(`2026년`)·요일(`(토)`)은 묶지 않는다(묶음이 길면 큰 글씨 좁은 칸에서 넘친다).
+- p가 아닌 요소의 이름(`span.np-name`, `b.preset-name` 등)에 묶음이 필요하면 `h("span", {class}, keepNodes(name))`.
 - **`h("p", {text})`는 문장 끝(한글·닫는 괄호 뒤의 `. ? !` 또는 `? !` 다음 빈칸)에서 나눠 `span.sent`(display:block)로 한 줄씩 넣는다.**
   - 숫자 속 점(1.5만, v0.3.0)은 나누지 않는다.
   - `textContent`는 원래 글과 같다(문장 사이 빈칸 유지). 소리로 읽기·복사에 그대로 써도 된다.
@@ -137,6 +141,9 @@ import { h, fill, append, setText, splitSentences, $, $$, icon, picto, toast, an
   - 자식으로 글을 넣는 `h("p", null, "글")`도 나누지 않는다. 설명 글은 `text`로 넣는다.
 - 나중에 글을 바꿀 때는 `el.textContent = …` 대신 `setText(el, 글)`을 쓴다(p면 나눔).
 - `splitSentences("가요. 나요.")` → `["가요.", "나요."]`.
+- **문단 묶기**: 같은 내용을 설명하는 2~3문장은 p 하나에 넣는다(문장마다 한 줄, 문장 사이 .15rem). 한 문장짜리 p를 줄줄이 쓰지 않는다. 뜻이 다르면 문단을 나눈다(문단 사이 .6rem).
+  - `paragraphs(lines)`: `["가.", "나."]` → `["가. 나."]`(한 문단), `[["가.", "나."], ["다."]]` → `["가. 나.", "다."]`(두 문단). 동의·첫 실행의 설명, 준비 중 시트의 `lines`가 쓴다.
+  - `confirmSheet`·`comingSoonSheet`의 `lines`는 `paragraphs(lines)`로 그린다(문장 목록은 한 문단, 이름처럼 따로 둘 줄은 `[[이름], ["문장."]]`).
 
 ### 2.2 시트
 
@@ -193,7 +200,7 @@ import { levelBadge, flaggedBadge, flagBadge, reviewBadge, notifiedBadge, checke
 | `txnAmount(t)` | `"-50,000원"`(나감) / `"+50,000원"`(들어옴). 금액은 이것 하나만 쓴다(R21) |
 | `txnSignals(item)` | `[{code, icon, text}]` 명사형 신호 이름. AI만 다르다고 본 거래는 `{code:"anomaly", icon:"sparkle", text:"평소와 다른 거래"}` |
 | `txnRow(item, onOpen?)` | 거래 한 줄(토스 목록 모양): 이름과 금액 한 줄 → 시각·방법 → 등급 + 명사형 신호 + 담음·내가 확인함·알렸어요·보내기 전 확인 배지. 금액은 한 번. onOpen이 있으면 버튼(누르면 거래 시트) |
-| `subParts(parts, cls?)` | 작은 글 조각 줄(`시각 · 방법` 등). 조각 안에서는 줄을 바꾸지 않고, 줄이 바뀐 조각 앞 가운뎃점은 숨긴다(점이 줄 끝에 매달리거나 `카드 / 결제`로 끊기지 않게). 기본 클래스 `row-sub` |
+| `subParts(parts, cls?)` | 작은 글 조각 줄(`시각 · 방법` 등). 조각(flex 칸)이 칸에 들어가면 한 줄로 두고, 칸보다 긴 조각만 안의 빈칸에서 줄을 바꾼다(조각 안 숫자·날짜·시각은 `keepNodes` 묶음이라 `2026년 / 6월 27일 / (토)`처럼 묶음 사이에서만). 줄이 바뀐 조각 앞 가운뎃점은 숨긴다. 기본 클래스 `row-sub`. 조각 글은 보통 빈칸이다(예전처럼 줄 바꾸지 않는 빈칸으로 바꾸지 않음) |
 | `whenParts(ts)` | `["2026년 6월 27일 (토)", "새벽 4시 41분"]`: subParts에 날짜·시각을 따로 넣을 때 |
 | `dateHead(ts)` | 날짜 머리 |
 | `flagButton(ctx, item, {cls, onChange(flagged, count)})` | 알림 목록에 담기 ↔ 담기 취소 토글(POST /api/flags, /api/flags/remove, 글은 `FLAG_TEXT`). 담으면 토스트 "알림 탭에 담았어요.", 빼면 "담은 거래에서 뺐어요." `item.flagged`도 바꾼다. 알림 카드의 작은 버튼도 이것을 쓴다(`{cls: "btn sm"}`). 하는 동안 `disabled`를 쓰지 않는다(초점 유지) |
@@ -256,7 +263,7 @@ alertCard(item, { actions: [알리기링크, flagButton(ctx, item, { cls: "btn s
 | `amountPreview(n)` | 입력 금액 미리 보기: 정확한 원 단위 하나 `amountPreview(3500)` → `"3,500원"`. 0 이하·숫자 아님은 `""`. 반올림한 만 원 표기를 `=`로 붙이지 않는다(RF-4·C10) |
 | `bandLabel(band, {range})`, `BANDS` | 시간대 이름(앱 시각 표기와 같음): dawn `새벽`(밤 12시~아침 6시) · morning `오전`(아침 6시~낮 12시) · day `낮`(낮 12시~저녁 6시) · evening `저녁·밤`(저녁 6시~밤 12시). `bandLabel("dawn", {range: true})` → `"새벽(밤 12시~아침 6시)"` |
 | `keepUnits(text)` | 화면에 보이는 글에서 숫자 + 원·시각·날짜 사이 빈칸을 줄을 바꾸지 않는 빈칸으로(`168만 원`, `오후 3시`, `4시 41분`, `6월 27일`이 줄 끝에서 끊기지 않게, C13·L8·L9). 문자·메일로 보낼 글·소리로 읽을 글에는 쓰지 않는다 |
-| `breakableEmail(text)` | 보이는 메일 주소에서 `@` 앞에서만 줄을 바꿀 수 있게 한다(`example.co / m` 방지). `span.email-text`와 같이 쓴다. 메일 앱 주소에는 원래 값 |
+| `breakableEmail(text)` | 보이는 메일 주소에서 `@` 앞과 도메인 점 뒤(남는 글이 세 글자 이상일 때만)에서만 줄을 바꿀 수 있게 한다(`example.co / m`, `co. / kr` 방지). `span.email-text`와 같이 쓴다. 메일 앱 주소에는 원래 값 |
 | `formatMonth("2026-06", full?)` | `"6월"` / `"2026년 6월"` |
 | `formatTime(d)` | `"새벽 4시 41분"` |
 | `formatDate(d)`, `formatShortDate(d)`, `formatWhen(ts)`, `formatDay(ts)`, `parseTs(ts)`, `dayKey(ts)` | 날짜·시각 |
@@ -379,6 +386,12 @@ openCardConnect(ctx, { onUpload: openUpload, onSample: openSample });
 
 ### 10.1 토큰 (`:root`, 어두운 모드는 자동으로 바뀜)
 
+- 간격(새 규칙은 토큰만): `--space-1 .25rem` `--space-2 .5rem` `--space-3 .75rem` `--space-4 1rem` `--space-5 1.5rem` `--space-6 2rem`
+- 글 리듬: `--gap-sent .15rem`(같은 문단 문장) < `--gap-list .35rem`(목록 항목·카드 제목 → 본문) < `--gap-para .6rem`(문단) < `--gap-section`(= `--space-5`, 섹션 제목 앞). `--gap-block`(= `--space-3`, 카드끼리) `--gap-action`(= `--space-4`, 본문 → 버튼) `--pad-card 1.25rem` `--gap-sheet-title .4rem` `--gap-sheet-sub 1.1rem` `--indent`(점 목록 들여쓰기)
+- 줄 높이: `--lh-body 1.6`(body) `--lh-sub 1.55`(.muted·.hint·.row-sub·.page-sub·.sheet-sub) `--lh-title 1.3`(h1~h5·제목) `--lh-num 1.2`(큰 숫자) `--lh-ui 1.3`(버튼·칩·배지·탭·토스트). CSS의 line-height는 이 토큰만 쓴다(한 글자 상자의 `1`만 예외, 테스트가 확인)
+- 글 폭: `--measure 34em`(`p { max-width }`)
+- 목록 줄: `--ic-row`(둥근 그림, `min(2.4rem, 10vw, 56px)`) `--gap-row`(그림 ↔ 글) `--pad-row`(좌우 여백). 들여쓰기 맞춤은 `calc(var(--ic-row) + var(--gap-row))`
+
 - 바탕·글: `--bg` `--bg-sub`(앱 바탕) `--surface`(카드) `--surface-2` `--line` `--text` `--text-2` `--text-3` `--text-4`
 - 강조: `--primary` `--primary-weak` `--primary-weak-text`
 - 상태(늘 아이콘·글과 함께): `--danger` `--danger-weak` `--danger-text` `--caution` `--caution-weak` `--caution-text` `--ok` `--ok-weak` `--ok-text`
@@ -390,7 +403,7 @@ openCardConnect(ctx, { onUpload: openUpload, onSample: openSample });
 | 묶음 | 클래스 |
 |---|---|
 | 글 | `.page-title` `.page-sub` `.section-title`(+ `.link`) `.muted` `.strong` `.center` `.tnum` `.sr-only` `.sent` |
-| 카드·목록 | `.card`(`.flat` `.tight` `.hero`) `.card-row` `.list` `.list-head` `.row`(`.wrap`) `.row-icon`(`.blue` `.red` `.orange` `.green`) `.row-main` `.row-title` `.row-sub` `.row-end` `.row-amount`(`.in`) `.row-chev` `.row-tags.full` `.menu-row` `.date-head` |
+| 카드·목록 | `.card`(`.flat` `.tight` `.hero`) `.card-row` `.list` `.list-head` `.row`(`.wrap`) `.row-icon`(`.blue` `.red` `.orange` `.green`) `.row-main` `.row-title`(잘라 쓰지 않고 줄을 바꾼다) `.row-sub` `.row-end` `.row-amount`(`.in`) `.row-chev`(28px까지) `.row-tags.full` `.menu-row` `.date-head` |
 | 배지·칩 | `.badge`(`.none` `.caution` `.high` `.info` `.grey`) `.tag` `.soon` `.chips` `.chip`(`aria-pressed`, `.off`) |
 | 버튼 | `.btn`(`.primary` `.weak` `.danger` `.danger-weak` `.ghost` `.block` `.big` `.sm`) `.btn-row` `.btn-col` `.btn-ic` `.icon-btn` `.quick` `.quick-item` `.qi-icon` |
 | 입력 | `.field` `.field-label` `.input` `.hint` `.error-text` `.check-row` `.switch-row` `.switch` `.segmented`(라디오 묶음) |
@@ -402,7 +415,8 @@ openCardConnect(ctx, { onUpload: openUpload, onSample: openSample });
 | 차트 | `.chart`(svg 안 `text` `.grid` `.bar` `.bar.muted` `.flag-dot`) `.c1`~`.c5`(→ `--c`) `.stack > i`(비율 띠, 2px 틈) `.hbar` `.hbar-top` `.hbar-track > i` `.legend`(`li` `.swatch` `.grow` `b` `.pct`) |
 | 표 | `.table-wrap`(좁은 화면은 카드 모양) |
 | 로고 | `.brand` `.brand-mark` `.brand-name` |
-| 줄바꿈 | `.nowrap`(숫자 + 단위 조각) `.email-text`(`breakableEmail`과 같이) |
+| 줄바꿈 | `.nowrap`(숫자 + 단위 묶음, `keepNodes`가 붙임) `.tel-text`(전화번호: 하이픈 뒤에서만) `.email-text`(`breakableEmail`과 같이) |
+| 점 목록 | `.bullets`(점·들여쓰기 하나·항목 간격 .35rem, `.about-bullets`·`.consent-bullets`·`.notice ul`도 같은 규칙) `.lead-strong`(문단 첫 문장만 굵게) |
 | 소리 | `.speak-btn`(speakButton이 붙임) `.voice-note`(noVoiceNote) — `html[data-voice]`로 보이고 숨음 |
 | 상태 배지 | `.badge.ok-line`(내가 확인함) |
 | 왜 걱정되나요 | `.ai-explain` `.ae-head` `.ae-group` `.ae-ai` `.ae-title` `.ae-list` `.ae-diff` `.ae-diff-value` `.ae-only` |
@@ -468,6 +482,8 @@ h("ul", { class: "legend" }, rows.map((r) => h("li", { class: `c${CHANNEL_CHART[
 - 직접 이체 없음: 비밀번호·인증 번호 입력칸(`type: "password"`, one-time-code 등), 이체 API, `intent:` 주소가 없다.
 - 실제 은행·카드사·간편결제 이름과 패키지 이름이 화면 글에 없다(`BANK_NAMES`, `BANK_PACKAGES`).
 - 2026-10-03 더한 검사: 금지 문구(결정은 본인이 해요·심사·시연용·이 기기), 선 아이콘 체계(`test_line_icon_system`), 파비콘(`test_favicon_matches_logo`), 담기·내가 한 거예요 용어(`test_flag_and_review_terms`, 알림 카드 포함 `test_flag_terms_same_on_every_screen`), 공용 계약 이름(`test_shared_contract_exports`), 금액 미리 보기(`test_amount_preview_not_rounded`: money.js가 `= ${formatWon(` 대신 `amountPreview(`), 예시 칩 줄바꿈 없는 빈칸, 음성 늦게 준비, busy·시트 초점, 토스트·엔진 띠 한 문장 한 줄, 연락처 창 하나, 엔진 기본 요청·FIFO, 큰 글씨 공용 배치.
+- 2026-10-03 성능 확인 다시 계산 검사: `test_eval_recompute_contract_2026_10_03`(eval.js가 `{seeds: 20, seed_start: 21}`로 표준·경계 변형을 요청하고, `report_set`·`intensity`가 맞을 때만 견주고, 두 번째 세트 전에 `ctx.alive()`를 보고, 다른 계산 버튼을 `aria-disabled`로 잠그는지. 화면 `REF_PATHS`가 `tests/test_eval_run_api.py` `REFERENCE_PATHS`와 같은지). 백엔드 쪽 재현은 `tests/test_eval_run_api.py::test_eval_run_reproduces_report_set`.
+- 2026-10-03 글 정리 검사: 간격 토큰·문장 < 목록 < 문단 < 구역(`test_spacing_tokens_and_rhythm`), 줄 높이 토큰만·글 폭 34em(`test_line_height_system_and_measure`), 숫자 묶음·subParts(`test_keep_bundles_and_short_text`), 한 문장짜리 p 줄줄이 금지(`test_paragraphs_group_related_sentences`), 재검증 남은 문제 계약(`test_reverify_layout_contracts_2026_10_03`).
 - 화면 확인: `python scratchpad/tools/webcheck.py --routes … --setup sample --out <폴더>`(360x780, `--font 2`, `--desktop`, `--dark`), errors가 빈 목록이어야 한다.
 
 ## 13. 백엔드 API 빠른 참조(설계서 3절, 실제 구현 기준)
@@ -495,6 +511,7 @@ h("ul", { class: "legend" }, rows.map((r) => h("li", { class: `c${CHANNEL_CHART[
 | `POST /api/safepause/check` | `{to, amount, channel, to_id, time?}` → `{pending, assessment, card, notify_plan_preview, ask_helper_preview, ts_note}` |
 | `POST /api/safepause/decide` | `{pending, decision: send\|cancel\|ask_helper, helper_ids?}` → `{decision, added_to_history, pending, assessment, notify_plan, notices_recorded, result_title, result_lines, delivery_note, ts_note}` |
 | `POST /api/notify/suggest` | `{txn_ids, pending?}` → `{helpers: [{id, name, suggested, conflict, reason}], counselors: [{id, name, suggested}], counseling_due, counseling_reason: "repeat"\|"conflict"\|""}`. 상담하는 곳은 suggested여도 화면이 저절로 체크하지 않는다(`?to=counselors`일 때만) |
+| `POST /api/eval/run` | `{seeds: 1~20(기본 5), seed_start: 1~10000(기본 1), intensity: "standard"\|"subtle"(기본 standard), modes: [fused\|rules\|anomaly](1~3), personas?}` → `{personas, seeds(쓴 seed 목록), seed_start, seed_end, intensity, report_set, modes, results, elapsed_sec, note}`. report_set은 인물 3명 × seed 21~40일 때 참(방식 수·강도는 따지지 않음). 잘못된 값은 422 `입력한 값을 확인해 주세요: 시작 번호(seed)`·`… 시나리오 종류` |
 
 계약의 자세한 내용은 `docs/v03_spec.md` 3.7절과 `docs/v03_fixplan.md` 3절을 본다.
 
@@ -562,3 +579,58 @@ h("p", { text: keepUnits(line) });
 - 같은 화면 안에서 패널을 바꿀 때 `speech.stop()`을 따로 부를 필요가 없다(버튼이 떨어지면 멈춤). 패널을 `hidden`으로 숨겨도 멈춘다.
 - 음성 없음 안내는 `noVoiceNote()`를 그대로 넣는다(옛 `speech.available() ? null : h("p", {class: "mn-novoice", …})`도 CSS로 맞게 보이지만 새 코드는 noVoiceNote).
 - 준비 중 메뉴는 `menuRow({soon: true, …})`만 쓰면 배지 자리가 같다(직접 만든 메뉴 줄은 `.menu-soon` 줄을 제목 아래에 둔다).
+
+## 16. 화면 글 정리(2026-10-03, `docs/v03_typography.md`)
+
+화면 담당이 글을 넣을 때 지킬 것. 공용 CSS·ui.js가 대부분을 맡고, 화면 쪽은 문단과 클래스만 맞추면 된다.
+
+| 할 일 | 하는 법 |
+|---|---|
+| 같은 내용 2~3문장 | p 하나에 `text`로(문장마다 한 줄은 자동). 줄 목록이면 `lines.join(" ")` 또는 `paragraphs(lines)` |
+| 다른 내용 | p를 나눈다(`p + p` .6rem). 목록처럼 촘촘해야 하면 `ul` 또는 `--gap-list` |
+| 숫자·시각·금액·전화번호 | p의 `text`로 넣으면 묶음이 자동(`keepNodes`). span에 넣는 이름은 `keepNodes(name)` |
+| 카드 | 제목(h2·h3) 아래 .35rem, 버튼(`.card > .btn`·`.btn-row`·`.card-actions`) 위 1rem은 자동. 따로 margin을 주지 않는다 |
+| 안내 상자 | `notice > svg + (p 또는 div)`. 아이콘은 첫 줄 가운데(1lh)로 자동 |
+| 아이콘 + 글 한 줄(`.ba-why` 등) | 아이콘 `margin-top: max(0px, calc((1lh - 아이콘 크기) / 2))`로 첫 줄 가운데에 맞춘다 |
+| 줄 높이 | 숫자를 쓰지 않고 `var(--lh-*)` |
+| 큰 글씨(200%) | 여백·그림은 `min(…, vw)`(필요하면 px 상한도). 좁은 칸은 그림을 빼거나(`@container`) 글을 줄 전체 폭으로 내린다(알림 보내기 받는 사람 줄 참고) |
+
+측정: `scratchpad/w5/typo/measure.js`(webcheck `--eval`)가 ① 1~2글자 마지막 줄·낱말 가운데 끊김 ② 문장 < 문단 < 구역 간격 ③ 가로 넘침·잘린 글을 잰다. `run_matrix.py`가 17개 경로 × 폭 360·412·1280 × 글자 1·1.6·2배 × 밝게·어둡게를 돌린다.
+
+## 17. 성능 확인: 보고서 수치 다시 계산(2026-10-03, `views/eval.js`)
+
+화면 `#/more/eval`에서 제출 보고서 검증 세트와 같은 설정으로 다시 계산하고, 화면에 넣은 기준값(`web/data/eval_reference.json`)과 견준다.
+
+| 단계 | 내용 |
+|---|---|
+| 요청 | `POST /api/eval/run {seeds: 20, seed_start: 21, intensity: "standard", modes: ["rules", "fused", "anomaly"]}` → 끝나면 같은 요청을 `intensity: "subtle"`로 한 번 더(차례로 두 번) |
+| 견주는 조건 | 응답 `report_set === true`이고 `intensity`가 보낸 값과 같을 때만. 아니면 `보고서와 같은 설정(seed 21~40)으로 계산하지 못했어요. …` 안내 |
+| 견주는 값 | 세트마다 방식 3개 × (아래 키 12개 + `by_scenario` 5종류 × {caution, high, n} 15개 + `n_cases` 1개) = 84개, 두 세트 168개. 반올림하지 않고 `===` |
+| 결과 | 맨 위 결론 한 줄(모두 같아요 / N개가 달라요), 세트마다 지표 9줄 표(같아요·달라요 그림+글), 종류별 표는 접는 칸, 계산 환경(safepause·python·numpy·scikit-learn 버전) |
+| 진행 | 단계 3개(표준 시나리오 300개 계산 → 경계 변형 300개 계산 → 보고서 수치와 견주기), 지난 시간 1초마다. 계산 중에는 계산 버튼 셋 가운데 누른 것은 busy, 나머지는 `aria-disabled` |
+| 떠날 때 | 늦게 온 결과는 버리고(`ctx.req` → STALE), 두 번째 세트는 `ctx.alive()`가 참일 때만 보낸다. 앱 엔진은 이미 보낸 계산을 멈출 수 없어(워커 한 줄 처리) 그동안 다른 요청이 기다린다(화면 안내 문장) |
+
+`eval_reference.json` 키 → 응답 `results[방식]` 안 자리(`tests/test_eval_run_api.py` `REFERENCE_PATHS`, 화면 `REF_PATHS`와 같다. `test_static_ui`가 두 표가 같은지 본다):
+
+| 기준값 키 | 응답 경로 |
+|---|---|
+| scenario_caution / scenario_high | overall.recall_caution / overall.recall_high |
+| scenario_caution_n / scenario_high_n / scenario_n | overall.caution / overall.high / overall.n |
+| txn_high_recall / txn_caution_recall | confusion.high.recall / confusion.caution.recall |
+| normal_alert_rate / normal_high_rate | normal.alert_rate / normal.high_rate |
+| control_monthly_alerts / control_monthly_high | control.monthly_alerts / control.monthly_high |
+| amount_before_first_alert_mean | overall.amount_before_first_alert_mean |
+| by_scenario[종류].{caution, high, n} | scenario_recall[종류].{caution, high, n} |
+| sets.X.n_cases | n_cases (60) |
+
+직접 골라 계산해 보기(seed 1부터)는 그대로 두고 시나리오 종류(`#eval-intensity`)와 20번(느림)을 더했다. 보고서 수치와 같은 값이 나오는 기능이 아니라는 점을 첫 문단에 적는다.
+
+잰 시간(seed 20개, 세 방식, 두 세트):
+
+| 환경 | 표준 | 경계 변형 | 두 세트 |
+|---|---|---|---|
+| PC 서버(`Service.eval_run`, 백엔드 담당 측정) | 10.78초 | 10.14초 | 약 21초(화면 흐름 6조건 20.7~23.5초) |
+| 앱 엔진 묶음을 헤드리스 Chrome(휴대폰 흉내 360×780)에서, 엔진 full 뒤 누름(통합 점검 2026-10-03) | 23.9초 | 19.5초 | 43.4초(화면 표시), 168개 모두 같음, holdout 원자료 1,100개 차이 0 |
+| 디버그 APK를 에뮬레이터(Android 15 x86_64, 같은 PC)에서, 엔진 full 뒤 누름(통합 점검 2026-10-03) | 48.2초 | 40.6초 | 88.8초(화면 표시), 168개 모두 같음, holdout 원자료 1,100개 차이 0 |
+
+휴대폰 실기 시간은 재지 않았다(자세한 조건은 `docs/mobile.md` 3장). 화면 안내 문장(`TIME_HINT`)은 잰 값만 쓴다.

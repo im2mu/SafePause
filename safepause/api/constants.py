@@ -16,7 +16,12 @@ TRAIN_RATIO = 0.75                          # 저장된 거래 앞 75%로 학습
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_MAPPING_CHARS = 4096                    # 열 이름 지정(JSON) 길이 한도(깊게 중첩된 JSON으로 인한 오류 방지)
 MAX_HELPERS = 10
-MAX_EVAL_SEEDS = 20
+MAX_EVAL_SEEDS = 20                         # 직접 다시 계산: seed 개수 최대(보고서 검증 세트와 같은 20개)
+MAX_EVAL_SEED_START = 10_000                # 직접 다시 계산: 시작 seed 최대
+EVAL_INTENSITIES: tuple[str, ...] = ("standard", "subtle")   # = synth.INTENSITIES (표준·경계 변형)
+# 제출 보고서 검증 세트(docs/eval/eval_results_holdout.json·eval_results_subtle_holdout.json, 화면 eval_reference.json):
+# 인물 3명 × seed 21~40. 직접 다시 계산이 이 설정과 같은지(report_set)를 알려 주는 데 쓴다
+REPORT_SEED_START, REPORT_SEEDS = 21, 20
 LIVE_ID_PREFIX = "live-"                    # 보내기 전 확인(check/decide)으로 더한 거래 id
 LIVE_ID_DIGITS = 9                          # live-000000001 ~ live-999999999
 MAX_REMEMBERED_LIVE_IDS = 1000              # check가 준 확인 거래 id를 이만큼 기억한다(오래된 것부터 잊음)

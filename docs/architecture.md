@@ -109,7 +109,7 @@ SafePause는 당사자 한 사람이 자기 컴퓨터에서 쓰는 로컬 프로
 | `POST /api/safepause/decide` | 결정 기록, 알림 기록, "보낼래요"면 이력에 더함 |
 | `GET /api/cards` | 지난 걱정 거래의 기록 카드(과거형, 묻지 않음) |
 | `GET /api/notices`, `GET /api/decisions` | 알림 기록, 결정 기록 |
-| `POST /api/eval/run`, `POST /api/eval/file` | 합성 데이터 평가, 내 거래 알림 비율 |
+| `POST /api/eval/run`, `POST /api/eval/file` | 합성 데이터 평가(`seed_start`·`seeds`·`intensity`로 고름, 인물 3명 × seed 21~40이면 응답 `report_set`이 참 = 제출 보고서 검증 세트와 같은 설정), 내 거래 알림 비율 |
 | `POST /api/wipe` | 모두 지우기 |
 
 보안: Host 머리글이 loopback 이름이 아니면 400(DNS 리바인딩 방지), 상태를 바꾸는 요청은 `X-SafePause: 1` 머리글이 늘 필요하고

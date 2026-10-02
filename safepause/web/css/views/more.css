@@ -8,8 +8,6 @@
 .menu-val:empty { display: none; }
 .menu-row .row-main { min-width: 0; }
 .with-val > .row-sub { flex: 1 0 100%; margin-top: 0; }   /* 값 줄 아래 설명(내 은행 앱 등) */
-/* 메뉴 줄 오른쪽 화살표는 아주 큰 글씨에서도 28px까지만(글 칸이 4~5글자로 좁아지지 않게) */
-.menu-row .row-chev, .menu-row .row-chev svg { width: min(1.25rem, 28px); height: min(1.25rem, 28px); }
 .more-local { margin-top: 1.5rem; }
 .more-local strong { display: block; margin-bottom: .2rem; }
 .more-foot { margin: 1.25rem 0 .5rem; }
@@ -36,16 +34,15 @@
 .consent-head .switch { margin-top: 0; width: min(3.6rem, 20vw); height: min(2.4rem, 13.4vw); }
 .consent-head .switch::after { width: min(2rem, 11.2vw); height: min(2rem, 11.2vw); top: min(.2rem, 1.1vw); left: min(.2rem, 1.1vw); }
 .consent-head .switch[aria-checked="true"]::after { transform: translateX(min(1.2rem, 6.6vw)); }
-.consent-body { margin-top: .4rem; padding-left: calc(min(2.4rem, 10vw) + min(.75rem, 3vw)); color: var(--text-3); }
+.consent-body { margin-top: .4rem; padding-left: calc(var(--ic-row) + min(.75rem, 3vw)); color: var(--text-3); }
 .consent-body p { color: var(--text-3); }
 /* 아주 큰 글씨(줄 폭이 글자 10자 미만): 꾸밈 아이콘과 들여쓰기를 빼서 이름·설명 칸을 넓힌다 */
 @container (max-width: 10em) {
   .consent-head .row-icon { display: none; }
   .consent-body { padding-left: 0; }
 }
-.consent-bullets-head { margin-top: .35rem; font-weight: 600; }
-.consent-bullets { list-style: disc; padding-left: 1.2rem; margin-top: .3rem; color: var(--text-3); }
-.consent-bullets li + li { margin-top: .15rem; }
+.consent-bullets-head { font-weight: 600; }   /* 설명 문단 다음 문단(p + p) */
+.consent-bullets { margin-top: .3rem; color: var(--text-3); }   /* 점·들여쓰기·항목 간격은 공용 .bullets */
 .consent-link { margin-top: .7rem; }
 .wipe-card p { color: var(--text-2); }
 .wipe-items { display: flex; flex-wrap: wrap; gap: .4rem; margin: .8rem 0 1.1rem; }
@@ -66,7 +63,7 @@
 .cs-row { flex-wrap: wrap; align-items: flex-start; row-gap: .6rem; }
 .cs-row .row-main { flex: 1 1 10rem; }
 .cs-actions { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: .5rem; }
-@media (min-width: 480px) { .cs-actions { padding-left: calc(min(2.4rem, 10vw) + min(.7rem, 3vw)); } }
+@media (min-width: 480px) { .cs-actions { padding-left: calc(var(--ic-row) + var(--gap-row)); } }
 .cs-actions .btn { flex: 0 1 auto; }
 .preset-btns { margin-top: auto; }
 .preset-card .preset-btns .btn { margin-top: 0; }
@@ -74,14 +71,14 @@
 /* 입력 칸 제목 + 연락처에서 불러오기 버튼(한 줄, 좁으면 줄바꿈) */
 .field-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .35rem .75rem; margin-bottom: .4rem; }
 .field-head > label { font-size: 1rem; font-weight: 600; color: var(--text-2); }
-.form-group { border: 0; padding: 0; margin: 0 0 1.1rem; min-width: 0; }
+.form-group { border: 0; padding: 0; margin: 0 0 var(--space-4); min-width: 0; }
 .auto-row { margin-top: .25rem; }
 .auto-row + .hint { margin: 0 0 .5rem; }
 
 /* 무엇을 알릴까요: 신호 선 아이콘(둥근 바탕) + 명사형 이름 */
 .sig-row { gap: .65rem; padding: .45rem 0; }
 /* 큰 글씨(2배)에서 둥근 아이콘이 글자 칸을 좁히지 않게 화면 폭으로 상한(L4). 누르는 자리는 줄 전체라 크기와 관계없다 */
-.sig-ic { width: min(2.4rem, 10vw); height: min(2.4rem, 10vw); border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--primary-weak); color: var(--primary); }
+.sig-ic { width: var(--ic-row); height: var(--ic-row); border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--primary-weak); color: var(--primary); }
 .sig-ic svg { width: min(1.3rem, 6vw); height: min(1.3rem, 6vw); }
 .sig-row input:disabled ~ .sig-ic { background: var(--bg-sub); color: var(--text-3); }
 .sig-row input:disabled ~ .grow { color: var(--text-3); }
@@ -96,7 +93,7 @@
 .preset-name { font-weight: 700; }
 .preset-phone { display: inline-flex; align-items: center; gap: .3rem; color: var(--text-2); font-weight: 700; }
 .preset-phone svg { width: 1.1rem; height: 1.1rem; flex: none; color: var(--text-3); }
-.preset-card > .btn { margin-top: auto; }
+.preset-card > .btn, .preset-card > .preset-btns { margin-top: auto; }   /* 같은 높이 카드에서 버튼을 아래로 */
 
 /* ---- 앱 설정 ---- */
 .pref-head { display: inline-flex; align-items: center; gap: .5rem; }
@@ -105,7 +102,7 @@
 .pref-seg { grid-template-columns: repeat(auto-fit, minmax(min(3.1rem, 100%), 1fr)); }   /* 보통 글씨는 3칸, 아주 큰 글씨는 2칸 */
 .segmented label > .pref-opt { flex-direction: column; gap: .2rem; min-height: 4.2rem; padding: .55rem .25rem; }
 .pref-opt svg { width: 1.4rem; height: 1.4rem; }
-.pref-sample { font-weight: 800; line-height: 1.1; color: var(--text-2); }
+.pref-sample { font-weight: 800; line-height: 1; color: var(--text-2); }   /* 글자 크기 견본 한 글자 */
 .pref-sample.fs-m { font-size: 1.1rem; }
 .pref-sample.fs-l { font-size: 1.35rem; }
 .pref-sample.fs-xl { font-size: 1.6rem; }
@@ -115,18 +112,17 @@
 
 /* ---- 결과 내보내기 ---- */
 .export-list { display: grid; gap: .75rem; margin-bottom: .75rem; }
-.export-list .export-card { margin-bottom: 0; display: grid; gap: .35rem; }
-.export-top { display: flex; align-items: center; gap: min(.75rem, 3vw); margin-bottom: .25rem; }
+.export-list .export-card { margin-bottom: 0; }
+.export-top { display: flex; align-items: center; gap: min(.75rem, 3vw); margin-bottom: var(--gap-list); }
 .export-main { flex: 1; min-width: 0; display: grid; }
 .export-title { font-weight: 700; }
 .export-type { color: var(--text-3); }
-.export-btn { margin-top: .6rem; }
 .summary-card { margin-bottom: .75rem; }
 /* 한 장 요약 미리 보기(시트) */
 .summary-preview { display: grid; gap: .75rem; margin: .75rem 0 1rem; }
 .summary-sec { background: var(--surface-2); border-radius: var(--r-m); padding: .85rem 1rem; }
 .summary-sec h3 { font-size: 1rem; font-weight: 700; margin-bottom: .3rem; }
-.summary-sec ul { display: grid; gap: .2rem; color: var(--text-2); }
+.summary-sec ul { display: grid; gap: var(--gap-list); color: var(--text-2); }
 
 /* ---- 첫 실행 ---- */
 .onboard-hero.brand-mark { width: 4rem; height: 4rem; border-radius: 1.25rem; margin-bottom: .6rem; }
@@ -152,7 +148,7 @@
 .onboard-terms { margin-top: .6rem; }
 
 /* ---- 사용법 안내(J10) ---- */
-.guide-intro .onboard-title { font-size: 1.35rem; font-weight: 800; line-height: 1.35; margin: 0 0 .5rem; letter-spacing: -0.02em; outline: none; }
+.guide-intro .onboard-title { font-size: 1.35rem; font-weight: 800; margin: 0 0 var(--space-2); letter-spacing: -0.02em; outline: none; }
 .guide-intro .promise { margin-top: 1rem; }
 .guide-steps { display: grid; gap: .75rem; margin-bottom: .75rem; }
 .guide-steps .guide-step { margin-bottom: 0; }
@@ -161,13 +157,13 @@
 .guide-no { width: min(1.75rem, 10vw); height: min(1.75rem, 10vw); border-radius: 50%; display: grid; place-items: center; flex: none;
   background: var(--primary-weak); color: var(--primary-weak-text); font-weight: 800; }
 .guide-title { flex: 1 1 8em; min-width: 0; margin: 0; font-size: 1.05rem; font-weight: 700; }
-.guide-body p { color: var(--text-2); }
-.guide-link { justify-self: start; }
+.guide-body { color: var(--text-2); }
+.guide-step > .guide-link { justify-self: start; margin-top: .4rem; }   /* 칸 사이(.6rem)와 더해 본문 → 버튼 1rem */
 .guide-link svg { width: 1.1rem; height: 1.1rem; }
 
 /* ---- AI와 데이터 설명·AI 성능 확인 ---- */
-.about-bullets { list-style: disc; padding-left: 1.2rem; margin-top: .5rem; color: var(--text-2); }
-.about-bullets li + li { margin-top: .2rem; }
+.about-bullets { margin-top: var(--space-2); color: var(--text-2); }   /* 점·들여쓰기·항목 간격은 공용 .bullets */
+.lead-strong > .sent:first-child { font-weight: 700; }   /* 문단 첫 문장만 굵게 */
 .about-gap { margin-top: .5rem; }
 .about-wrap { white-space: normal; }
 .eval-note { margin: .4rem .25rem .6rem; }
@@ -185,6 +181,84 @@
   .table-wrap td.num[data-label=""]::before { display: none; }
 }
 .eval-mine { margin-top: 1rem; }
+
+/* AI 성능 확인: 보고서 수치 다시 계산(진행 단계 · 견준 표 · 접어 둔 종류별 표) */
+.ev-intro { margin-bottom: var(--space-4); }   /* 설명 문단 → 입력 칸 */
+.ev-progress { margin-bottom: var(--gap-block); }
+.ev-steps { display: grid; gap: var(--space-2); }
+.ev-step { display: flex; align-items: flex-start; gap: min(.75rem, 3vw); padding: .7rem min(1rem, 4vw); border-radius: var(--r-m); background: var(--surface); }
+/* 상태 그림은 첫 줄 가운데(1lh), 큰 글씨에서는 화면 폭 상한 */
+.ev-step-ic { width: min(1.25rem, 6vw); height: min(1.25rem, 6vw); flex: none; display: grid; place-items: center; color: var(--text-4);
+  margin-top: max(0px, calc((1lh - min(1.25rem, 6vw)) / 2)); }
+.ev-step-ic svg { width: 100%; height: 100%; }
+.ev-dot { width: 40%; height: 40%; border-radius: 50%; background: currentColor; }
+.ev-spin { width: 100%; height: 100%; box-sizing: border-box; border-radius: 50%; border: 2.5px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border-top-color: var(--primary); animation: spin .8s linear infinite; }
+.ev-step-main { flex: 1 1 auto; min-width: 0; display: grid; gap: var(--gap-sent); }   /* 이름 줄 + 상태 줄(상태가 바뀌어도 높이가 그대로) */
+.ev-step-title { font-weight: 700; }
+.ev-step-state { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.ev-step.wait .ev-step-title { color: var(--text-3); }
+.ev-step.run .ev-step-state { color: var(--primary); font-weight: 600; }
+.ev-step.done .ev-step-ic { color: var(--ok-text); }
+.ev-step.fail .ev-step-ic, .ev-step.fail .ev-step-state { color: var(--danger-text); }
+.ev-clock { margin: var(--space-2) var(--space-1) 0; font-variant-numeric: tabular-nums; }
+.ev-leave { margin: var(--gap-list) var(--space-1) 0; }
+/* 견준 표: 지표 이름 아래 같아요·달라요 표시(그림 + 글, 색만으로 구별하지 않음) */
+.ev-label { display: block; }
+/* 좁은 표 칸에서는 낱말 사이에서 줄을 바꾸고(지표 이름의 balance를 물려받지 않게), 그림은 첫 줄 가운데에 둔다 */
+.ev-mark { display: flex; align-items: flex-start; gap: .3rem; margin-top: var(--gap-sent); font-weight: 700; text-wrap: wrap; }
+.ev-mark > span { min-width: 0; }
+.ev-mark svg { width: min(1.1rem, 6vw); height: min(1.1rem, 6vw); flex: none; margin-top: max(0px, calc((1lh - min(1.1rem, 6vw)) / 2)); }
+.ev-mark.same { color: var(--ok-text); }
+.ev-mark.diff { color: var(--danger-text); }
+/* 값 칸: 조각(63.0% · (189/300)) 사이에서만 줄을 바꾼다. 다르면 계산한 값과 보고서 값을 두 줄로 */
+.table-wrap td.num.ev-cell { white-space: normal; }
+.ev-out { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 .35em; min-width: 0; }
+.ev-pair { display: inline-grid; justify-items: end; gap: var(--gap-sent); min-width: 0; }
+.ev-pair > span { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 .35em; }
+.ev-pair .ev-got { color: var(--danger-text); }
+.ev-pair .ev-want { color: var(--text-3); }
+/* 좁은 화면(카드 모양 표): 방식 이름과 값을 한 줄에, 넘치면 값은 다음 줄 오른쪽(다음 방식 이름과 붙어 보이지 않게) */
+@media (max-width: 560px) {
+  .table-wrap td.num.ev-cell { row-gap: 0; padding: .15rem 0; }
+  .table-wrap td.num.ev-cell::before { flex: 1 1 auto; }
+  .table-wrap td.num.ev-cell > :is(.ev-out, .ev-pair) { flex: 0 1 auto; margin-left: auto; }
+  /* 큰 글씨에서 좌우 여백(1rem = 40px)이 글 칸을 먹지 않게 화면 폭 상한 */
+  .table-wrap.ev-wrap tbody tr { padding-left: min(1rem, 4vw); padding-right: min(1rem, 4vw); }
+  .table-wrap.ev-wrap caption { padding-left: min(1rem, 4vw); padding-right: min(1rem, 4vw); }
+  .table-wrap.ev-wrap tbody th { width: 100%; }
+}
+/* 성능 확인 표는 표 칸 폭으로도 카드 모양을 고른다: 넓은 화면이라도 큰 글씨면 칸이 15~23rem이라 표 모양에서는
+   지표 이름 칸이 3~4글자로 좁아진다. 화면 폭 기준(app.css 560px)과 같은 규칙을 칸이 26rem보다 좁을 때 한 번 더 쓴다 */
+.ev-wrap { container-type: inline-size; }
+.ev-wrap tbody th, .ev-wrap caption { text-wrap: balance; }
+.ev-wrap tbody th { width: 38%; }   /* 표 모양: 지표 이름 칸이 값 칸에 밀려 3~4글자로 좁아지지 않게(카드 모양은 아래에서 100%) */
+@container (max-width: 26rem) {
+  .ev-wrap table, .ev-wrap tbody, .ev-wrap tr, .ev-wrap th, .ev-wrap td { display: block; width: 100%; }
+  .ev-wrap thead { display: none; }
+  .ev-wrap caption { display: block; width: auto; }
+  .ev-wrap tbody tr { padding: .7rem min(1rem, 4vw); border-top: 1px solid var(--line); }
+  .ev-wrap caption { padding-left: min(1rem, 4vw); padding-right: min(1rem, 4vw); }
+  .ev-wrap tbody th, .ev-wrap td { border: 0; padding: .1rem 0; }
+  .ev-wrap tbody th { width: 100%; color: var(--text); font-weight: 700; margin-bottom: .2rem; }
+  .ev-wrap td.num { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-3); text-align: left; white-space: nowrap; }
+  .ev-wrap td.num::before { white-space: normal; flex: 1 1 8rem; min-width: 0; content: attr(data-label); color: var(--text-3); font-weight: 600; }
+  .ev-wrap td.num.long, .ev-wrap td.num.long::before { display: block; }
+  .ev-wrap td.num[data-label=""]:not(.long) { justify-content: flex-end; }
+  .ev-wrap td.num[data-label=""]::before { display: none; }
+  .ev-wrap td.num.ev-cell { row-gap: 0; padding: .15rem 0; }
+  .ev-wrap td.num.ev-cell::before { flex: 1 1 auto; }
+  .ev-wrap td.num.ev-cell > :is(.ev-out, .ev-pair) { flex: 0 1 auto; margin-left: auto; }
+}
+/* 접어 둔 종류별 표(다른 값이 있으면 펼쳐 둔다) */
+.ev-more { margin-bottom: var(--gap-block); border-radius: var(--r-m); background: var(--surface); }
+.ev-more > summary { list-style: none; display: flex; align-items: center; gap: var(--space-2); min-height: 2.4rem; padding: .7rem min(1rem, 4vw); cursor: pointer; border-radius: var(--r-m); }
+.ev-more > summary::-webkit-details-marker { display: none; }
+.ev-more-text { flex: 1 1 auto; min-width: 0; }
+.ev-more-title { display: block; font-weight: 700; color: var(--text-2); }
+.ev-more > summary > svg { width: min(1.2rem, 6vw); height: min(1.2rem, 6vw); flex: none; color: var(--text-3); transition: transform .2s ease; }
+.ev-more[open] > summary > svg { transform: rotate(180deg); }
+.ev-more > .table-wrap { margin-bottom: 0; border-top: 1px solid var(--line); border-radius: 0 0 var(--r-m) var(--r-m); }
 
 @media (max-width: 420px) {
   .pref-seg { gap: .2rem; }

@@ -84,6 +84,8 @@ from safepause.api.constants import (
     ONLY_CHECKED,
     PERSONA_KEYS,
     PRACTICE_MEMO,
+    REPORT_SEED_START,
+    REPORT_SEEDS,
     REVIEW_OK,
     SCENARIO_WINDOW_DAYS,
     SIGNAL_KO,
@@ -134,8 +136,8 @@ LIVE_ID_RE = re.compile(rf"{LIVE_ID_PREFIX}(\d{{1,{LIVE_ID_DIGITS}}})")
 UPLOADED_LIVE_PREFIX = "csv-"          # 올린 파일의 id가 live-로 시작하면 이 접두어를 붙여 연습 거래와 섞이지 않게
 MAX_SNAPSHOT_TRIES = 3
 
-# (인물 목록, seed 목록, 방식 목록) → {방식: 결과 dict}
-Evaluator = Callable[[list[str], list[int], list[str]], dict[str, dict[str, Any]]]
+# (인물 목록, seed 목록, 방식 목록, intensity="standard"|"subtle" 키워드) → {방식: 결과 dict}
+Evaluator = Callable[..., dict[str, dict[str, Any]]]
 
 
 class ServiceError(Exception):
@@ -746,10 +748,19 @@ def _metrics_module() -> Any:
     return metrics
 
 
-def _default_evaluator(persona_keys: list[str], seeds: list[int],
-                       modes: list[str]) -> dict[str, dict[str, Any]]:
-    """(인물, seed)마다 한 번 학습하고 여러 방식으로 평가한다(metrics.compare_modes)."""
-    return _metrics_module().compare_modes(persona_keys, seeds, modes)["modes"]
+def _default_evaluator(persona_keys: list[str], seeds: list[int], modes: list[str], *,
+                       intensity: str = "standard") -> dict[str, dict[str, Any]]:
+    """(인물, seed)마다 한 번 학습하고 여러 방식으로 평가한다(metrics.compare_modes, 보고서 원자료와 같은 함수)."""
+    return _metrics_module().compare_modes(persona_keys, seeds, modes, intensity=intensity)["modes"]
+
+
+def _is_report_set(personas: Sequence[str], seeds: Sequence[int]) -> bool:
+    """제출 보고서 검증 세트(인물 3명 × seed 21~40)와 같은 설정인지. 방식 수와 강도는 따지지 않는다.
+
+    방식마다 결과는 따로 계산되고(compare_modes), 강도는 표준·경계 변형 세트 가운데 무엇과 견줄지만 정한다.
+    """
+    return (set(personas) == set(PERSONA_KEYS)
+            and list(seeds) == list(range(REPORT_SEED_START, REPORT_SEED_START + REPORT_SEEDS)))
 
 
 def _ts_note(req: PendingIn, pending: Transaction, now: datetime,
@@ -1665,19 +1676,26 @@ class Service:
 
     # ---- 성능 확인 ----
     def eval_run(self, body: Optional[EvalIn] = None) -> dict[str, Any]:
-        """합성 데이터로 빠르게 평가한다(기본 fused 한 가지 방식)."""
+        """합성 데이터로 평가한다(기본: fused 한 가지 방식, seed 1부터 5개, 표준 시나리오).
+
+        seed_start·seeds·intensity로 제출 보고서 검증 세트(seed 21~40, 표준·경계 변형)와 같은 설정을 고를 수 있다.
+        응답의 seed_start·seed_end·intensity는 실제로 쓴 값, report_set은 인물 3명 × seed 21~40인지다
+        (참이면 results가 docs/eval *_holdout.json·화면 eval_reference.json과 같은 설정으로 계산한 값이다).
+        """
         req = body or EvalIn()
         personas = req.personas or list(PERSONA_KEYS)
-        seeds = list(range(1, req.seeds + 1))
+        seeds = list(range(req.seed_start, req.seed_start + req.seeds))
         modes = list(dict.fromkeys(req.modes))
         run = self.evaluator or _default_evaluator
         started = _clock.perf_counter()
         try:
-            results = run(personas, seeds, modes)
+            results = run(personas, seeds, modes, intensity=req.intensity)
         except EvalUnavailable as exc:
             raise ServiceError(503, str(exc)) from exc
         return _plain({
-            "personas": personas, "seeds": seeds, "modes": modes, "results": results,
+            "personas": personas, "seeds": seeds, "seed_start": seeds[0], "seed_end": seeds[-1],
+            "intensity": req.intensity, "report_set": _is_report_set(personas, seeds),
+            "modes": modes, "results": results,
             "elapsed_sec": round(_clock.perf_counter() - started, 2), "note": SYNTHETIC_NOTE,
         })
 

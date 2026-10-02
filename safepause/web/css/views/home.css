@@ -8,9 +8,9 @@
 .home-num { font-variant-numeric: tabular-nums; }
 .home-num.high { color: var(--danger-text); }
 .home-num.caution { color: var(--caution-text); }
-.home-cta { margin-top: 1.1rem; }
+.home-cta { margin-top: var(--gap-action); }
 .home-hero-link {
-  display: flex; align-items: center; gap: .6rem; min-height: 2.6rem; margin-top: .6rem; padding: .55rem .9rem;
+  display: flex; align-items: center; gap: .6rem; min-height: 2.6rem; margin-top: var(--space-2); padding: .55rem .9rem;
   border-radius: var(--r-m); background: var(--surface-2); color: var(--text-2); font-weight: 600; text-decoration: none;
 }
 .home-hero-link svg { width: 1.2rem; height: 1.2rem; flex: none; }
@@ -18,25 +18,28 @@
 .home-hero-link > svg:last-child { color: var(--text-4); }
 .home-hero-link .grow { flex: 1 1 auto; min-width: 0; }
 .home-hero-link b { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.home-error .notice-action { margin-top: .6rem; }
 
 /* ---- 돈 흐름 머리 ---- */
 .home-flow > .section-title { flex-wrap: wrap; align-items: baseline; row-gap: .1rem; }
 .home-asof { font-size: 1rem; font-weight: 600; color: var(--text-3); }
 
 /* ---- 카드 공통: 작은 회색 이름(h4) → 굵은 결론 한 줄(.home-insight) → 설명·차트(D6, 요약 카드의 kpi-label·큰 숫자와 같은 위계) ---- */
-.home-card h4 { font-size: 1rem; font-weight: 600; line-height: 1.4; color: var(--text-3); margin: 0 0 .15rem; }
-.home-card > .muted { margin-bottom: .1rem; }
-.home-insight { font-size: 1.2rem; font-weight: 800; line-height: 1.4; letter-spacing: -0.01em; color: var(--text); margin: .1rem 0 .35rem; }
-.home-ok { display: flex; align-items: center; gap: .6rem; margin-top: .5rem; padding: .8rem .9rem; border-radius: var(--r-m); background: var(--ok-weak); color: var(--ok-text); font-weight: 600; }
+.home-card h4 { font-size: 1rem; font-weight: 600; line-height: var(--lh-sub); color: var(--text-3); margin: 0 0 .15rem; }
+.home-insight { font-size: 1.2rem; font-weight: 800; line-height: var(--lh-title); letter-spacing: -0.01em; color: var(--text); margin: 0 0 var(--gap-list); }
+.home-insight + p { margin-top: 0; }
+.home-ok { display: flex; align-items: center; gap: .6rem; margin-top: var(--space-2); padding: .8rem .9rem; border-radius: var(--r-m); background: var(--ok-weak); color: var(--ok-text); font-weight: 600; }
 .home-ok svg { width: 1.3rem; height: 1.3rem; flex: none; }
 
 /* ---- 기준 달 요약(큰 숫자) ---- */
 .home-summary h4.kpi-label { font-size: 1rem; font-weight: 600; color: var(--text-3); margin: 0; }
-.home-big { font-size: max(1rem, min(1.7rem, 9vw)); font-variant-numeric: normal; margin: .15rem 0 .3rem; white-space: nowrap; }
-.home-delta { display: flex; align-items: flex-start; gap: .35rem; line-height: 1.45; }
+.home-big { font-size: max(1rem, min(1.7rem, 9vw)); font-variant-numeric: normal; margin: .15rem 0 0; white-space: nowrap; }
+/* 비교 문장 + 무엇과 견줬는지(지난달 같은 기간에 나간 돈): 한 문단, 둘째 문장은 보조글 */
+.home-delta { display: flex; align-items: flex-start; gap: .35rem; }
+.home-big + .home-delta { margin-top: var(--gap-list); }
 .home-mark { flex: none; }
-.home-facts { margin-top: 1rem; border-top: 1px solid var(--line); }
+.home-delta-text { display: block; min-width: 0; }
+.home-base { color: var(--text-3); font-weight: 600; line-height: var(--lh-sub); }
+.home-facts { margin-top: var(--space-4); border-top: 1px solid var(--line); }
 .home-facts li + li { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .home-fact {
   display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .65rem; min-height: 3rem; padding: .55rem 0;
@@ -44,14 +47,14 @@
 }
 a.home-fact { margin: 0 calc(-1 * min(.5rem, 3vw)); padding-left: min(.5rem, 3vw); padding-right: min(.5rem, 3vw); border-radius: var(--r-m); }
 a.home-fact:active { background: var(--bg-sub); }
-.home-fact-icon { width: min(2rem, 9vw); height: min(2rem, 9vw); border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--bg-sub); color: var(--text-3); }
+.home-fact-icon { width: min(2rem, 9vw, 44px); height: min(2rem, 9vw, 44px); border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--bg-sub); color: var(--text-3); }
 .home-fact-icon svg { width: min(1.1rem, 5vw); height: min(1.1rem, 5vw); }
-.home-fact-label { flex: 1 1 4rem; min-width: 0; color: var(--text-2); font-weight: 600; }
+.home-fact-label { flex: 1 1 4rem; min-width: 0; color: var(--text-2); font-weight: 600; text-wrap: balance; }
 .home-fact-value { margin-left: auto; font-variant-numeric: tabular-nums; }
 .home-fact.concern .home-fact-icon { background: var(--danger-weak); color: var(--danger); }
 .home-fact.concern .home-fact-value { color: var(--danger-text); }
 .home-fact .row-chev { margin-left: -.2rem; }
-.home-speak { margin-top: .75rem; }
+.home-speak { margin-top: var(--gap-action); }
 
 /* ---- 차트(js/charts.js) ---- */
 .home .chart { position: relative; margin: .9rem 0 .4rem; }
@@ -74,22 +77,23 @@ a.home-fact:active { background: var(--bg-sub); }
 .ratio-chart .seg { fill: var(--c, var(--chart-1)); }
 .chart .track { fill: var(--chart-track); }
 
-.chart-key { display: flex; align-items: center; gap: .5rem; color: var(--text-3); margin-top: .15rem; }
+.chart-key { display: flex; align-items: center; gap: .5rem; color: var(--text-3); margin-top: var(--space-1); line-height: var(--lh-sub); }
+.chart-key + .chart-key { margin-top: var(--gap-list); }   /* 차트 아래 설명 줄끼리는 목록 간격 */
 .chart-key-dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--chart-flag); flex: none; }
-.chart-readout { margin-top: .75rem; padding: .75rem min(.9rem, 3vw); border-radius: var(--r-m); background: var(--surface-2); color: var(--text-2); font-weight: 600; }
+.chart-readout { margin-top: var(--space-3); padding: .75rem min(.9rem, 3vw); border-radius: var(--r-m); background: var(--surface-2); color: var(--text-2); font-weight: 600; }
 .chart-readout:empty { display: none; }   /* 막대를 누르기 전에는 비어 있어 숨긴다 */
 .chart-note { display: block; }
 
 /* 범례: 왼쪽 이름(위)·비율과 건수(아래), 오른쪽 금액. 아주 좁으면 금액이 다음 줄 오른쪽으로 */
 .home-legend { margin-top: .2rem; }
 .home-legend li { flex-wrap: wrap; row-gap: .1rem; padding: .55rem 0; }
-.home-legend .grow { display: grid; flex: 1 1 4rem; min-width: 0; line-height: 1.4; }
+.home-legend .grow { display: grid; flex: 1 1 4rem; min-width: 0; line-height: var(--lh-sub); }
 .home-legend-name { font-weight: 600; color: var(--text); white-space: nowrap; }
 .home-legend .pct { min-width: 0; text-align: left; white-space: nowrap; }
 .home-legend-money { margin-left: auto; white-space: nowrap; }
 
 /* ---- 많이 보낸 곳 ---- */
-.home-top { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: .6rem; }   /* 큰 글씨: 긴 금액이 칸을 밀어내지 않게 */
+.home-top { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: var(--space-2); }   /* 큰 글씨: 긴 금액이 칸을 밀어내지 않게 */
 .home-top-item + .home-top-item { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 /* 한 줄 전체가 내 거래(그 이름으로 걸러 보기)로 가는 링크(J9) */
 .home-top-link {
@@ -103,13 +107,13 @@ a.home-top-link:active { background: var(--bg-sub); }
   min-width: min(1.75rem, 9vw); min-height: min(1.75rem, 9vw); padding: 0 .3em; border-radius: 999px; display: grid; place-items: center; flex: none; margin-top: .1rem;
   background: var(--primary-weak); color: var(--primary-weak-text); font-weight: 800; font-size: 1rem; line-height: 1;
 }
-.home-top-main { flex: 1; min-width: 0; display: grid; gap: .35rem; }
+.home-top-main { flex: 1; min-width: 0; display: grid; gap: var(--gap-list); }
 .home-top-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 .75rem; }
 .home-top-name { min-width: 0; overflow-wrap: anywhere; }
 .home-top-money { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .home-top .hbar-track { height: .6rem; }
 .home-top .hbar-track > i { min-width: 4px; }
-.home-top-sub { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; color: var(--text-3); }
+.home-top-sub { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; color: var(--text-3); line-height: var(--lh-sub); }
 .home-top-sub .badge { max-width: 100%; min-width: 0; }
 
 /* ---- 빈 상태 ---- */
@@ -120,10 +124,10 @@ a.home-top-link:active { background: var(--bg-sub); }
 /* 한 칸 최소 폭을 절반 이상으로 두어 넓은 화면에서도 두 칸(2×2)까지만 */
 .home-quick .quick { grid-template-columns: repeat(auto-fit, minmax(max(min(7.25rem, 100%), calc(50% - .25rem)), 1fr)); }
 .home-quick .quick-item { min-height: 0; gap: .5rem; padding: .9rem 1rem 1rem; box-shadow: var(--shadow-card); }
-.home-quick .quick-item b { line-height: 1.35; }
-.home-quick .quick-item > span:last-child { line-height: 1.4; }
+.home-quick .quick-item b { line-height: var(--lh-title); }
+.home-quick .quick-item > span:last-child { line-height: var(--lh-sub); }
 /* 돈 보내기 전 확인: 바로가기 맨 위 한 줄 전체(파란 그림) */
 .home-quick .quick-item.wide { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; gap: .5rem .9rem; }
 .home-quick .quick-item.wide .qi-icon { background: var(--primary); color: #fff; flex: none; }
 .home-quick .quick-item.wide .qi-text { display: grid; gap: .15rem; flex: 1 1 9rem; min-width: 0; }   /* 큰 글씨: 글은 그림 아래 줄로 */
-.home-quick .quick-item.wide .qi-text b { color: var(--text); line-height: 1.35; }
+.home-quick .quick-item.wide .qi-text b { color: var(--text); line-height: var(--lh-title); }

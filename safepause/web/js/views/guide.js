@@ -36,7 +36,7 @@ export default {
           h("span", { class: "guide-no", "aria-hidden": "true", text: String(i + 1) }),
           h("span", { class: "row-icon blue" }, icon(st.icon)),
           h("h4", { class: "guide-title", text: st.title })),
-        h("div", { class: "guide-body" }, st.lines.map((t) => h("p", { text: t }))),
+        h("p", { class: "guide-body", text: st.lines.join(" ") }),
         h("a", { class: "btn sm weak guide-link", href: st.link.href }, h("span", { text: st.link.text }), icon("chevron"))))),
 
       h("h3", { class: "section-title", text: "돈 보내기 전에" }),
@@ -44,9 +44,7 @@ export default {
         h("div", { class: "guide-head" },
           h("span", { class: "row-icon blue" }, icon("bank")),
           h("h4", { class: "guide-title", text: "받는 사람과 금액 먼저 살펴보기" })),
-        h("div", { class: "guide-body" },
-          h("p", { text: "보내기 탭의 돈 보내기에서 보내기 전에 한 번 더 살펴봐요." }),
-          h("p", { text: "SafePause는 돈을 보내지 않아요. 보내기는 내 은행 앱에서 해요." })),
+        h("p", { class: "guide-body", text: "보내기 탭의 돈 보내기에서 보내기 전에 한 번 더 살펴봐요. SafePause는 돈을 보내지 않아요. 보내기는 내 은행 앱에서 해요." }),
         h("a", { class: "btn sm weak guide-link", href: "#/send" }, h("span", { text: "돈 보내기로 가기" }), icon("chevron"))),
 
       h("h3", { class: "section-title", text: "처음에 정해 두면 좋아요" }),

@@ -659,10 +659,10 @@ def test_records_empty_initially(client: TestClient) -> None:
 # ---- 성능 확인 ---------------------------------------------------------------
 
 def test_eval_run_uses_evaluator_and_sanitizes(home: Path) -> None:
-    calls: list[tuple[list[str], list[int], list[str]]] = []
+    calls: list[tuple[list[str], list[int], list[str], str]] = []
 
-    def fake(personas: list[str], seeds: list[int], modes: list[str]) -> dict[str, Any]:
-        calls.append((personas, seeds, modes))
+    def fake(personas: list[str], seeds: list[int], modes: list[str], *, intensity: str) -> dict[str, Any]:
+        calls.append((personas, seeds, modes, intensity))
         return {m: {"overall": {"recall_caution": np.float64(0.5), "n": np.int64(3)},
                     "bad": float("nan")} for m in modes}
 
@@ -670,23 +670,33 @@ def test_eval_run_uses_evaluator_and_sanitizes(home: Path) -> None:
         r = c.post("/api/eval/run", json={"seeds": 2, "modes": ["fused", "rules", "fused"]})
         assert r.status_code == 200, r.text
         body = r.json()
-        assert calls == [(list(synth.PERSONAS), [1, 2], ["fused", "rules"])]
+        assert calls == [(list(synth.PERSONAS), [1, 2], ["fused", "rules"], "standard")]
         assert body["seeds"] == [1, 2] and body["modes"] == ["fused", "rules"]
+        assert (body["seed_start"], body["seed_end"], body["intensity"], body["report_set"]) == (1, 2, "standard", False)
         assert body["results"]["fused"]["overall"] == {"recall_caution": 0.5, "n": 3}
         assert body["results"]["rules"]["bad"] is None
         assert body["note"] == "합성 데이터 기준, 실제 피해 데이터 검증 아님"
 
         r = c.post("/api/eval/run")                              # 본문 없으면 기본값
         assert r.status_code == 200
-        assert calls[-1] == (list(synth.PERSONAS), [1, 2, 3, 4, 5], ["fused"])
+        assert calls[-1] == (list(synth.PERSONAS), [1, 2, 3, 4, 5], ["fused"], "standard")
+
+        # 제출 보고서 검증 세트와 같은 설정(seed 21~40, 경계 변형)
+        r = c.post("/api/eval/run", json={"seeds": 20, "seed_start": 21, "intensity": "subtle",
+                                          "modes": ["fused", "rules", "anomaly"]})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert calls[-1] == (list(synth.PERSONAS), list(range(21, 41)), ["fused", "rules", "anomaly"], "subtle")
+        assert (body["seed_start"], body["seed_end"], body["intensity"], body["report_set"]) == (21, 40, "subtle", True)
 
         for bad in ({"seeds": 0}, {"seeds": 21}, {"modes": ["magic"]}, {"modes": []},
-                    {"personas": ["nobody"]}):
-            assert c.post("/api/eval/run", json=bad).status_code == 422
+                    {"personas": ["nobody"]}, {"seed_start": 0}, {"seed_start": 10_001},
+                    {"intensity": "hard"}, {"intensity": ""}, {"seed": 21}):
+            assert c.post("/api/eval/run", json=bad).status_code == 422, bad
 
 
 def test_eval_run_unavailable_returns_503(home: Path) -> None:
-    def broken(personas: list[str], seeds: list[int], modes: list[str]) -> dict[str, Any]:
+    def broken(personas: list[str], seeds: list[int], modes: list[str], *, intensity: str) -> dict[str, Any]:
         raise EvalUnavailable("성능 평가 모듈을 찾을 수 없어요.")
 
     with make_client(home, evaluator=broken) as c:

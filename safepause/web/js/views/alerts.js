@@ -153,10 +153,11 @@ export default {
       const stats = { open: d.open ?? total, reviewed: d.reviewed ?? 0 };
       const summary = h("div", { class: "al-summary", "aria-live": "polite" });
       function paintSummary() {
+        // 건수와 보여 주는 범위는 한 문단, 내가 확인해서 뺀 건수는 표시와 함께 따로
         fill(summary,
-          h("p", { text: stats.open > 0 ? `걱정되는 거래가 ${nf.format(stats.open)}건 있어요.` : "걱정되는 거래를 모두 내가 확인했어요." }),
-          stats.reviewed > 0 ? h("p", { class: "al-reviewed-note" }, icon("user-check"), h("span", { text: `내가 확인한 ${nf.format(stats.reviewed)}건은 뺐어요.` })) : null,
-          total > items.length ? h("p", { text: `최근 ${nf.format(items.length)}건을 보여 드려요.` }) : null);
+          h("p", { text: [stats.open > 0 ? `걱정되는 거래가 ${nf.format(stats.open)}건 있어요.` : "걱정되는 거래를 모두 내가 확인했어요.",
+            total > items.length ? `최근 ${nf.format(items.length)}건을 보여 드려요.` : ""].filter(Boolean).join(" ") }),
+          stats.reviewed > 0 ? h("p", { class: "al-reviewed-note" }, icon("user-check"), h("span", { text: `내가 확인한 ${nf.format(stats.reviewed)}건은 뺐어요.` })) : null);
         setTabCount(tabs.el, "cards", stats.open);
       }
       const onReviewed = (on) => {
@@ -183,8 +184,9 @@ export default {
       if (focusCard >= 0) {
         const n = focusCard;
         focusCard = -1;
-        const all = panel.querySelectorAll(".alert-card");
-        const target = all[n];
+        // 묶음 때문에 화면 순서와 목록 순서가 다를 수 있어 거래 id로 찾는다
+        const id = items[n] ? String(items[n].txn.id) : "";
+        const target = id ? panel.querySelector(`.alert-card[data-txn="${CSS.escape(id)}"]`) : null;
         if (target) {
           const rest = target.closest(".al-group-rest");
           if (rest && rest.hidden) rest.previousElementSibling?.click();
@@ -197,25 +199,35 @@ export default {
       }
     }
 
-    /** 같은 일 묶기(J5): 최근 것부터 차례로 보며 같은 신호·같은 상대(또는 방법)가 7일 안에 이어지면 한 묶음. */
+    /**
+     * 같은 일 묶기(J5): 목록 전체에서 같은 신호·같은 상대(휴대폰 결제·요금은 같은 방법)이고 7일 안에 든 카드를 한 묶음으로.
+     * 사이에 다른 카드가 끼어 있어도 묶는다(이웃한 카드끼리만 보면 같은 일이 갈라져 보인다). 묶음 안 거래가 모두 7일 안에
+     * 들 때만 더한다(사슬처럼 길게 늘어나지 않게). 묶음은 첫 카드가 있던 자리에 두고, 안은 최근 거래부터 보인다.
+     */
     function groupCards(items) {
       const keyOf = (it) => {
         const sig = (it.signals || [])[0] || "anomaly";
         const who = GROUP_BY_CHANNEL.has(sig) ? it.txn.channel : (it.txn.counterparty || it.txn.channel);
         return `${sig}|${who}`;
       };
+      const span = SAME_DAYS * 86400000;
       const out = [];
       for (const it of items) {
         const key = keyOf(it);
         const d = parseTs(it.txn.ts);
-        const last = out[out.length - 1];
-        if (last && last.key === key && d && last.oldest && Math.abs(last.oldest - d) <= SAME_DAYS * 86400000) {
-          last.items.push(it);
-          last.oldest = d;
+        const t = d ? d.getTime() : NaN;
+        const g = Number.isFinite(t) ? out.find((x) => x.key === key && x.oldest && x.newest
+          && Math.max(x.newest.getTime(), t) - Math.min(x.oldest.getTime(), t) <= span) : null;
+        if (g) {
+          g.items.push(it);
+          if (t < g.oldest.getTime()) g.oldest = d;
+          if (t > g.newest.getTime()) g.newest = d;
         } else {
           out.push({ key, items: [it], newest: d, oldest: d });
         }
       }
+      const time = (it) => { const d = parseTs(it.txn.ts); return d ? d.getTime() : 0; };
+      for (const g of out) g.items.sort((a, b) => time(b) - time(a));
       return out;
     }
 
@@ -239,7 +251,8 @@ export default {
         h("div", { class: "al-group-head" }, icon("list"),
           h("div", { class: "al-group-main" },
             h("b", { text: `같은 일 ${nf.format(g.items.length)}건` }),
-            subParts([range, `모두 ${moneyText(sum)}`], "row-sub al-group-sub"))),
+            // 카드 줄의 7일 동안 모두(약속 기준 합계)와 헷갈리지 않게, 이 묶음 카드의 금액을 더한 값이라고 쓴다
+            subParts([range, `더하면 ${moneyText(sum)}`], "row-sub al-group-sub"))),
         cardEl(first, onReviewed), toggle, restBox);
     }
 
@@ -260,6 +273,7 @@ export default {
         reviewButton(ctx, item, { cls: "btn sm al-review-btn", onChange: (on) => { repaintBadges(ref.el, item); onReviewed(on); } }),
       ] });
       card.classList.toggle("reviewed", Boolean(item.reviewed));
+      card.dataset.txn = String(item.txn.id);
       ref.el = card;
       return card;
     }

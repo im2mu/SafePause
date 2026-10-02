@@ -34,8 +34,7 @@ export default {
           h("div", { class: "export-main" },
             h("b", { class: "export-title", text: "조력자·기관용 한 장 요약" }),
             h("span", { class: "export-type", text: "글 파일(.txt)" }))),
-        h("p", { class: "muted", text: "돈 흐름과 걱정되는 거래 수를 한\u00a0장으로 정리해요. 이름·계좌번호·연락처는 넣지 않아요." }),
-        h("p", { class: "muted", text: "상담하는 곳에 갈 때 보여 주거나 인쇄할 수 있어요." }),
+        h("p", { class: "muted", text: "돈 흐름과 걱정되는 거래 수를 한\u00a0장으로 정리해요. 상담하는 곳에 갈 때 보여 주거나 인쇄할 수 있어요. 이름·계좌번호·연락처는 넣지 않아요." }),
         h("button", { type: "button", class: "btn primary block export-btn", onclick: (e) => busy(e.currentTarget, makeSummary) },
           icon("doc"), h("span", { text: "요약 만들기" }))),
       sumOut,
@@ -46,8 +45,8 @@ export default {
       h("div", { class: "list" },
         menuRow({ icon: "doc", title: "조력자용 보고서(PDF)", soon: true, onclick: () => comingSoonSheet({
           icon: "doc", title: "조력자용 보고서(PDF)",
-          lines: ["한 달 동안의 돈 흐름과 걱정되는 거래를 그림과 표로 정리해요.", "인쇄하거나 상담하는 곳에 보여 줄 수 있어요.",
-            "지금은 위의 한 장 요약을 글 파일로 저장할 수 있어요."],
+          lines: [["한 달 동안의 돈 흐름과 걱정되는 거래를 그림과 표로 정리해요.", "인쇄하거나 상담하는 곳에 보여 줄 수 있어요."],
+            ["지금은 위의 한 장 요약을 글 파일로 저장할 수 있어요."]],
           action: "만들기" }) }),
         menuRow({ icon: "calendar", title: "매달 요약 보내기", sub: "조력자·상담하는 곳에 매달 요약을 보내요.", soon: true, onclick: () => comingSoonSheet({
           icon: "calendar", title: "매달 요약 보내기",
@@ -66,7 +65,7 @@ export default {
           h("div", { class: "export-main" },
             h("b", { class: "export-title", text: f.title }),
             h("span", { class: "export-type", text: `${f.type} 파일` }))),
-        f.lines.map((t) => h("p", { class: "muted", text: t })),
+        h("p", { class: "muted", text: f.lines.join(" ") }),
         h("button", { type: "button", class: "btn weak block export-btn", onclick: (e) => busy(e.currentTarget, () => save(f)) },
           icon("download"), h("span", { text: "파일로 저장하기" })));
     }

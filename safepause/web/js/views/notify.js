@@ -9,6 +9,9 @@
  *   helper=<조력자 id>(돈 보내기에서 물어볼 사람으로 고른 사람)는 그 사람만 미리 체크한다.
  *   ask=1(돈 보내기의 물어볼래요)이면 묻는 글로 채우고, channel=sms|email이면 그 방법을 먼저 고른다.
  *   resend=<보낸 알림 id>면 그 알림의 받는 사람·글·거래로 채운다(다시 보내기, AUG-06).
+ *   chk_to·chk_amt·chk_ch·chk_conflict: 돈 보내기에서 확인만 하고 저장하지 않은 거래(txn=live-…)의 받는 사람 이름·금액·방법과
+ *   돈을 받는 조력자 id. 새로 고치거나 앱이 다시 열려 이 창의 기억(checkedItem)이 사라져도 그 거래와 경고를 다시 그린다.
+ *   계좌번호·시각은 넣지 않는다(개인정보 최소).
  * - 받는 사람 추천: 거래를 고르거나 바꿀 때 POST /api/notify/suggest로 조력자 설정(알릴 등급·범위·자동으로 알리기)에 맞는
  *   사람을 미리 체크하고 추천 배지를 단다. 저장하지 않은 확인 거래(돈 보내기의 안 보낼래요·물어볼래요)는 pending으로 함께 넘긴다(RF-1).
  *   그 거래에서 돈을 받은 조력자는 체크를 풀고 경고한다. 그래도 체크하면 보내기 전에 한 번 더 묻는다(본인 결정).
@@ -17,7 +20,7 @@
  * - 보내기 탭(send.js)이 이 화면의 ctx를 따로 만들어 넘긴다(ctx.main = 탭 칸).
  * - 화면이 쓰는 도우미는 모두 function 선언이다(받는 사람 목록보다 추천이 먼저 와도 그릴 수 있게, RF-2·L1).
  */
-import { h, icon, fill, setText, splitSentences, openSheet, confirmSheet, toast, announce, skeleton } from "../ui.js";
+import { h, icon, fill, setText, splitSentences, openSheet, confirmSheet, toast, announce, skeleton, keepNodes } from "../ui.js";
 import { txnSignals, txnAmount, levelBadge, flagBadge, reviewBadge, notifiedBadge, checkedBadge, errorNotice, subParts, speakButton } from "../components.js";
 import { moneyText, formatTime, parseTs, nf, deviceWord, breakableEmail } from "../format.js";
 import { CHANNEL_KO, CHANNEL_ICON, COUNSELOR_KIND_KO, COUNSELOR_KIND_ICON } from "../labels.js";
@@ -139,6 +142,13 @@ export default {
     const askMode = params.get("ask") === "1";
     const wantChannel = ["sms", "email"].includes(params.get("channel")) ? params.get("channel") : "";
     const resendId = String(params.get("resend") || "").slice(0, 40);
+    // 저장하지 않은 확인 거래(주소에 남긴 최소 정보: 이름·금액·방법 + 돈을 받는 조력자 id)
+    const chkAmount = Math.round(Number(params.get("chk_amt")));
+    const urlChecked = params.get("chk_to") && Number.isFinite(chkAmount) && chkAmount > 0 ? {
+      to: String(params.get("chk_to")).slice(0, 40), amount: Math.min(chkAmount, 10000000000),
+      channel: ["transfer", "card", "micropay"].includes(params.get("chk_ch")) ? params.get("chk_ch") : "transfer",
+      conflicts: listParam("chk_conflict").slice(0, MAX_TO),
+    } : null;
 
     // ---- 상태(그리기 함수보다 먼저 둔다) ----
     let picked = [];            // 고른 거래(_item 형식)
@@ -237,7 +247,7 @@ export default {
         const list = Array.isArray(hp.value) ? hp.value : (hp.value && hp.value.items) || [];
         helpers = list.map((x) => ({
           key: `helper:${x.id}`, kind: "helper", id: String(x.id), name: x.name, icon: "person",
-          sub: [x.relation, x.phone_masked || (x.email_masked ? breakableEmail(x.email_masked) : "")].filter(Boolean).join(" · "),
+          sub: [x.relation, x.phone_masked || (x.email_masked ? breakableEmail(x.email_masked) : "")].filter(Boolean),
           phone: x.phone || "", email: x.email || "",
         }));
         // 돈 보내기에서 물어볼 사람을 골라 왔으면 그 사람만 체크해 둔다(추천이 덮어쓰지 않게, 추천 배지는 보인다)
@@ -251,7 +261,7 @@ export default {
           key: `counselor:${x.id}`, kind: "counselor", id: String(x.id), name: x.name, icon: COUNSELOR_KIND_ICON[x.kind] || "building",
           // 이름에 종류가 이미 있으면(장애인권익옹호기관 …) 종류를 또 쓰지 않는다
           sub: [String(x.name).includes(COUNSELOR_KIND_KO[x.kind] || "") ? "" : COUNSELOR_KIND_KO[x.kind],
-            x.phone || (x.email ? breakableEmail(x.email) : "")].filter(Boolean).join(" · "),
+            x.phone || (x.email ? breakableEmail(x.email) : "")].filter(Boolean),
           phone: x.phone || "", email: x.email || "",
         }));
         if (!helpers.length) counselorsOpen = true;   // 조력자가 없으면 상담하는 곳을 펼쳐 둔다
@@ -303,12 +313,21 @@ export default {
       refreshSuggest();
     }
 
-    /** 거래 id로 항목 찾기: 이 창에서 확인한 거래 → 걱정되는 거래 → 최근 거래부터 500건씩. */
+    /** 새로 고친 뒤 주소 값으로 다시 만든 확인 거래(받는 사람 이름·금액·방법만, 등급·시각은 모름). 저장된 거래가 아니라 추천에 pending으로 넘긴다. */
+    function checkedFromUrl(id) {
+      if (!urlChecked || !isLive(id)) return null;
+      return {
+        txn: { id, counterparty: urlChecked.to, amount: urlChecked.amount, channel: urlChecked.channel, direction: "out" },
+        level: "none", signals: [], reasons: [], practice: true, flagged: false, unsaved: true, conflict_ids: urlChecked.conflicts,
+      };
+    }
+
+    /** 거래 id로 항목 찾기: 이 창에서 확인한 거래(또는 주소에 남긴 확인 거래) → 걱정되는 거래 → 최근 거래부터 500건씩. */
     async function findTxns(ids) {
       const found = new Map();
       // 돈 보내기에서 방금 확인한 거래(안 보낼래요·물어볼래요는 거래 이력에 적지 않는다)는 이 창이 기억한 항목을 쓴다.
       // 모두 지우기·거래 살펴보기 끄기 뒤(세대가 바뀜)에는 쓰지 않는다(IA-1)
-      for (const id of ids) { const c = checkedItem(id, ctx.session.epoch); if (c) found.set(id, c); }
+      for (const id of ids) { const c = checkedItem(id, ctx.session.epoch) || checkedFromUrl(id); if (c) found.set(id, c); }
       const want = new Set(ids.filter((id) => !found.has(id)));
       if (!want.size) return ids.map((id) => found.get(id)).filter(Boolean);
       const take = (items) => { for (const it of items || []) if (want.has(it.txn.id) && !found.has(it.txn.id)) found.set(it.txn.id, it); };
@@ -448,12 +467,18 @@ export default {
 
     /** 고른 거래·들어온 길을 주소에 남긴다(새로 고치거나 탭을 오가도 고른 거래가 남게, RF-8). */
     function syncUrl() {
+      const un = picked.find((it) => it.unsaved);
       ctx.replaceParams({
         txn: picked.length ? picked.map((it) => it.txn.id).join(",") : null,
         to: toCounselors ? "counselors" : null,
         helper: wantHelpers.size ? [...wantHelpers].join(",") : null,
         ask: askMode ? "1" : null,
         channel: wantChannel || null,
+        // 저장하지 않은 확인 거래는 새로 고쳐도 다시 그릴 수 있게 최소 정보만 남긴다(계좌번호·시각은 넣지 않음)
+        chk_to: un ? String(un.txn.counterparty || "").slice(0, 40) : null,
+        chk_amt: un ? String(Math.round(Number(un.txn.amount) || 0)) : null,
+        chk_ch: un ? un.txn.channel || "transfer" : null,
+        chk_conflict: un && (un.conflict_ids || []).length ? un.conflict_ids.join(",") : null,
       });
     }
 
@@ -496,9 +521,9 @@ export default {
         box,
         h("span", { class: "np-kind-ic" }, icon(p.icon)),
         h("span", { class: "row-main" },
-          h("span", { class: "row-title" }, h("span", { class: "np-name", text: p.name }),
+          h("span", { class: "row-title" }, h("span", { class: "np-name" }, keepNodes(p.name)),
             s && s.suggested && !conflict ? h("span", { class: "badge info np-rec" }, icon("check-line"), h("span", { text: "추천" })) : null),
-          p.sub ? h("span", { class: "row-sub", text: p.sub }) : null,
+          p.sub && p.sub.length ? subParts(p.sub) : null,
           h("span", { class: "np-has-row" },
             hasTag("chat", p.phone ? "번호" : "번호 없음", Boolean(p.phone)),
             hasTag("mail", p.email ? "메일" : "메일 없음", Boolean(p.email))),
@@ -542,8 +567,9 @@ export default {
       counselorSlot.hidden = !counselorsOpen;
       const n = counselors.filter((p) => chosen.has(p.key)).length;
       const picks = n ? ` · ${nf.format(n)}곳 고름` : "";
-      setText(counselorToggle.querySelector(".np-expand-text"),
-        counselors.length ? `상담하는 곳 ${nf.format(counselors.length)}곳${picks}` : "상담하는 곳");
+      // 곳 수·고른 수는 이름 옆 보조 표시(한 덩어리): 큰 글씨에서 이름이 줄을 바꿔도 수만 홀로 남지 않게
+      fill(counselorToggle.querySelector(".np-expand-text"), "상담하는 곳",
+        counselors.length ? [" ", h("span", { class: "np-expand-count", text: `${nf.format(counselors.length)}곳${picks}` })] : null);
     }
 
     function people(kind) { return [...helpers, ...counselors].filter((p) => p.kind === kind && chosen.has(p.key)); }
@@ -945,6 +971,14 @@ export default {
         if (sheet.el.isConnected && view === v) { show(from); announce(`거래를 더 불러왔어요. 모두 ${nf.format(data[v].items.length)}건이에요.`); }
       }
 
+      // 아래에 붙은 고르기·닫기가 시트의 30%보다 크면(큰 글씨·짧은 화면) 붙박이를 풀어 목록을 가리지 않게 한다(L2)
+      const actions = h("div", { class: "sheet-actions np-pick-actions" }, doneBtn,
+        h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => sheet.close() }));
+      function fitActions() {
+        if (!actions.isConnected) return;
+        actions.classList.remove("flow");
+        actions.classList.toggle("flow", actions.offsetHeight > sheet.el.clientHeight * 0.3);
+      }
       const sheet = openSheet((close) => {
         doneBtn.addEventListener("click", () => {
           picked = draft.slice(0, MAX_PICK);
@@ -959,11 +993,11 @@ export default {
         return [
           h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: "어떤 거래를 알릴까요?" }),
           h("p", { class: "sheet-sub", text: `한 번에 ${MAX_PICK}건까지 고를 수 있어요.` }),
-          chips, panel,
-          h("div", { class: "sheet-actions np-pick-actions" }, doneBtn,
-            h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => close() })),
+          chips, panel, actions,
         ];
-      }, { label: "거래 고르기", className: "np-pick-sheet" });
+      }, { label: "거래 고르기", className: "np-pick-sheet", onClose: () => window.removeEventListener("resize", fitActions) });
+      window.addEventListener("resize", fitActions);
+      window.requestAnimationFrame(fitActions);
       paintChips();
       paintDone();
 

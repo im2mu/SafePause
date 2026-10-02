@@ -1,7 +1,7 @@
 /* 처음 켰을 때: 무엇을 하는 앱인지 → 동의 세 가지(모두 꺼짐에서 시작, 따로 고름) → 누가 동의했는지 + 약관 동의 자리.
  * 약관·개인정보 수집·이용 동의는 정식 버전에서 필수가 된다. 지금은 준비 중 자리만 두고 시작을 막지 않는다(IA-6).
  * 1단계 소개는 전체 탭의 사용법 안내(guide.js)가 introNodes로 다시 보여 준다(J10). */
-import { h, icon, fill, busy, toast } from "../ui.js";
+import { h, icon, fill, busy, toast, paragraphs } from "../ui.js";
 import { errorNotice, menuRow } from "../components.js";
 import { deviceWord } from "../format.js";
 import { STALE } from "../api.js";
@@ -48,11 +48,11 @@ export default {
           h("button", { type: "button", class: "btn primary big block", text: "다음", onclick: () => { step = 1; show(); } }),
           h("button", { type: "button", class: "btn ghost big block", text: "나중에 할게요", onclick: later })));
       } else if (step === 1) {
-        // 설명은 동의 화면과 같은 뜻(C2): 보내기는 본인이 누른다
+        // 설명은 동의 화면과 같은 뜻을 짧게(C2): 미리 골라 두고 적어 둘 뿐, 보내기는 본인이 누른다. 한 항목은 한 문단
         const items = [
           ["monitoring", "chart", "거래 살펴보기", ["내 거래를 살펴보고 걱정되는 거래를 찾아요."]],
-          ["helper_alerts", "users", "조력자에게 알리기", ["꼭 확인할 거래가 생기면 내가 고른 조력자에게 알릴 수 있게 골라 둬요.", "보내기는 내가 눌러요."]],
-          ["counseling_referral", "building", "상담하는 곳에 알려 주기", ["상담하는 곳에 알려 줘요.", "알릴 때가 되면 알려 드려요. 보내기는 내가 눌러요."]],
+          ["helper_alerts", "users", "조력자에게 알리기", ["걱정되는 거래를 알릴 때 조력자를 미리 골라 두고 적어 둬요.", "보내기는 내가 눌러요."]],
+          ["counseling_referral", "building", "상담하는 곳에 알려 주기", ["상담하는 곳에 알려 줘요.", "알릴 때가 되면 상담하는 곳을 추천해요.", "보내기는 내가 눌러요."]],
         ];
         fill(main, h("div", { class: "onboard-body" }, dots(), stepNo(),
           h("h1", { tabindex: "-1", text: "무엇을 해도 될까요?" }),
@@ -62,7 +62,7 @@ export default {
               onclick: () => { choice[key] = !choice[key]; sw.setAttribute("aria-checked", choice[key] ? "true" : "false"); } });
             return h("div", { class: "switch-row consent-row" },
               h("div", { class: "consent-head" }, h("span", { class: "row-icon blue" }, icon(ic)), h("h3", { text: title }), sw),
-              h("div", { class: "consent-body" }, desc.map((t) => h("p", { text: t }))));
+              h("div", { class: "consent-body" }, paragraphs(desc).map((t) => h("p", { text: t }))));
           }))),
         h("div", { class: "onboard-foot" },
           h("button", { type: "button", class: "btn primary big block", text: "다음", onclick: () => { step = 2; show(); } }),

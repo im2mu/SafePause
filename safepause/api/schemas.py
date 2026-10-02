@@ -19,6 +19,7 @@ from pydantic import (
 from safepause.api.constants import (
     DEFAULT_SAMPLE_PERSONA,
     DEFAULT_SAMPLE_SEED,
+    MAX_EVAL_SEED_START,
     MAX_EVAL_SEEDS,
     MAX_HELPERS,
     MAX_NOTICE_MESSAGE,
@@ -35,6 +36,7 @@ from safepause.models import EMAIL_RE, PHONE_RE, Decision, SignalCode, split_leg
 # 화면에서 입력할 수 있는 거래 방법(입금은 제외: 안전 정지는 돈이 나갈 때만)
 PendingChannel = Literal["transfer", "card", "micropay", "telecom_bill", "atm", "other"]
 EvalMode = Literal["fused", "rules", "anomaly"]
+EvalIntensity = Literal["standard", "subtle"]                                               # = constants.EVAL_INTENSITIES
 CounselorKind = Literal["disability_center", "rights_agency", "police", "finance", "other"]   # = constants.COUNSELOR_KINDS
 NoticeChannel = Literal["sms", "email", "call", "copy"]                                       # = constants.NOTICE_CHANNELS
 
@@ -49,6 +51,7 @@ FIELD_KO: dict[str, str] = {
     "counseling_referral": "상담하는 곳에 알려 주기", "given_by": "동의한 사람",
     "persona": "인물", "seed": "번호(seed)", "scenarios": "걱정되는 거래 섞기", "days": "기간",
     "seeds": "반복 횟수", "personas": "인물", "modes": "방식", "helper_ids": "물어볼 조력자",
+    "seed_start": "시작 번호(seed)", "intensity": "시나리오 종류",
     "level": "보기", "limit": "개수", "offset": "시작 위치",
     "phone": "전화번호", "email": "이메일", "phone_masked": "전화번호", "email_masked": "이메일",
     "kind": "종류", "memo": "메모", "txn_id": "거래", "txn_ids": "거래", "recipients": "받는 사람",
@@ -393,8 +396,16 @@ class SampleIn(BaseModel):
 
 
 class EvalIn(BaseModel):
+    """직접 다시 계산(합성 데이터 평가). seed는 seed_start부터 seeds개.
+
+    seed_start=21, seeds=20, 인물 3명이면 제출 보고서 검증 세트(seed 21~40)와 같은 설정이다.
+    intensity: standard(표준 시나리오) 또는 subtle(경계 변형, 결과 확인 전에 정의).
+    """
+
     model_config = ConfigDict(extra="forbid")
     seeds: int = Field(5, ge=1, le=MAX_EVAL_SEEDS)
+    seed_start: int = Field(1, ge=1, le=MAX_EVAL_SEED_START)
+    intensity: EvalIntensity = "standard"
     personas: Optional[list[str]] = Field(None, min_length=1)
     modes: list[EvalMode] = Field(default_factory=lambda: ["fused"], min_length=1, max_length=3)
 

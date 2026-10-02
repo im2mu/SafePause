@@ -4,7 +4,7 @@
  * 다음 목록을 만든다(FE-06: 추천 두 곳을 빠르게 더해도 둘 다 남는다). 저장하지 않은 입력이 있으면 닫기 전에 묻는다.
  * 번호가 있는 곳은 [전화 걸기]로 전화 앱의 다이얼 화면만 연다(전화를 걸지는 않음, 휴대폰에서만, AUG-05).
  * 신고 도와주기·지급정지 요청 돕기는 정식 버전 기능이라 준비 중 안내만 연다(AUG-13). */
-import { h, icon, fill, setText, openSheet, confirmSheet, comingSoonSheet, busy, toast, announce, skeleton, emptyState } from "../ui.js";
+import { h, icon, fill, setText, openSheet, confirmSheet, comingSoonSheet, busy, toast, announce, skeleton, emptyState, keepNodes } from "../ui.js";
 import { errorNotice, menuRow } from "../components.js";
 import { COUNSELOR_KINDS, COUNSELOR_KIND_KO, COUNSELOR_KIND_ICON } from "../labels.js";
 import { breakableEmail } from "../format.js";
@@ -92,9 +92,9 @@ export default {
           return h("div", { class: "row cs-row" },
             h("span", { class: `row-icon ${c.active === false ? "" : "blue"}`.trim() }, icon(COUNSELOR_KIND_ICON[c.kind] || "building")),
             h("div", { class: "row-main" },
-              h("span", { class: "row-title", text: c.name }),
+              h("span", { class: "row-title" }, keepNodes(c.name)),
               kind ? h("span", { class: "row-sub", text: kind }) : null,
-              c.phone ? h("span", { class: "row-sub tnum", text: c.phone }) : null,
+              c.phone ? h("span", { class: "row-sub tnum tel-text", text: c.phone }) : null,
               c.email ? h("span", { class: "row-sub email-text", text: breakableEmail(c.email) }) : null,
               !c.phone && !c.email ? h("span", { class: "row-sub", text: "연락처가 없어요" }) : null,
               c.active === false ? h("span", { class: "row-tags" }, h("span", { class: "badge grey", text: "쓰지 않음" })) : null),
@@ -117,7 +117,7 @@ export default {
         h("div", { class: "preset-top" },
           h("span", { class: "row-icon blue" }, icon(COUNSELOR_KIND_ICON[p.kind] || "building")),
           h("div", { class: "preset-main" },
-            h("b", { class: "preset-name", text: p.name }),
+            h("b", { class: "preset-name" }, keepNodes(p.name)),
             p.phone ? h("span", { class: "preset-phone tnum" }, icon("call"), h("span", { text: p.phone })) : null)),
         p.memo ? h("p", { class: "muted", text: p.memo }) : null,
         h("div", { class: "btn-row preset-btns" },
@@ -256,7 +256,7 @@ export default {
             onclick: async () => {
               const what = withObject(c.name);
               const ok = await confirmSheet({ title: what ? `${what} 뺄까요?` : "이곳을 뺄까요?",
-                lines: what ? ["상담하는 곳 목록에서 빠져요."] : [c.name, "상담하는 곳 목록에서 빠져요."], confirmText: "네, 뺄래요", danger: true });
+                lines: what ? ["상담하는 곳 목록에서 빠져요."] : [[c.name], ["상담하는 곳 목록에서 빠져요."]], confirmText: "네, 뺄래요", danger: true });
               if (!ok) return;
               try {
                 await queued(() => save(items.filter((x) => x.id !== c.id).map(toPayload)));
@@ -322,8 +322,7 @@ export default {
       fill(consentNote, consent.counseling_referral
         ? h("p", { class: "muted consent-state" }, icon("check-line"), h("span", { text: "상담하는 곳에 알려 주기: 켜짐" }))
         : h("div", { class: "notice orange" }, icon("warning"), h("div", null,
-          h("p", { text: "상담하는 곳에 알려 주기가 꺼져 있어요. 꼭 확인할 일이 자주 생길 때 안내를 받으려면 동의 화면에서 켜 주세요." }),
-          h("p", { text: "알림 보내기에서는 언제든지 직접 알릴 수 있어요." }),
+          h("p", { text: "상담하는 곳에 알려 주기가 꺼져 있어요. 꼭 확인할 일이 자주 생길 때 안내를 받으려면 동의 화면에서 켜 주세요. 알림 보내기에서는 언제든지 직접 알릴 수 있어요." }),
           h("a", { class: "btn sm weak notice-action", href: "#/more/consent" }, icon("toggle"), h("span", { text: "동의로 가기" })))));
       renderAll();
     } catch (e) {
