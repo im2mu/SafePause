@@ -71,3 +71,30 @@ v0.2 send.js를 되살려 다듬는다. 옛 코드는 `git show 7d57ea9:safepaus
   - 카드 규칙: initialFocus #card-title, dismissible false, card.choices.map, aria-labelledby card-level card-title, parseKoreanAmount
   - 은행 이름 하드코딩 금지 검사(예: 국민·신한·우리·하나·농협·카카오뱅크·토스 등 문자열이 JS에 없어야 함)
 - 엔진 모드에서 check·decide·payees가 정상 응답하는지 확인한다(BASIC 목록 아님 → full 대기).
+
+## 받는 사람 추천과 돈 받은 조력자 경고 (알림 보내기)
+
+조력자 설정(알릴 등급·범위·자동으로 알리기)과 이해충돌(돈 받는 조력자 제외)이 v0.3에서도 쓰이게 한다. 이미 테스트된 safepause/guardian/policy.py의 is_conflict·is_eligible을 그대로 쓴다.
+
+- `POST /api/notify/suggest {"txn_ids": [...]}` (0~20개, 거래 살펴보기 동의 필요)
+  - 응답:
+    `{"helpers": [{"id", "name", "suggested": bool, "conflict": bool, "reason": "..."}], "counselors": [{"id", "name", "suggested": bool}], "counseling_due": bool}`
+  - helper.suggested는 다음을 모두 만족할 때 참이다.
+    - 동의 helper_alerts가 켜져 있다.
+    - helper.active다.
+    - 고른 거래 가운데 하나 이상에 is_eligible(등급·범위)이다.
+    - 고른 거래 어느 것과도 is_conflict가 아니다.
+  - conflict가 참이면 reason은 "이 거래에서 돈을 받은 사람이에요."다. 거래가 없으면 suggested는 active 기준이다.
+  - counseling_due는 동의 counseling_referral이 켜져 있고, 30일 안에 꼭 확인할 일이 3번 이상일 때 참이다. 기존 상담 안내와 같은 기준이다.
+  - counselor.suggested는 counseling_due 그리고 active일 때 참이다.
+  - 서비스·router·FastAPI 세 곳 같게 하고, 파리티 테스트를 붙인다.
+- 화면(알림 보내기)
+  - 거래를 고르면 suggest를 불러 추천받은 사람을 미리 체크하고 '추천' 배지를 단다.
+  - conflict인 조력자는 체크를 풀고 경고를 보인다: "이 거래에서 돈을 받은 사람이에요. 다른 사람에게 알리는 게 좋아요."
+  - 그래도 본인이 체크하면 보낼 수 있다(본인 결정). 단, 확인 시트를 한 번 더 보인다.
+
+## 파이썬 문구
+
+- check/decide 응답 가운데 사용자에게 보이는 글에서 '연습' 표현을 뺀다. PRACTICE_NOTE는 평가 호환을 위해 상수로 남기되, 화면은 쓰지 않는다.
+- 결과 글은 다음처럼 쓴다: "내 은행 앱에서 보내 주세요." / "보내지 않았어요." / "조력자에게 물어봐요."
+- 탐지 로직·평가 수치는 바꾸지 않는다(check_eval_unchanged 차이 0).
