@@ -5,12 +5,14 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Insets;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Looper;
 import android.provider.ContactsContract;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
@@ -31,6 +33,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -40,15 +43,24 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.text.Collator;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 /**
  * SafePause 안드로이드 셸.
@@ -59,7 +71,11 @@ import java.util.concurrent.atomic.AtomicReference;
  * 그래서 기기 밖으로 나가는 통로가 운영체제 수준에서 없다.</p>
  *
  * <p>JS 다리(window.SafePauseNative): 기기 안 음성(TTS) 읽기와 끝남 알림, 파일 저장(시스템 저장 창),
- * 문자·메일 앱과 전화 다이얼 화면 열기(sms·smsto·mailto·tel만), 연락처 한 건 고르기(시스템 선택 창).</p>
+ * 문자·메일 앱과 전화 다이얼 화면 열기(sms·smsto·mailto·tel만), 연락처 한 건 고르기(시스템 선택 창),
+ * 홈 화면 앱 목록과 고른 앱 열기(내 은행 앱 열기).</p>
+ *
+ * <p>SafePause는 돈을 보내지 않는다. 확인 카드 뒤에 본인이 고른 은행 앱을 열 뿐이고, 이체는 그 앱의
+ * 인증·한도 절차로 사람이 직접 한다. 은행 이름·패키지는 코드에 넣지 않는다(설치된 앱 목록에서 본인이 고름).</p>
  */
 public class MainActivity extends Activity {
     static final String HOST = "app.safepause.local";
@@ -71,6 +87,11 @@ public class MainActivity extends Activity {
     private static final int REQ_PICK_PHONE = 43;
     private static final int REQ_PICK_EMAIL = 44;
     private static final int MAX_EXTERNAL_URI = 8000;
+    // 앱 열기를 UI 스레드에 맡기고 결과를 기다리는 시간(넘으면 아직 시작 전인 열기는 취소하고 false)
+    private static final long UI_WAIT_MS = 2000;
+    private static final int MAX_APP_LABEL = 80;
+    // 패키지 이름 꼴(영문·숫자·밑줄·점). 실제로 열 수 있는지는 홈 화면 앱 조회로 다시 확인한다.
+    private static final Pattern PACKAGE_NAME = Pattern.compile("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*");
     // 앱 밖으로 넘길 수 있는 주소 종류(문자·메일·다이얼 화면). 그 밖은 모두 막는다.
     static final Set<String> EXTERNAL_SCHEMES =
             Collections.unmodifiableSet(new HashSet<>(Arrays.asList("sms", "smsto", "mailto", "tel")));
@@ -501,6 +522,207 @@ public class MainActivity extends Activity {
         return b.append('"').toString();
     }
 
+    // ---- 홈 화면 앱 목록·열기(내 은행 앱) ----------------------------------------------------
+    // 패키지 가시성(안드로이드 11+): 매니페스트 queries의 MAIN·LAUNCHER intent로 홈 화면에 아이콘이 있는
+    // 앱만 보인다. QUERY_ALL_PACKAGES 권한은 쓰지 않는다. 목록은 화면(WebView)에만 넘기고 기기 밖으로 나가지 않는다.
+
+    /** 홈 화면 앱 한 개: 패키지 이름과 홈 화면에 보이는 이름. */
+    static final class AppEntry {
+        final String pkg;
+        final String label;
+
+        AppEntry(String pkg, String label) {
+            this.pkg = pkg;
+            this.label = label;
+        }
+    }
+
+    private static Intent launcherIntent() {
+        Intent i = new Intent(Intent.ACTION_MAIN);
+        i.addCategory(Intent.CATEGORY_LAUNCHER);
+        return i;
+    }
+
+    @SuppressWarnings("deprecation")
+    private static List<ResolveInfo> queryActivities(PackageManager pm, Intent intent) {
+        List<ResolveInfo> r = Build.VERSION.SDK_INT >= 33
+                ? pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
+                : pm.queryIntentActivities(intent, 0);
+        return r == null ? Collections.<ResolveInfo>emptyList() : r;
+    }
+
+    /**
+     * 실행할 수 있는 앱(MAIN·LAUNCHER) 목록. 자기 앱은 빼고, 같은 패키지는 한 번만 넣는다.
+     * 한 패키지에 홈 화면 아이콘이 여럿이면 앱 이름(application label)을, 하나면 그 아이콘 이름을 쓴다.
+     * 순서는 {@link #sortApps}(한글 가나다 → 영문 알파벳 → 그 밖).
+     */
+    List<AppEntry> launcherApps() {
+        PackageManager pm = getPackageManager();
+        String self = getPackageName();
+        Map<String, ResolveInfo> first = new LinkedHashMap<>();
+        Set<String> several = new HashSet<>();
+        for (ResolveInfo ri : queryActivities(pm, launcherIntent())) {
+            if (ri == null || ri.activityInfo == null) continue;
+            String pkg = ri.activityInfo.packageName;
+            if (pkg == null || pkg.isEmpty() || pkg.equals(self)) continue;
+            if (first.containsKey(pkg)) several.add(pkg);
+            else first.put(pkg, ri);
+        }
+        List<AppEntry> apps = new ArrayList<>(first.size());
+        for (Map.Entry<String, ResolveInfo> e : first.entrySet()) {
+            String pkg = e.getKey();
+            ResolveInfo ri = e.getValue();
+            CharSequence raw;
+            try {
+                raw = several.contains(pkg) && ri.activityInfo.applicationInfo != null
+                        ? ri.activityInfo.applicationInfo.loadLabel(pm)
+                        : ri.loadLabel(pm);
+            } catch (RuntimeException ex) {
+                raw = null;
+            }
+            apps.add(new AppEntry(pkg, cleanLabel(raw, pkg)));
+        }
+        sortApps(apps);
+        return apps;
+    }
+
+    /** 홈 화면 이름을 한 줄로 다듬는다: 줄바꿈·연속 공백은 공백 하나, 보이지 않는 서식 문자는 뺀다. 비면 패키지 이름. */
+    static String cleanLabel(CharSequence raw, String pkg) {
+        String s = raw == null ? "" : raw.toString();
+        StringBuilder b = new StringBuilder(s.length());
+        boolean space = false;
+        for (int i = 0; i < s.length(); ) {
+            int cp = s.codePointAt(i);
+            i += Character.charCount(cp);
+            int type = Character.getType(cp);
+            if (type == Character.FORMAT) continue;   // 방향 표시·폭 없는 문자
+            if (Character.isWhitespace(cp) || Character.isSpaceChar(cp) || Character.isISOControl(cp)) {
+                space = b.length() > 0;
+                continue;
+            }
+            if (space) b.append(' ');
+            space = false;
+            b.appendCodePoint(cp);
+        }
+        String out = b.toString();
+        if (out.codePointCount(0, out.length()) > MAX_APP_LABEL) {
+            out = out.substring(0, out.offsetByCodePoints(0, MAX_APP_LABEL));
+        }
+        return out.isEmpty() ? (pkg == null ? "" : pkg) : out;
+    }
+
+    /** 이름 첫 글자로 나눈 묶음: 한글 0, 영문 1, 그 밖(숫자·기호·다른 글자) 2. */
+    static int scriptGroup(String label) {
+        if (label == null || label.isEmpty()) return 2;
+        Character.UnicodeScript s = Character.UnicodeScript.of(label.codePointAt(0));
+        if (s == Character.UnicodeScript.HANGUL) return 0;
+        if (s == Character.UnicodeScript.LATIN) return 1;
+        return 2;
+    }
+
+    /** 한글 가나다순 → 영문 알파벳순(대소문자 구분 없이) → 그 밖. 이름이 같으면 패키지 이름순. */
+    static void sortApps(List<AppEntry> apps) {
+        final Collator collator = Collator.getInstance(Locale.KOREAN);
+        collator.setStrength(Collator.SECONDARY);   // 대소문자 차이는 순서에 쓰지 않는다
+        Collections.sort(apps, (a, b) -> {
+            int c = Integer.compare(scriptGroup(a.label), scriptGroup(b.label));
+            if (c == 0) c = collator.compare(a.label, b.label);
+            if (c == 0) c = a.label.compareTo(b.label);
+            if (c == 0) c = a.pkg.compareTo(b.pkg);
+            return c;
+        });
+    }
+
+    /** [{"package": "...", "label": "..."}, ...] JSON 글. 실패하면 "[]". */
+    String launcherAppsJson() {
+        try {
+            JSONArray arr = new JSONArray();
+            for (AppEntry a : launcherApps()) {
+                JSONObject o = new JSONObject();
+                o.put("package", a.pkg);
+                o.put("label", a.label);
+                arr.put(o);
+            }
+            return arr.toString();
+        } catch (JSONException | RuntimeException e) {
+            if (debuggable) Log.w(TAG, "앱 목록 읽기 실패: " + e.getClass().getSimpleName());
+            return "[]";
+        }
+    }
+
+    /** 홈 화면 앱 목록(launcherApps)에 있는 패키지인가. 같은 MAIN·LAUNCHER 조회를 그 패키지로 좁혀 확인한다. */
+    private boolean isLauncherApp(String pkg) {
+        if (pkg.equals(getPackageName())) return false;
+        Intent i = launcherIntent();
+        i.setPackage(pkg);
+        for (ResolveInfo ri : queryActivities(getPackageManager(), i)) {
+            if (ri != null && ri.activityInfo != null && pkg.equals(ri.activityInfo.packageName)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * 홈 화면 앱 목록에 있는 앱을 연다(getLaunchIntentForPackage + FLAG_ACTIVITY_NEW_TASK).
+     * 열기는 UI 스레드에서 하고 그 결과(시작했으면 true)를 돌려준다. 목록에 없거나 예외가 나면 false.
+     */
+    boolean openLauncherApp(String pkg) {
+        final String p = pkg == null ? "" : pkg.trim();
+        if (p.isEmpty() || p.length() > 255 || !PACKAGE_NAME.matcher(p).matches() || isFinishing()) return false;
+        try {
+            if (!isLauncherApp(p)) return false;
+            final Intent intent = getPackageManager().getLaunchIntentForPackage(p);
+            if (intent == null) return false;
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            return runOnUiForResult(() -> {
+                if (isFinishing()) return false;
+                startActivity(intent);
+                return true;
+            });
+        } catch (RuntimeException e) {
+            if (debuggable) Log.w(TAG, "앱 열기 실패: " + e.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    /**
+     * task를 UI 스레드에서 돌리고 결과를 기다린다(다리 함수는 JavaBridge 스레드에서 온다).
+     * UI_WAIT_MS 안에 시작도 못 했으면 취소하고 false. 이미 시작했으면 끝날 때까지 한 번 더 기다리고,
+     * 그래도 안 끝나면 열기를 요청한 것으로 보고 true. task의 예외는 false.
+     */
+    private boolean runOnUiForResult(final Callable<Boolean> task) {
+        if (Looper.myLooper() == Looper.getMainLooper()) return callSafely(task);
+        final AtomicInteger state = new AtomicInteger(0);   // 0 기다림, 1 시작함, 2 취소함
+        final AtomicBoolean result = new AtomicBoolean(false);
+        final CountDownLatch done = new CountDownLatch(1);
+        runOnUiThread(() -> {
+            if (!state.compareAndSet(0, 1)) return;   // 기다리다 그만둔 열기는 하지 않는다
+            try {
+                result.set(callSafely(task));
+            } finally {
+                done.countDown();
+            }
+        });
+        boolean interrupted = false;
+        try {
+            if (done.await(UI_WAIT_MS, TimeUnit.MILLISECONDS)) return result.get();
+            if (state.compareAndSet(0, 2)) return false;
+            return !done.await(UI_WAIT_MS, TimeUnit.MILLISECONDS) || result.get();
+        } catch (InterruptedException e) {
+            interrupted = true;
+            return !state.compareAndSet(0, 2) && (done.getCount() > 0 || result.get());
+        } finally {
+            if (interrupted) Thread.currentThread().interrupt();
+        }
+    }
+
+    private static boolean callSafely(Callable<Boolean> task) {
+        try {
+            return Boolean.TRUE.equals(task.call());
+        } catch (Exception e) {   // ActivityNotFoundException·SecurityException 등
+            return false;
+        }
+    }
+
     // ---- 기기 안 음성(TTS) -----------------------------------------------------------------
     private void onTtsInit(int status) {
         if (status != TextToSpeech.SUCCESS || tts == null) {
@@ -613,6 +835,22 @@ public class MainActivity extends Activity {
             return startPickContact(kind);
         }
 
+        /**
+         * 홈 화면에 아이콘이 있는(실행할 수 있는) 앱 목록. 자기 앱은 빠진다.
+         * JSON 배열 글 [{"package": "패키지 이름", "label": "홈 화면 이름"}, ...]: 한글 가나다 → 영문 알파벳 → 그 밖 순,
+         * 패키지는 한 번씩만. 읽지 못하면 "[]".
+         */
+        @JavascriptInterface
+        public String listApps() {
+            return launcherAppsJson();
+        }
+
+        /** listApps에 있는 패키지의 앱을 연다. 열기를 시작했으면 true, 목록에 없거나 열지 못하면 false. */
+        @JavascriptInterface
+        public boolean openApp(String pkg) {
+            return openLauncherApp(pkg);
+        }
+
         /** 이 기기에서 쓸 수 있는 기능(JSON 글). */
         @JavascriptInterface
         public String capabilities() {
@@ -625,9 +863,10 @@ public class MainActivity extends Activity {
                 o.put("sms", canResolve(new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:"))));
                 o.put("email", canResolve(new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))));
                 o.put("dial", canResolve(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:"))));
+                o.put("apps", true);   // listApps·openApp(내 은행 앱 고르기·열기)
                 o.put("version", appVersion());
             } catch (JSONException e) {
-                return "{\"external\":true,\"contacts\":true,\"tts\":false}";
+                return "{\"external\":true,\"contacts\":true,\"tts\":false,\"apps\":true}";
             }
             return o.toString();
         }

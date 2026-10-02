@@ -3,7 +3,7 @@
  * 주소 뒤 open=upload|sample|bank|card면 그 시트를 바로 연다(views/connect.js·홈 바로가기가 보냄). */
 import { h, icon, fill, openSheet, confirmSheet, busy, toast, announce, skeleton, emptyState, soonBadge, SOON_TEXT } from "../ui.js";
 import { nf, formatWhen, dayKey, parseTs, deviceWord } from "../format.js";
-import { txnRow, dateHead, levelBadge, flaggedBadge, txnAmount, txnSignals, flagButton, errorNotice } from "../components.js";
+import { txnRow, dateHead, levelBadge, flaggedBadge, checkedBadge, txnAmount, txnSignals, flagButton, errorNotice } from "../components.js";
 import { PERSONAS, CHANNEL_KO, LEVEL } from "../labels.js";
 import { STALE, UPLOAD_PATH, MAX_UPLOAD_BYTES, isConsentError } from "../api.js";
 import { openBankConnect, openCardConnect } from "./connect.js";
@@ -257,7 +257,7 @@ export default {
       let changed = false;
       // 이름 옆 배지(등급·담음): 담기를 바꾸면 배지만 다시 그린다(제목의 초점은 그대로)
       const badges = h("span", { class: "tx-badges" });
-      const paintHead = () => fill(badges, levelBadge(item.level), item.flagged ? flaggedBadge() : null);
+      const paintHead = () => fill(badges, levelBadge(item.level), item.flagged ? flaggedBadge() : null, item.practice ? checkedBadge() : null);
       paintHead();
       const flag = flagButton(ctx, item, {
         cls: `btn${item.flagged ? "" : " primary"} big block`,

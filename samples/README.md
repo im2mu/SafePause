@@ -8,7 +8,7 @@
 | 01_sample_transactions.csv | 가상 근로자(seed 1) 120일 거래 232건. 걱정되는 거래 5종을 마지막 30일에 섞음(label 열이 정답) |
 | 02_analysis_results.csv | 거래마다 판단(괜찮아요·확인해요·꼭 확인해요), 걸린 약속(규칙), AI 점수(0~1) |
 | 03_alert_cards.json | '알림' 화면의 기록 카드(쉬운 말 제목·문장·그림 이름) |
-| 04_safe_pause_checks.json | 보내기 연습 4가지의 안전 정지 카드와 조력자 안내 미리보기 |
+| 04_safe_pause_checks.json | 돈 보내기 전 확인 4가지의 안전 정지 카드와 조력자 안내 미리보기 |
 | 05_validation_summary.json | 현장 검증용 요약: 이름·계좌·금액·날짜 없이 거래 수·알림 수만 |
 | 06_eval_quick.json | 성능 확인(인물 3 × seed 3 = 9사례, 규칙+AI·규칙만·AI만) |
 | 07_dataset_stats.json | 학습·평가 데이터셋 통계(인물 3 × seed 1~40, `python tools/make_dataset_summary.py`) |

@@ -24,8 +24,11 @@
 [MainActivity.java]  https://app.safepause.local/* 요청만 APK assets에서 꺼내 줌. 그 밖의 주소는 403.
   JS 다리 SafePauseNative: 기기 TTS(인터넷이 필요한 음성은 쓰지 않음), 파일 저장(시스템 저장 창),
     v0.3: openExternal(sms:·smsto:·mailto:·tel:만, 문자·메일 앱/다이얼 화면 열기), pickContact(phone|email, 시스템 연락처 선택 창),
-    capabilities()(문자·메일·다이얼·연락처 앱이 있는지, TTS 준비), 읽기가 끝나면 window.__safepauseSpeechDone(소리 버튼 토글)
-  Manifest <queries>: TTS_SERVICE, SENDTO(sms·smsto·mailto), DIAL(tel), PICK(phone_v2·email_v2)
+    capabilities()(문자·메일·다이얼·연락처 앱이 있는지, TTS 준비, apps), 읽기가 끝나면 window.__safepauseSpeechDone(소리 버튼 토글)
+    돈 보내기(docs/v03_spec_money.md): listApps()(홈 화면 앱 목록 {package, label}, 자기 앱 빼고 이름순), openApp(pkg)(그 목록의 앱만 연다).
+    SafePause는 돈을 옮기지 않는다. 확인 카드 뒤 본인이 고른 은행 앱을 열 뿐이고, 은행 이름·패키지는 앱에 넣지 않는다
+  Manifest <queries>: TTS_SERVICE, SENDTO(sms·smsto·mailto), DIAL(tel), PICK(phone_v2·email_v2), MAIN·LAUNCHER(내 은행 앱 고르기).
+    QUERY_ALL_PACKAGES는 쓰지 않는다
   파일 고르기: 시스템 문서 선택 창(ACTION_OPEN_DOCUMENT, CSV)
 ```
 
@@ -45,6 +48,21 @@
 | 빌드 | `build_apk.py --debug`: aapt2·javac·d8·zipalign·서명·검증 통과 |
 | aapt2 dump badging | label `SafePause`, versionCode 3 / 0.3.0, 요청 권한 0개, queries 7개 |
 | 앱 안 엔진(묶음 www를 Chrome에서 엔진 모드로) | full 단계 약 8초. 상담하는 곳·담기·보낸 알림 기록·돈 흐름 분석 API가 router로 정상 응답, 잘못된 요청은 한국어 422, 기록 글의 번호 원본은 가려 저장 |
+| 돈 보내기(엔진 모드, 가짜 앱 다리) | AI 준비 전: 동의·조력자는 basic 단계에서 답하고, 받는 사람 추천은 full 뒤에 답함(BASIC 아님). full 뒤 payees·check·decide(보낼래요·안 보낼래요·물어볼래요)·suggest(추천·돈 받은 조력자·404·422·403) 정상, 결과 글에 연습 없음 |
+| aapt2(돈 보내기 뒤) | 요청 권한 0개, label `SafePause`, queries 8개(MAIN·LAUNCHER 더함), QUERY_ALL_PACKAGES 없음 |
+
+### v0.3 돈 보내기 (2026-10-02, 에뮬레이터: Android 15 google_apis x86_64)
+
+| 확인 | 결과 |
+|---|---|
+| 설치 | `SafePause-0.3.0-debug.apk` 설치, `dumpsys package`에 요청 권한 없음, versionName 0.3.0 |
+| 앱 목록(listApps) | 홈 화면 앱 18개를 이름순으로 돌려줌(약 0.25초), SafePause 자신은 빠짐. capabilities에 `apps: true` |
+| 앱 열기(openApp) | 목록의 앱(달력)을 열면 true, 그 앱이 앞으로 옴. 자기 앱·홈 화면에 없는 앱·없는 패키지·잘못된 글은 false |
+| 돌아오기 | SafePause로 돌아오면 화면이 그대로(결과 시트·주소·페이지 상태 유지, 다시 불러오지 않음) |
+| 화면 흐름 | 예시(김*호 새벽 2시) → 확인 카드(처음 초점 제목, 뒤로 가기로 닫히지 않고 안 보낼래요로 초점) → 그래도 보낼래요 → 내 은행 앱 고르기(검색) → 내 은행 앱 열기 |
+| 지우기 | 동의 화면 모두 지우기 뒤 고른 은행 앱도 사라짐(앱 설정: 아직 고르지 않았어요) |
+
+에뮬레이터에는 은행 앱이 없어 다른 앱(달력)으로 열기를 확인했다. 실제 은행 앱이 열리는지, 은행 앱의 인증 화면에서 돌아올 때의 동작은 실기기에서 확인해야 한다.
 
 에뮬레이터·실기기 확인이 아직 남은 것: 홈 화면 이름 표시, 문자 앱(sms_body)·메일 앱(제목·본문) 채우기, 연락처 선택 창 결과, TTS 끝남 알림으로 소리 버튼이 돌아오는지.
 

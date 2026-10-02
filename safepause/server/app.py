@@ -47,6 +47,7 @@ from safepause.api.schemas import (
     NoticeRecordIn,
     PendingIn,
     SampleIn,
+    SuggestIn,
     validation_detail,
 )
 from safepause.api.service import (   # noqa: F401  (v0.1 이름: 테스트·도구가 여기서 가져간다)
@@ -339,6 +340,11 @@ def create_app(home: Path | str | None = None, *, settings: Settings | None = No
     @app.post("/api/notices/record")
     def record_notice(body: NoticeRecordIn) -> dict[str, Any]:
         return service.record_notice(body)
+
+    # ---- 알림 보내기: 받는 사람 추천(v0.3 돈 보내기 설계) ----
+    @app.post("/api/notify/suggest")
+    def notify_suggest(body: SuggestIn) -> dict[str, Any]:
+        return service.notify_suggest(body)
 
     @app.get("/api/decisions")
     def decisions() -> dict[str, Any]:

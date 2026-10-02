@@ -1,4 +1,5 @@
-"""v0.3 API 테스트: 조력자 번호·메일 원본, 상담하는 곳, 알림 목록에 담기, 보낸 알림 기록, 돈 흐름 분석.
+"""v0.3 API 테스트: 조력자 번호·메일 원본, 상담하는 곳, 알림 목록에 담기, 보낸 알림 기록, 돈 흐름 분석,
+받는 사람 추천(notify/suggest), 돈 보내기 응답 글(check/decide에 연습이라는 말 없음).
 
 - 서비스 동작, 라우터(안드로이드) = FastAPI(PC) 같은 응답, 입력 오류 422(한국어), 동의 꺼짐 403
 - 모두 지우기가 새 저장 파일(counselors.json·flags.json)을 지우는지, 거래를 통째로 바꾸면 담은 거래가 비는지
@@ -14,7 +15,7 @@ import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import pytest
 from fastapi.testclient import TestClient
@@ -22,7 +23,7 @@ from fastapi.testclient import TestClient
 from safepause import __version__
 from safepause.api import constants
 from safepause.api.router import dispatch
-from safepause.api.schemas import ConsentIn, CounselorIn, FlagIn, HelperIn, NoticeRecordIn, SampleIn
+from safepause.api.schemas import ConsentIn, CounselorIn, FlagIn, HelperIn, NoticeRecordIn, SampleIn, SuggestIn
 from safepause.api.service import Service, ServiceError
 from safepause.explain.easy_card import FORBIDDEN_WORDS
 from safepause.guardian.policy import COUNSELING_ORGS
@@ -465,6 +466,396 @@ def test_insights_empty(svc: Service) -> None:
     assert [b["band"] for b in got["time_bands"]] == ["dawn", "morning", "day", "evening"]
 
 
+# ---- 받는 사람 추천(docs/v03_spec_money.md) ---------------------------------------------------
+
+def _flagged(s: Service) -> list[dict[str, Any]]:
+    """걱정되는 거래(확인해요·꼭 확인해요) 목록 항목."""
+    return s.transactions("caution")["items"]
+
+
+def _pick(s: Service, level: str, signal: Optional[str] = None) -> dict[str, Any]:
+    """등급(과 걸린 신호)이 맞는 첫 거래. signal=""이면 신호 없이 AI만 걱정한 거래."""
+    for it in _flagged(s):
+        if it["level"] != level:
+            continue
+        if signal is None or (signal == "" and not it["signals"]) or (signal and signal in it["signals"]):
+            return it
+    raise AssertionError(f"연습용 거래에 {level}/{signal} 거래가 없어요")
+
+
+def _suggest(s: Service, *txn_ids: str) -> dict[str, Any]:
+    return s.notify_suggest(SuggestIn(txn_ids=list(txn_ids)))
+
+
+def _by_id(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {r["id"]: r for r in rows}
+
+
+def test_suggest_needs_monitoring_consent(ready: Service) -> None:
+    ready.put_consent(ConsentIn(monitoring=False))
+    for ids in ([], ["anything"]):
+        e = _err(lambda: _suggest(ready, *ids))
+        assert e.status == 403 and e.detail == constants.NO_MONITORING
+    status, body = dispatch(ready, "POST", "/api/notify/suggest", {"txn_ids": []})
+    assert status == 403 and body == {"detail": constants.NO_MONITORING}
+
+
+def test_suggest_response_shape(ready: Service) -> None:
+    ready.put_consent(ConsentIn(helper_alerts=True))
+    ready.put_helpers([HelperIn(id="h1", **MOM)])
+    ready.put_counselors([CounselorIn(id="c1", name="센터")])
+    out = _suggest(ready, _pick(ready, "high")["txn"]["id"])
+    assert list(out) == ["helpers", "counselors", "counseling_due"]
+    assert list(out["helpers"][0]) == ["id", "name", "suggested", "conflict", "reason"]
+    assert list(out["counselors"][0]) == ["id", "name", "suggested"]
+    assert out["helpers"][0]["name"] == "엄마" and out["counselors"][0]["name"] == "센터"
+
+
+def test_suggest_conflict_helper_is_not_suggested(ready: Service) -> None:
+    ready.put_consent(ConsentIn(helper_alerts=True))
+    payee = _pick(ready, "high", "payee_surge")["txn"]
+    other = _pick(ready, "high", "micropay_surge")["txn"]
+    ready.put_helpers([
+        HelperIn(id="by-name", name="돈 받은 사람", identifiers=[payee["counterparty"]], min_level="caution"),
+        HelperIn(id="by-account", name="계좌 주인", identifiers=[f"우리 동네 은행 {payee['counterparty_id']}"]),
+        HelperIn(id="mom", name="엄마", min_level="caution"),
+    ])
+    got = _by_id(_suggest(ready, payee["id"])["helpers"])
+    for hid in ("by-name", "by-account"):
+        assert got[hid]["conflict"] is True and got[hid]["suggested"] is False
+        assert got[hid]["reason"] == "이 거래에서 돈을 받은 사람이에요." == constants.CONFLICT_REASON
+    assert got["mom"] == {"id": "mom", "name": "엄마", "suggested": True, "conflict": False, "reason": ""}
+    # 여러 거래 가운데 하나라도 그 사람이 돈을 받았으면 추천하지 않는다(다른 거래에는 알맞아도)
+    many = _by_id(_suggest(ready, other["id"], payee["id"])["helpers"])
+    assert many["by-name"]["conflict"] is True and many["by-name"]["suggested"] is False
+    # 그 사람과 관계없는 거래만 고르면 이해충돌이 아니다
+    alone = _by_id(_suggest(ready, other["id"])["helpers"])
+    assert alone["by-name"] == {"id": "by-name", "name": "돈 받은 사람", "suggested": True, "conflict": False,
+                                "reason": ""}
+
+
+def test_suggest_level_and_scope(ready: Service) -> None:
+    ready.put_consent(ConsentIn(helper_alerts=True))
+    high = _pick(ready, "high", "payee_surge")["txn"]["id"]
+    ai_caution = _pick(ready, "caution", "")["txn"]["id"]      # 신호 없이 AI만 걱정한 확인해요 거래
+    ready.put_helpers([
+        HelperIn(id="high-only", name="꼭 확인만", min_level="high"),
+        HelperIn(id="caution", name="확인부터", min_level="caution"),
+        HelperIn(id="scope-other", name="소액결제만", min_level="caution", signal_scope=["micropay_surge"]),
+        HelperIn(id="scope-same", name="송금 집중만", min_level="caution", signal_scope=["payee_surge"]),
+    ])
+    on_high = _by_id(_suggest(ready, high)["helpers"])
+    assert {k: v["suggested"] for k, v in on_high.items()} == {
+        "high-only": True, "caution": True, "scope-other": False, "scope-same": True}
+    on_caution = _by_id(_suggest(ready, ai_caution)["helpers"])
+    assert {k: v["suggested"] for k, v in on_caution.items()} == {
+        "high-only": False, "caution": True, "scope-other": False, "scope-same": False}
+    assert not any(v["conflict"] or v["reason"] for v in on_caution.values())
+    # 여러 거래: 하나라도 등급·범위에 들면 추천
+    both = _by_id(_suggest(ready, ai_caution, high)["helpers"])
+    assert {k: v["suggested"] for k, v in both.items()} == {
+        "high-only": True, "caution": True, "scope-other": False, "scope-same": True}
+
+
+def test_suggest_inactive_helper_is_never_suggested(ready: Service) -> None:
+    ready.put_consent(ConsentIn(helper_alerts=True))
+    ready.put_helpers([HelperIn(id="off", name="자동 끔", min_level="caution", active=False),
+                       HelperIn(id="on", name="자동 켬", min_level="caution")])
+    for ids in ([], [_pick(ready, "high")["txn"]["id"]]):
+        got = _by_id(_suggest(ready, *ids)["helpers"])
+        assert got["off"]["suggested"] is False and got["on"]["suggested"] is True, ids
+
+
+def test_suggest_without_transactions_uses_active(ready: Service) -> None:
+    ready.put_consent(ConsentIn(helper_alerts=True))
+    ready.put_helpers([HelperIn(id="a", name="엄마", min_level="high", signal_scope=["micropay_surge"]),
+                       HelperIn(id="b", name="아빠", active=False)])
+    got = _suggest(ready)["helpers"]
+    assert [(h["id"], h["suggested"], h["conflict"], h["reason"]) for h in got] == [
+        ("a", True, False, ""), ("b", False, False, "")]
+
+
+def test_suggest_helper_alerts_off_suggests_nobody(ready: Service) -> None:
+    payee = _pick(ready, "high", "payee_surge")["txn"]
+    ready.put_helpers([HelperIn(id="mom", name="엄마", min_level="caution"),
+                       HelperIn(id="payee", name="받은 사람", identifiers=[payee["counterparty"]])])
+    assert ready.store.load_consent().helper_alerts is False
+    for ids in ([], [payee["id"]], [i["txn"]["id"] for i in _flagged(ready)][:20]):
+        got = _by_id(_suggest(ready, *ids)["helpers"])
+        assert not any(h["suggested"] for h in got.values()), ids
+    # 이해충돌 경고는 동의와 관계없이 알려 준다(본인이 직접 고를 때 참고)
+    assert _by_id(_suggest(ready, payee["id"])["helpers"])["payee"]["conflict"] is True
+
+
+def test_suggest_matches_automatic_alert_rule(ready: Service) -> None:
+    """조력자 추천 = 자동 알림(policy.decide)이 알릴 조력자(거래 하나씩)."""
+    from safepause.guardian import policy
+    ready.put_consent(ConsentIn(helper_alerts=True))
+    flagged = _flagged(ready)
+    payee = _pick(ready, "high", "payee_surge")["txn"]
+    ready.put_helpers([HelperIn(id="h1", name="엄마", min_level="caution"),
+                       HelperIn(id="h2", name="아빠", min_level="high", signal_scope=["night_repeat_transfer"]),
+                       HelperIn(id="h3", name="받은 사람", min_level="caution", identifiers=[payee["counterparty"]]),
+                       HelperIn(id="h4", name="쉬는 사람", active=False)])
+    helpers = ready.store.load_helpers()
+    consent = ready.store.load_consent()
+    snap = ready.snapshot()
+    index = {t.id: (t, a) for t, a in zip(snap.txns, snap.assessments)}
+    assert len(flagged) >= 10
+    for it in flagged:
+        t, a = index[it["txn"]["id"]]
+        plan = policy.decide(a, t, helpers, consent, 0, ready.settings)
+        got = _suggest(ready, t.id)["helpers"]
+        assert {h["id"] for h in got if h["suggested"]} == {n.helper_id for n in plan.notices}, t.id
+        assert {h["id"] for h in got if h["conflict"]} == {h.id for h in helpers if policy.is_conflict(h, t)}
+
+
+def test_suggest_counseling_due_uses_counseling_hint_rule(ready: Service) -> None:
+    ready.put_counselors([CounselorIn(id="c1", name="우리 동네 센터"), CounselorIn(id="c2", name="쉬는 곳", active=False)])
+    off = _suggest(ready)
+    assert off["counseling_due"] is False and not any(c["suggested"] for c in off["counselors"])
+    ready.put_consent(ConsentIn(counseling_referral=True))
+    hint = ready.cards(limit=1)["counseling"]
+    assert hint["suggest"] is True and hint["recent_high"] >= hint["threshold"] == 3
+    on = _suggest(ready)
+    assert on["counseling_due"] is True
+    assert [(c["id"], c["suggested"]) for c in on["counselors"]] == [("c1", True), ("c2", False)]
+    assert _suggest(ready, _pick(ready, "high")["txn"]["id"])["counseling_due"] is True   # 고른 거래와 관계없음
+    # 기준(30일 동안 꼭 확인할 일 N번)을 넘지 않으면 동의가 있어도 아니다: 상담 안내 띠와 같은 기준
+    from safepause.config import Settings
+    strict = Service(ready.store.root, settings=Settings(high_repeat_for_counseling=999), now=lambda: NOW)
+    assert strict.cards(limit=1)["counseling"]["suggest"] is False
+    due = strict.notify_suggest(SuggestIn())
+    assert due["counseling_due"] is False and not any(c["suggested"] for c in due["counselors"])
+
+
+def test_suggest_without_helpers_or_counselors(ready: Service) -> None:
+    assert _suggest(ready) == {"helpers": [], "counselors": [], "counseling_due": False}
+
+
+def test_suggest_unknown_transaction_is_404(ready: Service) -> None:
+    known = _pick(ready, "high")["txn"]["id"]
+    for ids in (["no-such-txn"], [known, "no-such-txn"], ["no-such-txn", known]):
+        e = _err(lambda: _suggest(ready, *ids))
+        assert e.status == 404 and e.detail == "그 거래를 찾지 못했어요.", ids
+    status, body = dispatch(ready, "POST", "/api/notify/suggest", {"txn_ids": [known, "nope"]})
+    assert status == 404 and body == {"detail": "그 거래를 찾지 못했어요."}
+    assert _suggest(ready, known, f" {known} ")["helpers"] == []        # 겹친 id·앞뒤 빈칸은 한 번만
+
+
+@pytest.mark.parametrize("body", [
+    {"txn_ids": [f"t{i}" for i in range(21)]},
+    {"txn_ids": ["x" * 201]},
+    {"txn_ids": "t1"},
+    {"txn_ids": [1]},
+    {"txn_ids": None},
+])
+def test_suggest_input_errors_are_korean(tmp_path: Path, body: dict[str, Any]) -> None:
+    status, out = dispatch(_service(tmp_path), "POST", "/api/notify/suggest", body)
+    assert status == 422 and out["detail"] == "입력한 값을 확인해 주세요: 거래", body
+    status, out = dispatch(_service(tmp_path), "POST", "/api/notify/suggest", {"txn_ids": [], "to": "x"})
+    assert status == 422 and out["detail"] == "입력한 값을 확인해 주세요: 받지 않는 항목(to)"
+
+
+def test_suggest_allows_twenty_transactions(ready: Service) -> None:
+    ids = [i["txn"]["id"] for i in ready.transactions("all", 20, 0)["items"]]
+    assert len(ids) == 20
+    assert _suggest(ready, *ids)["counseling_due"] is False
+
+
+def _suggest_scenario(call: Callable[[str, str, Any], tuple[int, Any]]) -> list[tuple[int, Any]]:
+    out: list[tuple[int, Any]] = []
+
+    def step(m: str, p: str, b: Any = None) -> Any:
+        out.append(call(m, p, b))
+        return out[-1][1]
+
+    step("POST", "/api/notify/suggest", {"txn_ids": []})                                     # 403
+    step("PUT", "/api/consent", {"monitoring": True, "helper_alerts": True, "counseling_referral": True})
+    step("POST", "/api/data/sample", {"persona": "worker", "seed": 2, "scenarios": True})
+    flagged = step("GET", "/api/transactions?level=caution&limit=20")["items"]
+    payee = next(i["txn"] for i in flagged if "payee_surge" in i["signals"])
+    step("PUT", "/api/helpers", [{"id": "mom", **MOM, "min_level": "caution"},
+                                 {"id": "payee", "name": "받은 사람", "identifiers": [payee["counterparty"]]},
+                                 {"id": "night", "name": "밤만", "signal_scope": ["night_repeat_transfer"]},
+                                 {"id": "off", "name": "쉬는 사람", "active": False}])
+    step("PUT", "/api/counselors", [{"id": "c1", "name": "센터"}, {"id": "c2", "name": "쉬는 곳", "active": False}])
+    step("POST", "/api/notify/suggest", {"txn_ids": [i["txn"]["id"] for i in flagged]})
+    step("POST", "/api/notify/suggest", {"txn_ids": [payee["id"]]})
+    step("POST", "/api/notify/suggest", {"txn_ids": []})
+    step("POST", "/api/notify/suggest", {})
+    step("POST", "/api/notify/suggest", {"txn_ids": [payee["id"], "no-such"]})               # 404
+    step("POST", "/api/notify/suggest", {"txn_ids": [f"t{i}" for i in range(21)]})          # 422
+    step("POST", "/api/notify/suggest", {"txn_ids": "t1"})                                   # 422
+    step("POST", "/api/notify/suggest", {"txn_ids": [], "more": 1})                          # 422
+    step("PUT", "/api/consent", {"helper_alerts": False, "counseling_referral": False})
+    step("POST", "/api/notify/suggest", {"txn_ids": [payee["id"]]})
+    step("PUT", "/api/notify/suggest", {"txn_ids": []})                                      # 405
+    return out
+
+
+def test_router_matches_fastapi_suggest(tmp_path: Path) -> None:
+    client = TestClient(create_app(tmp_path / "pc", now=lambda: NOW), base_url=BASE, headers={"X-SafePause": "1"})
+
+    def pc(m: str, p: str, b: Any) -> tuple[int, Any]:
+        r = client.request(m, p, json=b) if b is not None else client.request(m, p)
+        return r.status_code, r.json()
+
+    svc = _service(tmp_path / "app")
+
+    def mobile(m: str, p: str, b: Any) -> tuple[int, Any]:
+        status, body = dispatch(svc, m, p, b)
+        return status, json.loads(json.dumps(body, ensure_ascii=False))
+
+    got_pc, got_app = _suggest_scenario(pc), _suggest_scenario(mobile)
+    assert got_pc == got_app
+    assert [s for s, _ in got_pc] == [403, 200, 200, 200, 200, 200, 200, 200, 200, 200, 404, 422, 422, 422, 200,
+                                      200, 405]
+    assert all(re.search(r"[가-힣]", b["detail"]) for s, b in got_pc if s != 200)
+    first = got_pc[6][1]                     # 걱정되는 거래 모두
+    assert first["counseling_due"] is True
+    assert [(c["id"], c["suggested"]) for c in first["counselors"]] == [("c1", True), ("c2", False)]
+    assert {h["id"]: (h["suggested"], h["conflict"]) for h in first["helpers"]} == {
+        "mom": (True, False), "payee": (False, True), "night": (True, False), "off": (False, False)}
+    last = got_pc[15][1]                     # 조력자 알림·상담 동의를 끈 뒤
+    assert not any(h["suggested"] for h in last["helpers"]) and last["counseling_due"] is False
+    assert {h["id"] for h in last["helpers"] if h["conflict"]} == {"payee"}
+
+
+def test_suggest_needs_ai_packages_so_app_waits_for_full_engine(tmp_path: Path) -> None:
+    """받는 사람 추천은 거래 판단(numpy·scikit-learn)이 필요하다: 앱의 가벼운 경로(worker.mjs BASIC)에 넣지 않는다."""
+    worker = (ROOT / "safepause" / "web" / "engine" / "worker.mjs").read_text(encoding="utf-8")
+    basic = re.search(r"const BASIC = new Set\(\[(.*?)\]\);", worker, re.S)
+    assert basic is not None and "GET /api/consent" in basic.group(1)
+    assert "/api/notify/suggest" not in basic.group(1)
+    code = r'''
+import sys
+sys.modules["numpy"] = None                      # numpy를 싣지 못하는 상태(앱의 AI 준비 전)
+from datetime import datetime
+from safepause.api.router import dispatch
+from safepause.api.service import Service
+from safepause.models import Channel, Consent, Direction, Transaction
+s = Service(sys.argv[1])
+s.store.save_consent(Consent(monitoring=True))
+s.store.save_transactions([Transaction(id="t1", ts=datetime(2026, 9, 1, 10), amount=1000,
+                                       direction=Direction.OUT, channel=Channel.CARD, counterparty="가게")])
+print(dispatch(s, "POST", "/api/notify/suggest", {"txn_ids": []})[0])
+'''
+    out = subprocess.run([sys.executable, "-c", code, str(tmp_path / "s")], capture_output=True, text=True,
+                         encoding="utf-8", errors="replace", cwd=ROOT, check=True)
+    assert out.stdout.strip().splitlines()[-1] == "500"   # numpy 없이는 처리하지 못함(앱은 AI 준비 뒤에 보냄)
+
+
+# ---- 돈 보내기: check/decide 응답 글(docs/v03_spec_money.md 파이썬 문구) ------------------------------
+
+def _strings(obj: Any) -> list[str]:
+    if isinstance(obj, str):
+        return [obj]
+    if isinstance(obj, dict):
+        return [s for v in obj.values() for s in _strings(v)]
+    if isinstance(obj, (list, tuple)):
+        return [s for v in obj for s in _strings(v)]
+    return []
+
+
+MONEY_BANNED = ("연습", "실제로 돈이 나가지 않아요", "막지 않아요", "결정은 내가 해요", "AI 혼자서는", "안전 정지",
+                "127.0.0.1")
+
+
+@pytest.mark.parametrize("channel,to", [("transfer", "김*호"), ("card", "새로 연 전자상가"), ("micropay", "게임 아이템")])
+def test_check_and_decide_texts_have_no_practice_words(ready: Service, channel: str, to: str) -> None:
+    from safepause.api.schemas import DecideIn, PendingIn
+    ready.put_consent(ConsentIn(helper_alerts=True, counseling_referral=True))
+    ready.put_helpers([HelperIn(id="h1", min_level="caution", **MOM)])
+    req = {"to": to, "amount": 300000, "channel": channel}          # 지금 시각: 날짜가 옮겨져 ts_note가 생김
+    r = ready.check(PendingIn(**req))
+    assert r["ts_note"] and r["practice_note"] == ""
+    texts = _strings({k: v for k, v in r.items() if k != "assessment"})
+    for decision in ("send", "cancel", "ask_helper"):
+        d = ready.decide(DecideIn(pending=PendingIn(**r["pending"]), decision=decision))
+        assert d["practice_note"] == ""
+        assert d["pending"]["memo"] == "보내기 전 확인"
+        texts += _strings({k: v for k, v in d.items() if k != "assessment"})
+    for text in texts:
+        for word in MONEY_BANNED:
+            assert word not in text, (word, text)
+    assert constants.PRACTICE_NOTE == "연습 화면이에요. 실제로 돈이 나가지 않아요."   # 상수는 평가·옛 호환용으로 남김
+
+
+def test_decide_result_texts_for_money_flow(ready: Service) -> None:
+    from safepause.api.schemas import DecideIn, PendingIn
+    ready.put_helpers([HelperIn(id="h1", **MOM)])
+    pending = PendingIn(to="김*호", amount=300000, channel="transfer", time="02:00")
+    want = {
+        "send": ("내 은행 앱에서 보내 주세요.", "내 은행 앱에서 보내 주세요", ["김*호에게 30만 원을 보내기 전에 확인했어요."]),
+        "cancel": ("보내지 않았어요.", "보내지 않았어요", ["김*호에게 30만 원을 보내지 않았어요."]),
+        "ask_helper": ("엄마에게 물어볼게요.", "조력자에게 물어봐요",
+                       ["김*호에게 30만 원을 보내기 전에 조력자에게 물어봐요.", "아직 보내지 않았어요."]),
+    }
+    for decision, (message, title, lines) in want.items():
+        helper_ids = ["h1"] if decision == "ask_helper" else None
+        d = ready.decide(DecideIn(pending=pending, decision=decision, helper_ids=helper_ids))
+        assert (d["message"], d["result_title"], d["result_lines"]) == (message, title, lines), decision
+        assert d["added_to_history"] is (decision == "send")               # 그래도 보낼래요만 내 거래 끝에 적힘
+    card = ready.decide(DecideIn(pending=PendingIn(to="새로 연 전자상가", amount=800000, channel="card", time="15:00"),
+                                 decision="send"))
+    assert (card["message"], card["result_title"]) == ("결제는 직접 해 주세요.", "결제는 직접 해 주세요")
+    assert card["result_lines"] == ["새로 연 전자상가에서 80만 원을 결제하기 전에 확인했어요."]
+
+
+def test_live_ids_used_up_message_has_no_practice_word(svc: Service) -> None:
+    svc._live_high = 10 ** constants.LIVE_ID_DIGITS - 1
+    e = _err(lambda: svc.issue_live_id([]))
+    assert e.status == 409 and e.detail == constants.LIVE_IDS_USED_UP and "연습" not in e.detail
+
+
+def test_money_phrases_are_plain() -> None:
+    from safepause.explain.easy_card import WORDS_BILL, WORDS_CASH, WORDS_OTHER, WORDS_PAY, WORDS_SEND
+    quoted = re.compile(r"['\"‘’“”][^'\"‘’“”]*[가-힣][^'\"‘’“”]*['\"‘’“”]")
+    texts = [constants.TS_NOTE, constants.LIVE_IDS_USED_UP, constants.CONFLICT_REASON, constants.PRACTICE_MEMO,
+             *(w.self_do for w in (WORDS_SEND, WORDS_PAY, WORDS_BILL, WORDS_CASH, WORDS_OTHER))]
+    for text in texts:
+        assert text and not quoted.search(text), text
+        for word in (*FORBIDDEN_WORDS, *MONEY_BANNED, "고위험", "푸시", "당사자님"):
+            assert word not in text, (word, text)
+    assert WORDS_SEND.self_do == "내 은행 앱에서 보내 주세요"
+    assert constants.TS_NOTE.startswith("확인한 거래는 저장된 거래의 마지막 날에 이어서 적어요.")
+    assert constants.CONFLICT_REASON == "이 거래에서 돈을 받은 사람이에요."
+
+
+
+def test_old_practice_memo_is_shown_with_new_name(ready: Service) -> None:
+    # v0.2 앱이 확인 거래에 적은 메모(안전 정지 연습)는 저장은 그대로 두고, 화면에 줄 때만 지금 이름으로 보인다
+    txns = ready.store.load_transactions()
+    last = txns[-1].ts
+    old = Transaction(id="live-00001", ts=last + timedelta(minutes=5), amount=300000, direction=Direction.OUT,
+                      channel=Channel.TRANSFER, counterparty="김*호", memo="안전 정지 연습")
+    plain = Transaction(id="t-memo", ts=last + timedelta(minutes=6), amount=1000, direction=Direction.OUT,
+                        channel=Channel.CARD, counterparty="가게", memo="안전 정지 연습")   # 확인 거래가 아니면 그대로
+    ready.store.save_transactions([*txns, old, plain])
+    items = {i["txn"]["id"]: i for i in ready.transactions("all", 5, 0)["items"]}
+    assert items["live-00001"]["txn"]["memo"] == constants.PRACTICE_MEMO == "보내기 전 확인"
+    assert items["live-00001"]["practice"] is True
+    assert items["t-memo"]["txn"]["memo"] == "안전 정지 연습" and items["t-memo"]["practice"] is False
+    stored = {t.id: t.memo for t in ready.store.load_transactions()}
+    assert stored["live-00001"] == "안전 정지 연습"                                   # 저장은 바꾸지 않음
+    for card in ready.cards(50)["items"]:
+        if card["txn"]["id"] == "live-00001":
+            assert card["txn"]["memo"] == constants.PRACTICE_MEMO
+
+
+def test_upload_warning_and_results_csv_use_checked_name(ready: Service) -> None:
+    # 파일 올리기 경고와 분석 결과 표의 열 이름도 화면 이름(보내기 전 확인)을 쓴다. 연습이라는 말은 쓰지 않는다
+    header = ready.export_results_csv()["text"].lstrip("\ufeff").splitlines()[0]
+    assert header.endswith(",보내기 전 확인") and "연습" not in header
+    csv = ("id,ts,amount,direction,channel,counterparty\n"
+           "live-00001,2026-09-01T10:00:00,5000,out,card,가게\n"
+           "x2,2026-09-02T10:00:00,7000,out,card,가게\n").encode("utf-8")
+    warnings = ready.upload(csv)["report"]["warnings"]
+    assert "보내기 전 확인한 거래와 같은 모양의 번호 1건은 이름을 바꿔 저장했어요." in warnings
+    assert not any("연습" in w for w in warnings)
+
+
 # ---- 모두 지우기 -------------------------------------------------------------------------
 
 def test_wipe_removes_new_files(ready: Service) -> None:
@@ -541,7 +932,8 @@ def test_router_matches_fastapi_v03(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("method,path", [("PUT", "/api/counselors"), ("POST", "/api/flags"),
-                                         ("POST", "/api/flags/remove"), ("POST", "/api/notices/record")])
+                                         ("POST", "/api/flags/remove"), ("POST", "/api/notices/record"),
+                                         ("POST", "/api/notify/suggest")])
 def test_router_missing_body_matches_fastapi_v03(tmp_path: Path, method: str, path: str) -> None:
     with TestClient(create_app(tmp_path / "pc", now=lambda: NOW), base_url=BASE, headers={"X-SafePause": "1"}) as c:
         pc = c.request(method, path)

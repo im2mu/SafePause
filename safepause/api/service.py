@@ -19,11 +19,13 @@ v0.2에서 고친 것(전문가 리뷰)
 - 거래 목록 쪽 나눔(offset·limit): 필요한 쪽만 만든다(4만 건 목록 13.6MB → 한 쪽).
 - numpy·scikit-learn은 필요할 때만 싣는다(앱은 동의·조력자 화면을 AI 준비 전에 먼저 쓸 수 있음).
 
-v0.3(착취를 알아차리는 앱, 송금 기능 없음)
+v0.3(착취를 알아차리는 앱)
 - 조력자 번호·메일 원본은 이 기기에만 저장한다(문자·메일 앱을 열 때 씀). 화면 목록·내보내기·알림 기록에는 가린 값만.
 - 상담하는 곳(counselors.json), 알림 목록에 담은 거래(flags.json), 직접 보낸 알림 기록(notices.json의 kind "manual").
 - 돈 흐름 분석(insights): 저장된 마지막 거래가 있는 달을 기준 달로 본다.
-- check/decide/payees(돈 보내기 연습)는 화면에서 쓰지 않지만 평가·테스트용으로 남겨 둔다.
+- 돈 보내기(docs/v03_spec_money.md): check/decide/payees는 보내기 전 확인에 쓴다. SafePause는 돈을 옮기지 않고,
+  본인이 고른 은행 앱을 화면이 연다. 응답 글에 연습이라는 말을 쓰지 않는다(practice_note는 빈 글).
+- 받는 사람 추천(notify_suggest): 조력자 설정(등급·범위·자동으로 알리기)과 이해충돌을 policy 그대로 쓴다.
 """
 from __future__ import annotations
 
@@ -45,11 +47,14 @@ from typing import Any, Optional
 
 from safepause import __version__
 from safepause.api.constants import (
+    CONFLICT_REASON,
     COUNSELOR_PRESETS,
     INSIGHT_MONTHS,
     LABELED_NOTE,
+    LEGACY_PRACTICE_MEMOS,
     LIVE_ID_DIGITS,
     LIVE_ID_PREFIX,
+    LIVE_IDS_USED_UP,
     MAX_COUNSELORS,
     MAX_HELPERS,
     MAX_MAPPING_CHARS,
@@ -63,7 +68,6 @@ from safepause.api.constants import (
     NOTICES_NOTE,
     PERSONA_KEYS,
     PRACTICE_MEMO,
-    PRACTICE_NOTE,
     SCENARIO_WINDOW_DAYS,
     SUPERSEDED,
     SYNTHETIC_NOTE,
@@ -83,6 +87,7 @@ from safepause.api.schemas import (
     NoticeRecordIn,
     PendingIn,
     SampleIn,
+    SuggestIn,
 )
 from safepause.config import Settings
 from safepause.explain.easy_card import channel_words, practice_result, render_card
@@ -287,9 +292,17 @@ def _summary(txns: Sequence[Transaction]) -> dict[str, Any]:
     }
 
 
+def _txn_out(txn: Transaction) -> dict[str, Any]:
+    """화면에 줄 거래 dict. v0.2가 보내기 전 확인 거래에 적은 옛 메모(안전 정지 연습)는 지금 이름으로 보인다(저장은 그대로)."""
+    d = txn.to_dict()
+    if d.get("memo") in LEGACY_PRACTICE_MEMOS and LIVE_ID_RE.fullmatch(txn.id):
+        d["memo"] = PRACTICE_MEMO
+    return d
+
+
 def _item(txn: Transaction, assessment: RiskAssessment, flagged: bool = False) -> dict[str, Any]:
     return _plain({
-        "txn": txn.to_dict(),
+        "txn": _txn_out(txn),
         "level": assessment.level.value,
         "signals": [h.code.value for h in assessment.rule_hits],
         "anomaly_score": round(float(assessment.anomaly_score), 4),
@@ -604,12 +617,13 @@ def _ts_note(req: PendingIn, pending: Transaction, now: datetime) -> str:
 
 def _decision_message(decision: Decision, plan: NotifyPlan, pending: Optional[Transaction] = None,
                       asked_count: Optional[int] = None) -> str:
+    """결정 뒤 한 문장. SafePause는 돈을 옮기지 않으므로 보냈다고 말하지 않는다(v0.3 돈 보내기)."""
+    words = channel_words(pending.channel if pending else Channel.TRANSFER)
     if decision == Decision.SEND:
-        return "보냈어요."
+        return f"{words.self_do}."          # 계좌 이체: 내 은행 앱에서 보내 주세요.
     if decision == Decision.CANCEL:
-        return "안 보냈어요."
+        return f"{words.not_done}."         # 계좌 이체: 보내지 않았어요.
     if asked_count == 0:   # 물어볼 조력자가 없었음: 물어봤다고 말하지 않는다
-        words = channel_words(pending.channel if pending else Channel.TRANSFER)
         return f"물어볼 조력자가 없어요. 아직 {words.not_done}."
     return plan.note_to_person or "조력자에게 물어볼게요."
 
@@ -714,7 +728,7 @@ class Service:
         with self.lock:
             number = max([_live_number(x) for x in used_ids] + [self._live_high]) + 1
             if number >= 10 ** LIVE_ID_DIGITS:
-                raise ServiceError(409, "연습 거래 번호를 다 썼어요. 동의 화면에서 모두 지운 뒤 다시 해 주세요.")
+                raise ServiceError(409, LIVE_IDS_USED_UP)
             self._live_high = number
             return f"{LIVE_ID_PREFIX}{number:05d}"
 
@@ -889,12 +903,12 @@ class Service:
             if reasons:
                 detail += " " + " ".join(r if r.endswith((".", "요")) else f"{r}." for r in reasons)
             raise ServiceError(400, detail)
-        # 파일에 연습 거래와 같은 모양의 id(live-…)가 있으면 바꿔 저장한다(연습 거래로 오인·중복 기록 방지).
+        # 파일에 보내기 전 확인 거래와 같은 모양의 id(live-…)가 있으면 바꿔 저장한다(확인 거래로 오인·중복 기록 방지).
         # 바꾼 id가 파일의 다른 id와 겹치지 않게 한다(v0.2 2차 검증)
         fixed, renamed = _unique_ids(txns)
         if renamed:
             report = {**report, "warnings": [*report.get("warnings", []),
-                                             f"연습 거래와 같은 모양의 번호 {renamed}건은 이름을 바꿔 저장했어요."]}
+                                             f"보내기 전 확인한 거래와 같은 모양의 번호 {renamed}건은 이름을 바꿔 저장했어요."]}
         # 읽는 사이 지우기·동의 끄기가 있었으면 저장하지 않는다(철회가 먼저)
         self._save_if_current(fixed, generation, need_consent=True)
         return {"source": "upload", "report": _plain(report), "summary": _summary(fixed)}
@@ -927,7 +941,7 @@ class Service:
         }
 
     def payees(self, limit: int = 30) -> dict[str, Any]:
-        """보내기 연습 자동완성: 최근에 계좌로 돈을 보낸 사람 이름(최근 것부터, 겹침 없이)."""
+        """돈 보내기 자동완성: 최근에 계좌로 돈을 보낸 사람 이름(최근 것부터, 겹침 없이)."""
         snap = self._analysis()
         names: list[str] = []
         for t in reversed(snap.txns):
@@ -940,7 +954,7 @@ class Service:
 
     # ---- 안전 정지(S20/S21) ----
     def check(self, body: PendingIn) -> dict[str, Any]:
-        """보내기 전 평가. 아무것도 저장하지 않는다(연습 거래 id와 지문만 메모리에 기억)."""
+        """보내기 전 평가. 아무것도 저장하지 않는다(확인 거래 id와 지문만 메모리에 기억)."""
         snap = self._analysis()
         with self.lock:
             # 동의는 잠금 안에서 다시 읽는다(동시에 철회하면 철회가 먼저 적용되게)
@@ -978,7 +992,7 @@ class Service:
             "notify_plan_preview": preview.to_dict(),
             # '조력자에게 물어볼래요'를 고르기 전에 누구에게 묻게 되는지 보여 주는 목록
             "ask_helper_preview": {"candidates": candidates, "counseling_orgs": ask_counseling},
-            "practice_note": PRACTICE_NOTE,
+            "practice_note": "",   # v0.3: 연습 안내를 쓰지 않는다(키는 옛 화면 호환용)
             "ts_note": _ts_note(body, pending, now),
         })
 
@@ -1053,7 +1067,7 @@ class Service:
             "message": _decision_message(body.decision, plan, pending, asked_count),
             "result_title": result_title,
             "result_lines": result_lines,
-            "practice_note": PRACTICE_NOTE,
+            "practice_note": "",   # v0.3: 연습 안내를 쓰지 않는다(키는 옛 화면 호환용)
             "ts_note": _ts_note(body.pending, pending, now),
             "delivery_note": DELIVERY_NOTE,
         })
@@ -1067,7 +1081,7 @@ class Service:
         for t, a in reversed(flagged[-limit:]):
             card = render_card(a, t, past=True)  # 이미 끝난 거래: 과거형, 묻지 않음
             if card is not None:
-                items.append(_plain({"card": card.to_dict(), "txn": t.to_dict(),
+                items.append(_plain({"card": card.to_dict(), "txn": _txn_out(t),
                                      "signals": [h.code.value for h in a.rule_hits],
                                      "flagged": t.id in marked}))
         return {"total": len(flagged), "items": items, "counseling": self._counseling_hint(snap)}
@@ -1111,6 +1125,38 @@ class Service:
                       "created_at": self.timestamp()}
             self.store.append_notice_record(record)
         return record
+
+    def notify_suggest(self, body: SuggestIn) -> dict[str, Any]:
+        """알림 보내기의 받는 사람 추천(docs/v03_spec_money.md 받는 사람 추천).
+
+        조력자 추천은 자동 알림(policy.decide)과 같은 규칙이다: 조력자에게 알리기 동의 + 자동으로 알리기(active)
+        + 고른 거래 가운데 하나 이상이 그 조력자의 등급·범위에 듦(policy.is_eligible) + 고른 거래 어느 것의
+        상대방도 아님(policy.is_conflict). 거래를 고르지 않았으면 동의와 active만 본다.
+        상담하는 곳은 알림 탭의 상담 안내와 같은 기준(_counseling_hint)을 넘고 사용 중일 때 추천한다.
+        거래 살펴보기 동의가 필요하다(403). 고른 거래 가운데 하나라도 없으면 404.
+        """
+        snap = self._analysis()
+        with self.lock:
+            # 동의·분석 결과는 잠금 안에서 다시 본다(그 사이 동의를 끄면 403, 거래가 바뀌면 다시 만듦)
+            consent = self._require_monitoring()
+            snap = self._current(snap)
+            index = {t.id: (t, a) for t, a in zip(snap.txns, snap.assessments)}
+            if any(tid not in index for tid in body.txn_ids):
+                raise ServiceError(404, TXN_NOT_FOUND)
+            pairs = [index[tid] for tid in body.txn_ids]
+            due = bool(self._counseling_hint(snap)["suggest"])
+            stored_helpers = self.store.load_helpers()
+            stored_counselors = self.store.load_counselors()
+        helpers: list[dict[str, Any]] = []
+        for h in stored_helpers:
+            conflict = any(policy.is_conflict(h, t) for t, _ in pairs)
+            fits = any(policy.is_eligible(h, a) for _, a in pairs) if pairs else h.active
+            helpers.append({"id": h.id, "name": h.name,
+                            "suggested": bool(consent.helper_alerts and h.active and fits and not conflict),
+                            "conflict": conflict, "reason": CONFLICT_REASON if conflict else ""})
+        counselors = [{"id": c.id, "name": c.name, "suggested": bool(due and c.active)}
+                      for c in stored_counselors]
+        return {"helpers": helpers, "counselors": counselors, "counseling_due": due}
 
     # ---- 알림 목록에 담은 거래(v0.3) ----
     def _stored_txn_ids(self) -> set[str]:
@@ -1223,7 +1269,7 @@ class Service:
         snap = self._analysis()
         buf = io.StringIO()
         w = csv.writer(buf, lineterminator="\n")
-        w.writerow(["거래일시", "나감/들어옴", "방법", "상대", "금액(원)", "판단", "걸린 약속", "AI 점수(0~1)", "연습 거래"])
+        w.writerow(["거래일시", "나감/들어옴", "방법", "상대", "금액(원)", "판단", "걸린 약속", "AI 점수(0~1)", "보내기 전 확인"])
         level_ko = {"none": "괜찮아요", "caution": "확인해요", "high": "꼭 확인해요"}
         for t, a in zip(snap.txns, snap.assessments):
             w.writerow([t.ts.isoformat(sep=" ", timespec="minutes"), "나감" if t.direction == Direction.OUT else "들어옴",

@@ -54,6 +54,19 @@ export const COUNSELOR_KIND_ICON = {
 export const NOTICE_CHANNEL_KO = { sms: "문자", email: "메일", call: "전화", copy: "복사" };
 export const NOTICE_CHANNEL_ICON = { sms: "chat", email: "mail", call: "call", copy: "copy" };
 
+// 돈 보내기(보내기 전 확인 → 내 은행 앱): 카드 선택지 아이콘, 보내는 방법, 예시(심사·시연용)
+export const DECISION_ICON = { send: "send", cancel: "stop", ask_helper: "helper" };
+export const PAY_CHANNELS = [
+  { value: "transfer", label: "계좌 이체", icon: "bank" },
+  { value: "card", label: "가게에서 결제", icon: "card" },
+  { value: "micropay", label: "휴대폰 결제", icon: "sig-phone-pay" },
+];
+export const EXAMPLES = [
+  { key: "safe", label: "엄마에게 5만 원 · 오후 3시", to: "엄마", amount: 50000, channel: "transfer", time: "15:00" },
+  { key: "night", label: "김*호에게 30만 원 · 새벽 2시", to: "김*호", amount: 300000, channel: "transfer", time: "02:00" },
+  { key: "store", label: "처음 가는 가게에서 80만 원", to: "새로 연 전자상가", amount: 800000, channel: "card", time: "15:00" },
+];
+
 export const MODE_KO = { fused: "규칙 + AI 함께", rules: "규칙만", anomaly: "AI만" };
 export const COUNSELING_TITLE = "상담을 도와줄 곳이 있어요.";   // guardian/policy.py NOTE_COUNSELING과 같은 문장
 

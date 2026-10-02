@@ -235,13 +235,13 @@ export default {
         fill(panel, noteBox, h("div", { class: "empty" }, icon("send"),
           h("b", { text: "아직 보낸 알림이 없어요" }),
           h("p", { text: "알림 보내기에서 조력자와 상담하는 곳에 알릴 수 있어요." }),
-          h("button", { type: "button", class: "btn weak", onclick: () => go("send") }, icon("send"), h("span", { text: "알림 보내기" }))));
+          h("button", { type: "button", class: "btn weak", onclick: () => go("send?mode=notify") }, icon("send"), h("span", { text: "알림 보내기" }))));
         return;
       }
       fill(panel, noteBox,
         h("p", { class: "al-summary", text: `보낸 알림 ${nf.format(items.length)}건이에요.` }),
         h("ul", { class: "list al-sent", "aria-label": "보낸 알림" }, items.slice(0, 100).map(sentRow)),
-        h("button", { type: "button", class: "btn weak block al-more-send", onclick: () => go("send") }, icon("send"), h("span", { text: "새 알림 보내기" })));
+        h("button", { type: "button", class: "btn weak block al-more-send", onclick: () => go("send?mode=notify") }, icon("send"), h("span", { text: "새 알림 보내기" })));
     }
 
     function sentRow(n) {

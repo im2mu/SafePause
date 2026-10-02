@@ -1,8 +1,10 @@
 /* 앱 설정: 글자 크기·화면 모드는 고르는 즉시 바뀌고 이 기기에 저장된다(ui.setPref → html[data-font]·[data-theme]).
+ * 내 은행 앱(돈 보내기에서 확인한 뒤 열 앱)은 고르기·바꾸기·지우기(bankapp.js).
  * 휴대폰 알림 받기·앱 잠금은 정식 버전 기능이라 준비 중 안내만 연다. */
 import { h, icon, fill, toast, announce, comingSoonSheet, getPref, setPref } from "../ui.js";
 import { menuRow } from "../components.js";
 import { deviceWord } from "../format.js";
+import { bankAppSettings } from "./bankapp.js";
 
 const FONTS = [
   { value: "m", label: "보통", cls: "fs-m" },
@@ -46,6 +48,9 @@ export default {
       h("h3", { class: "section-title", id: "pref-theme-title" }, h("span", { class: "pref-head" }, icon("moon-sun"), h("span", { text: "화면 모드" }))),
       h("div", { class: "card pref-card" }, theme,
         h("p", { class: "muted", text: `자동은 ${deviceWord()} 설정을 따라요.` })),
+
+      h("h3", { class: "section-title", text: "돈 보내기" }),
+      bankAppSettings(),
 
       h("h3", { class: "section-title", text: "알림·보안" }),
       h("div", { class: "list" },

@@ -50,21 +50,22 @@ class ChannelWords:
     question: str      # 카드 질문
     go: str            # 그래도 할래요
     stop: str          # 안 할래요
-    done: str          # 했어요(연습 결과)
-    not_done: str      # 안 했어요(연습 결과)
+    done: str          # 했어요
+    not_done: str      # 안 했어요(결과: 안 할래요)
     before: str        # '…기 전에'
+    self_do: str = ""  # 결과: 그래도 할래요. SafePause는 돈을 옮기지 않아 본인이 직접 하도록 안내(v0.3 돈 보내기)
 
 
 WORDS_SEND = ChannelWords("이 돈을 정말 보내는 것이 맞나요?", "그래도 보낼래요", "안 보낼래요",
-                          "보냈어요", "보내지 않았어요", "보내기")
+                          "보냈어요", "보내지 않았어요", "보내기", "내 은행 앱에서 보내 주세요")
 WORDS_PAY = ChannelWords("이 돈을 정말 내는 것이 맞나요?", "그래도 낼래요", "안 낼래요",
-                         "결제했어요", "결제하지 않았어요", "결제하기")
+                         "결제했어요", "결제하지 않았어요", "결제하기", "결제는 직접 해 주세요")
 WORDS_BILL = ChannelWords("이 요금을 정말 내는 것이 맞나요?", "그래도 낼래요", "안 낼래요",
-                          "냈어요", "내지 않았어요", "내기")
+                          "냈어요", "내지 않았어요", "내기", "요금은 직접 내 주세요")
 WORDS_CASH = ChannelWords("이 돈을 정말 찾는 것이 맞나요?", "그래도 찾을래요", "안 찾을래요",
-                          "찾았어요", "찾지 않았어요", "찾기")
+                          "찾았어요", "찾지 않았어요", "찾기", "돈은 직접 찾아 주세요")
 WORDS_OTHER = ChannelWords("이 돈을 정말 내는 것이 맞나요?", "그래도 낼래요", "안 낼래요",
-                           "냈어요", "내지 않았어요", "내기")
+                           "냈어요", "내지 않았어요", "내기", "돈은 직접 내 주세요")
 _CHANNEL_WORDS: dict[Channel, ChannelWords] = {
     Channel.TRANSFER: WORDS_SEND,
     Channel.CARD: WORDS_PAY,
@@ -740,8 +741,10 @@ NO_HELPER_HINT = "조력자 화면에서 조력자를 정할 수 있어요."
 
 def practice_result(decision: Decision | str, txn: Transaction,
                     asked_count: Optional[int] = None) -> tuple[str, list[str]]:
-    """보내기 연습 결과 화면의 (제목, 줄). 거래 방법에 맞는 동사·조사를 쓴다(실제 거래 없음).
+    """보내기 전 확인 결과 화면의 (제목, 줄). 거래 방법에 맞는 동사·조사를 쓴다.
 
+    SafePause는 돈을 옮기지 않는다. 그래서 그래도 할래요를 고르면 했다고 말하지 않고, 본인이 직접 하도록
+    안내한다(계좌 이체: 내 은행 앱에서 보내 주세요). 연습이라는 말은 쓰지 않는다(v0.3, 이름은 호환용으로 그대로).
     asked_count: '조력자에게 물어볼래요'로 실제 물어본 조력자 수. 0이면 물어봤다고 말하지 않는다.
     """
     d = Decision(decision)
@@ -761,7 +764,7 @@ def practice_result(decision: Decision | str, txn: Transaction,
     else:
         target = f"{name}에 " if name else ""
     if d == Decision.SEND:
-        return f"{w.done} (연습)", [f"{target}{won}을 {w.done}."]
+        return w.self_do, [f"{target}{won}을 {w.before} 전에 확인했어요."]
     if d == Decision.CANCEL:
         return w.not_done, [f"{target}{won}을 {w.not_done}."]
     if asked_count is not None and asked_count <= 0:

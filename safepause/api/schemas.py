@@ -219,6 +219,14 @@ class FlagIn(BaseModel):
         return value
 
 
+def _clean_txn_ids(values: list[str]) -> list[str]:
+    """거래 id 목록: 앞뒤 빈칸을 떼고 빈 값은 빼며 겹치면 한 번만(들어온 순서대로). 너무 긴 id는 오류."""
+    out = [v.strip() for v in values if v and v.strip()]
+    if any(len(v) > MAX_TXN_ID_CHARS for v in out):
+        raise ValueError("거래 번호가 너무 길어요.")
+    return list(dict.fromkeys(out))
+
+
 class NoticeRecipientIn(BaseModel):
     """알림을 받은 사람(조력자·상담하는 곳). 번호·메일 같은 다른 칸은 받아도 저장하지 않는다."""
 
@@ -251,11 +259,8 @@ class NoticeRecordIn(BaseModel):
 
     @field_validator("txn_ids")
     @classmethod
-    def _clean_txn_ids(cls, values: list[str]) -> list[str]:
-        out = [v.strip() for v in values if v and v.strip()]
-        if any(len(v) > MAX_TXN_ID_CHARS for v in out):
-            raise ValueError("거래 번호가 너무 길어요.")
-        return list(dict.fromkeys(out))
+    def _txn_ids(cls, values: list[str]) -> list[str]:
+        return _clean_txn_ids(values)
 
     @field_validator("message")
     @classmethod
@@ -264,6 +269,18 @@ class NoticeRecordIn(BaseModel):
         if not value:
             raise ValueError("보낼 글을 적어 주세요.")
         return value
+
+
+class SuggestIn(BaseModel):
+    """알림 보내기의 받는 사람 추천(v0.3 돈 보내기 설계). 고른 거래 0~20개(없으면 조력자 설정만 본다)."""
+
+    model_config = ConfigDict(extra="forbid")
+    txn_ids: list[str] = Field(default_factory=list, max_length=MAX_NOTICE_TXNS)
+
+    @field_validator("txn_ids")
+    @classmethod
+    def _txn_ids(cls, values: list[str]) -> list[str]:
+        return _clean_txn_ids(values)
 
 
 class PendingIn(BaseModel):

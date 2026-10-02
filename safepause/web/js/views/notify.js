@@ -1,14 +1,20 @@
-/* 알림 보내기(보내기 탭, 경로 send): 무엇을 → 누구에게 → 어떻게 → 보낼 글 → 문자·메일 앱 열기.
+/* 알림 보내기(보내기 탭의 둘째 탭, #/send?mode=notify): 무엇을 → 누구에게 → 어떻게 → 보낼 글 → 문자·메일 앱 열기.
  * - SafePause가 직접 보내지 않는다. 글을 채운 문자·메일 앱(전화는 다이얼 화면)을 열고, 보내기는 사람이 누른다.
  * - 앱을 열면 보낸 알림 기록을 남긴다(POST /api/notices/record, 번호·메일 원본은 서버가 넣지 않음) → 알림 탭 보낸 알림.
  * - 주소 뒤 값: txn=<거래 id>(여러 번 가능)이면 그 거래를 미리 고르고, to=counselors면 상담하는 곳을 펼쳐 둔다.
+ *   helper=<조력자 id>(여러 번 가능, 돈 보내기에서 물어볼 사람으로 고른 사람)는 미리 체크한다.
+ * - 받는 사람 추천: 거래를 고르거나 바꿀 때 POST /api/notify/suggest로 조력자 설정(알릴 등급·범위·자동으로 알리기)에 맞는
+ *   사람을 미리 체크하고 추천 배지를 단다. 그 거래에서 돈을 받은 조력자는 체크를 풀고 경고한다. 그래도 체크하면 보내기 전에
+ *   한 번 더 묻는다(본인 결정). 추천을 못 받으면(옛 엔진·동의 꺼짐·오류) 추천 없이 그대로 쓴다.
+ * - 보내기 탭(send.js)이 이 화면의 ctx를 따로 만들어 넘긴다(ctx.main = 탭 칸).
  */
-import { h, icon, fill, setText, openSheet, confirmSheet, toast, announce, skeleton } from "../ui.js";
-import { txnSignals, txnAmount, levelBadge, flaggedBadge, errorNotice, subParts } from "../components.js";
+import { h, icon, fill, setText, splitSentences, openSheet, confirmSheet, toast, announce, skeleton } from "../ui.js";
+import { txnSignals, txnAmount, levelBadge, flaggedBadge, checkedBadge, errorNotice, subParts } from "../components.js";
 import { moneyText, formatTime, parseTs, nf, deviceWord } from "../format.js";
 import { CHANNEL_KO, CHANNEL_ICON, COUNSELOR_KIND_KO, COUNSELOR_KIND_ICON } from "../labels.js";
 import { capabilities, openExternal, smsUri, mailtoUri, telUri, copyText } from "../native.js";
 import { STALE } from "../api.js";
+import { checkedItem } from "./money.js";
 
 const MAX_PICK = 5;          // 한 번에 알릴 거래(문자 한 통에 읽기 좋은 만큼)
 const MAX_MESSAGE = 1000;    // api MAX_NOTICE_MESSAGE
@@ -22,6 +28,7 @@ const CHANNELS = [
 const SUBJECT = "[SafePause] 걱정되는 거래 알림";
 const SUBJECT_DIRECT = "[SafePause] 도움이 필요해요";
 const DIRECT_TEXT = "[SafePause] 돈 문제로 도움이 필요해서 알려요.\n";
+const CONFLICT_WARN = "이 거래에서 돈을 받은 사람이에요. 다른 사람에게 알리는 게 좋아요.";
 const PICK_TABS = [
   { value: "high", label: "꼭 확인할 거래", path: "/api/transactions?level=high&limit=50" },
   { value: "caution", label: "걱정되는 거래", path: "/api/transactions?level=caution&limit=50" },
@@ -66,6 +73,7 @@ export default {
     const params = ctx.params;
     const wantIds = params.getAll("txn").filter(Boolean).slice(0, MAX_PICK);
     const toCounselors = params.get("to") === "counselors";
+    const wantHelpers = new Set(params.getAll("helper").filter(Boolean));
 
     let picked = [];            // 고른 거래(_item 형식)
     let helpers = [];
@@ -76,6 +84,9 @@ export default {
     let lastCopied = "";
     let counselorsOpen = toCounselors;
     let monitoring = true;      // 거래 살펴보기 동의(꺼져 있으면 거래를 부르지 않고 직접 적기만)
+    let suggestion = null;      // 받는 사람 추천 {helpers: Map, counselors: Map, due}. 못 받으면 null(추천 없이)
+    let suggestSeq = 0;
+    const touched = new Set();  // 본인이 직접 체크를 바꾼 받는 사람(추천이 덮어쓰지 않음)
 
     // ---- 1 무엇을 알릴까요 ----
     const pickedSlot = h("div", { class: "np-picked-slot" }, skeleton(1));
@@ -87,11 +98,13 @@ export default {
 
     // ---- 2 누구에게 알릴까요 ----
     const helperSlot = h("div", null, skeleton(1));
+    const recLine = h("p", { class: "np-rec-line", hidden: true });
     const counselorSlot = h("div", { id: "np-counselors" });
     const counselorToggle = h("button", { type: "button", class: "np-expand", "aria-controls": "np-counselors", "aria-expanded": "false", onclick: () => { counselorsOpen = !counselorsOpen; paintCounselorToggle(); } },
       h("span", { class: "np-expand-main" }, icon("building"), h("span", { class: "np-expand-text", text: "상담하는 곳" })),
       icon("chevron-down", "np-chev"));
     const step2 = stepCard(2, "np-s2", "누구에게 알릴까요?",
+      recLine,
       h("div", { class: "np-group-title" }, h("span", { text: "조력자" })),
       helperSlot,
       h("div", { class: "np-divider", "aria-hidden": "true" }),
@@ -139,7 +152,6 @@ export default {
       h("a", { class: "btn ghost block np-sent-link", href: "#/alerts?tab=sent" }, icon("bell"), h("span", { text: "보낸 알림 보기" })));
 
     fill(main,
-      h("h2", { class: "page-title", tabindex: "-1", text: "알림 보내기" }),
       h("p", { class: "page-sub", text: "걱정되는 거래를 조력자와 상담하는 곳에 알려요." }),
       step1, step2, step3, step4, sendArea);
 
@@ -169,6 +181,9 @@ export default {
           sub: [x.relation, x.phone_masked || x.email_masked || ""].filter(Boolean).join(" · "),
           phone: x.phone || "", email: x.email || "",
         }));
+        // 돈 보내기에서 물어볼 사람을 골라 왔으면 그 사람만 체크해 둔다(추천이 덮어쓰지 않게, 추천 배지는 보인다)
+        if (wantHelpers.size) for (const p of helpers) { touched.add(p.key); if (wantHelpers.has(String(p.id))) chosen.add(p.key); }
+        applySuggestion(false);
         renderHelpers();
       } else {
         fill(helperSlot, retryBox(hp.reason, loadPeople));
@@ -181,6 +196,8 @@ export default {
           phone: x.phone || "", email: x.email || "",
         }));
         if (!helpers.length) counselorsOpen = true;   // 조력자가 없으면 상담하는 곳을 펼쳐 둔다
+        if (wantHelpers.size) for (const p of counselors) touched.add(p.key);
+        applySuggestion(false);
         renderCounselors();
       } else {
         counselorsOpen = true;
@@ -193,7 +210,7 @@ export default {
     async function loadPreset() {
       await consentReady;
       if (!ctx.alive()) return;
-      if (!monitoring) { renderPicked(); paint(); return; }
+      if (!monitoring) { renderPicked(); paint(); return; }   // 동의가 꺼져 있으면 추천도 받지 않는다
       try {
         if (wantIds.length) {
           picked = await findTxns(wantIds);
@@ -212,12 +229,61 @@ export default {
       if (!edited) setMessage(autoMessage(picked));
       renderPicked();
       paint();
+      refreshSuggest();
+    }
+
+    // ---- 받는 사람 추천(POST /api/notify/suggest) ----
+    async function refreshSuggest() {
+      const seq = ++suggestSeq;
+      let d;
+      try {
+        // 거래 이력에 적지 않은 확인 거래(돈 보내기의 물어볼래요)는 빼고 묻는다(서버가 모르는 거래)
+        d = await ctx.req("POST", "/api/notify/suggest", { txn_ids: picked.filter((it) => !it.unsaved).map((it) => it.txn.id).slice(0, 20) });
+      } catch (e) {
+        if (e === STALE || seq !== suggestSeq) return;
+        suggestion = null;   // 추천 없이 쓴다(체크는 그대로)
+        renderHelpers();
+        renderCounselors();
+        paint();
+        return;
+      }
+      if (seq !== suggestSeq || !ctx.alive()) return;
+      const byId = (list) => new Map((Array.isArray(list) ? list : []).map((x) => [String(x.id), x]));
+      suggestion = { helpers: byId(d && d.helpers), counselors: byId(d && d.counselors), due: Boolean(d && d.counseling_due) };
+      applySuggestion(true);
+    }
+
+    function sugOf(p) {
+      if (!suggestion) return null;
+      return (p.kind === "helper" ? suggestion.helpers : suggestion.counselors).get(String(p.id)) || null;
+    }
+    const isConflict = (p) => Boolean(sugOf(p) && sugOf(p).conflict);
+
+    /** 추천에 맞춰 체크한다: 본인이 바꾼 사람은 그대로, 돈을 받은 조력자는 체크를 푼다(fresh: 새 추천이 왔을 때). */
+    function applySuggestion(fresh) {
+      if (!suggestion) return;
+      for (const p of [...helpers, ...counselors]) {
+        const s = sugOf(p);
+        if (s && s.conflict) { if (fresh || !touched.has(p.key)) chosen.delete(p.key); continue; }
+        if (touched.has(p.key)) continue;
+        if (s && s.suggested) chosen.add(p.key); else chosen.delete(p.key);
+      }
+      if (suggestion.due && counselors.some((p) => (sugOf(p) || {}).suggested)) counselorsOpen = true;
+      if (!fresh) return;
+      renderHelpers();
+      renderCounselors();
+      paint();
+      const n = [...helpers, ...counselors].filter((p) => (sugOf(p) || {}).suggested && chosen.has(p.key)).length;
+      if (n) announce(`추천하는 받는 사람 ${n}명을 미리 골랐어요.`);
     }
 
     /** 거래 id로 항목 찾기: 걱정되는 거래 → 최근 거래부터 500건씩. */
     async function findTxns(ids) {
-      const want = new Set(ids);
       const found = new Map();
+      // 돈 보내기에서 방금 확인한 거래(물어볼래요는 거래 이력에 적지 않는다)는 이 창이 기억한 항목을 쓴다
+      for (const id of ids) if (checkedItem(id)) found.set(id, checkedItem(id));
+      const want = new Set(ids);
+      if (found.size >= want.size) return ids.map((id) => found.get(id)).filter(Boolean);
       const take = (items) => { for (const it of items || []) if (want.has(it.txn.id) && !found.has(it.txn.id)) found.set(it.txn.id, it); };
       take((await ctx.req("GET", "/api/transactions?level=caution&limit=200")).items);
       for (let offset = 0; found.size < want.size && offset < 20000; offset += 500) {
@@ -254,6 +320,7 @@ export default {
       if (!edited) setMessage(autoMessage(picked));
       renderPicked();
       paint();
+      refreshSuggest();
       announce(picked.length ? `거래를 뺐어요. ${picked.length}건이 남았어요.` : "거래를 모두 뺐어요.");
       const first = pickedSlot.querySelector(".np-remove") || step1.querySelector("h3");
       if (first) first.focus();
@@ -267,22 +334,29 @@ export default {
       setMessage(autoMessage(picked));
       renderPicked();
       paint();
+      refreshSuggest();
       msg.focus();
       msg.setSelectionRange(msg.value.length, msg.value.length);
       msg.scrollIntoView({ block: "center" });
     }
 
     function personRow(p) {
+      const s = sugOf(p);
+      const conflict = Boolean(s && s.conflict);
       const box = h("input", { type: "checkbox", checked: chosen.has(p.key) });
-      const row = h("label", { class: `np-person${chosen.has(p.key) ? " on" : ""}` },
+      const row = h("label", { class: `np-person${chosen.has(p.key) ? " on" : ""}${conflict ? " conflict" : ""}` },
         box,
         h("span", { class: "row-main" },
-          h("span", { class: "row-title" }, icon(p.icon, "np-kind"), h("span", { text: p.name })),
+          h("span", { class: "row-title" }, icon(p.icon, "np-kind"), h("span", { text: p.name }),
+            s && s.suggested && !conflict ? h("span", { class: "badge info np-rec" }, icon("check-line"), h("span", { text: "추천" })) : null),
           p.sub ? h("span", { class: "row-sub", text: p.sub }) : null,
           h("span", { class: "np-has-row" },
             hasTag("chat", p.phone ? "번호" : "번호 없음", Boolean(p.phone)),
-            hasTag("mail", p.email ? "메일" : "메일 없음", Boolean(p.email)))));
+            hasTag("mail", p.email ? "메일" : "메일 없음", Boolean(p.email))),
+          conflict ? h("span", { class: "np-conflict" }, icon("warning"),
+            h("span", null, splitSentences(CONFLICT_WARN).map((t) => h("span", { class: "sent", text: `${t} ` })))) : null));
       box.addEventListener("change", () => {
+        touched.add(p.key);
         if (box.checked) chosen.add(p.key); else chosen.delete(p.key);
         row.classList.toggle("on", box.checked);
         paint();
@@ -342,6 +416,9 @@ export default {
     /** 고른 것에 맞춰 방법·이유·글 안내·보내기 버튼을 다시 그린다. */
     function paint() {
       const sel = people();
+      const recs = suggestion ? [...helpers, ...counselors].filter((p) => (sugOf(p) || {}).suggested && !isConflict(p)) : [];
+      recLine.hidden = !recs.length;
+      if (recs.length) setText(recLine, "조력자 설정에 맞는 사람을 추천해요. 바꿔도 돼요.");
       const states = Object.fromEntries(CHANNELS.map((c) => [c.value, channelState(c.value, sel)]));
       // 고른 방법을 못 쓰게 되면 쓸 수 있는 첫 방법으로 옮긴다
       if (!states[channel].ok) {
@@ -385,6 +462,15 @@ export default {
       if (!st.ok) { toast(st.why, "error"); step3.querySelector("h3").focus(); return; }
       if (!message) { toast("보낼 글을 적어 주세요.", "error"); msg.focus(); return; }
       if (sendBtn.getAttribute("aria-busy") === "true") return;
+      const risky = sel.filter(isConflict);
+      if (risky.length) {
+        const ok = await confirmSheet({
+          title: "돈을 받은 사람에게도 알릴까요?",
+          lines: [`${risky.map((p) => p.name).join(", ")}: ${splitSentences(CONFLICT_WARN)[0]}`, ...splitSentences(CONFLICT_WARN).slice(1)],
+          confirmText: "그래도 보낼래요", cancelText: "다시 고를래요",
+        });
+        if (!ok) { step2.querySelector("h3").focus(); return; }
+      }
       const ch = CHANNELS.find((c) => c.value === channel);
       const to = st.to.slice(0, MAX_TO);
       const uri = channel === "sms" ? smsUri(to.map((p) => p.phone), message)
@@ -503,6 +589,7 @@ export default {
           renderPicked();
           paint();
           close();
+          refreshSuggest();
           announce(picked.length ? `거래 ${picked.length}건을 골랐어요.` : "거래를 고르지 않았어요.");
         });
         return [
@@ -552,7 +639,7 @@ function pickRow(item) {
   const tone = item.level === "high" ? "red" : item.level === "caution" ? "orange" : out ? "" : "blue";
   const tags = [item.level && item.level !== "none" ? levelBadge(item.level) : null,
     ...txnSignals(item).map((s) => h("span", { class: "tag" }, icon(s.icon), h("span", { text: s.text }))),
-    item.flagged ? flaggedBadge() : null].filter(Boolean);
+    item.flagged ? flaggedBadge() : null, item.practice ? checkedBadge() : null].filter(Boolean);
   return h("span", { class: "np-txn" },
     h("span", { class: `row-icon ${tone}`.trim() }, icon(CHANNEL_ICON[t.channel] || "cash")),
     h("span", { class: "np-txn-main" },

@@ -2,9 +2,10 @@
 
 이 문서는 화면 담당(홈·내 거래·알림 보내기/알림·전체)이 공용 모듈 위에서 화면을 만들 때 보는 문서다.
 설계서 `docs/v03_spec.md`가 기준이고, 여기에는 공용 함수·CSS 클래스·아이콘·경로·ctx를 정확히 적는다.
+돈 보내기(보내기 전 확인 → 내 은행 앱)는 `docs/v03_spec_money.md`가 기준이다(0절 송금 기능 없음을 고친 문서). 이 문서의 1.5절·5절·7절·14절에 화면 쪽을 적었다.
 
 - 공용 파일(화면 기반 담당): `index.html`, `js/main.js`, `js/api.js`, `js/ui.js`, `js/components.js`, `js/format.js`, `js/labels.js`, `js/icons.js`, `js/speech.js`, `js/native.js`, `js/engine-client.js`, `js/views/connect.js`, `engine/worker.mjs`, `css/app.css`, `tests/test_static_ui.py`.
-- 화면 파일(화면 담당): `js/views/*.js`(connect.js 빼고), `css/views/{home,txns,notify,more}.css`, `js/charts.js`(홈 담당이 새로 만듦).
+- 화면 파일(화면 담당): `js/views/*.js`(connect.js 빼고), `css/views/{home,txns,notify,money,more}.css`, `js/charts.js`(홈 담당이 새로 만듦).
 - 공용 모듈에 필요한 것이 생기면 직접 고치지 말고 화면 기반 담당(총괄)에게 요청한다.
 
 ## 1. 경로와 화면 객체
@@ -15,7 +16,7 @@
 |---|---|---|---|
 | `#/home` | `views/home.js` | 홈 | 머리글에 SafePause 로고가 자동으로 붙는다 |
 | `#/txns` | `views/txns.js` | 내 거래 | |
-| `#/send` | `views/notify.js` | 보내기 | 제목 알림 보내기 |
+| `#/send` | `views/send.js` | 보내기 | 위 탭 돈 보내기(`views/money.js`) \| 알림 보내기(`views/notify.js`), 1.5절 |
 | `#/alerts` | `views/alerts.js` | 알림 | |
 | `#/more` | `views/more.js` | 전체 | |
 | `#/more/consent` | `views/consent.js` | 전체 | 모두 지우기(맨 아래) 포함 |
@@ -28,7 +29,8 @@
 | `#/onboarding` | `views/onboarding.js` | 없음 | |
 
 옛 경로는 자동으로 옮긴다: `#/more/data` → `#/more/consent`, `#/more/notices` → `#/alerts?tab=sent`.
-없는 경로는 `#/home`으로 간다. 지운 파일: `views/send.js`(송금 연습), `views/data.js`, `views/notices.js`.
+없는 경로는 `#/home`으로 간다. 지운 파일: `views/data.js`, `views/notices.js`.
+`views/send.js`는 v0.2의 송금 연습 화면이었고, v0.3에서는 보내기 탭의 틀(위 탭 두 개)로 다시 만들었다. 옛 송금 연습 화면은 `views/money.js`(돈 보내기)로 되살렸다.
 
 화면 파일은 처음 열 때 불러온다(`import()`). 한 화면 파일에 오류가 있어도 다른 화면은 열리고,
 그 화면에는 "화면을 불러오지 못했어요." 안내와 `console.error`가 남는다(webcheck의 errors에 잡힘).
@@ -39,8 +41,11 @@
 
 | 주소 | 뜻 | 읽는 화면 |
 |---|---|---|
-| `#/send?txn=<거래 id>` | 그 거래를 미리 고름 | notify.js |
-| `#/send?to=counselors` | 상담하는 곳 목록을 펼쳐 둠 | notify.js |
+| `#/send` 또는 `#/send?mode=money` | 돈 보내기 탭(기본) | send.js → money.js |
+| `#/send?mode=notify` | 알림 보내기 탭 | send.js → notify.js |
+| `#/send?txn=<거래 id>` | 알림 보내기 탭 + 그 거래를 미리 고름(mode가 없어도 txn·to가 있으면 알림 보내기) | notify.js |
+| `#/send?to=counselors` | 알림 보내기 탭 + 상담하는 곳 목록을 펼쳐 둠 | notify.js |
+| `#/send?mode=notify&txn=<id>&helper=<조력자 id>` | 돈 보내기의 물어볼래요에서 넘어옴: 그 조력자만 미리 체크 | notify.js |
 | `#/alerts?tab=cards\|flags\|sent` | 걱정되는 거래 / 담은 거래 / 보낸 알림 탭 | alerts.js |
 | `#/txns?open=upload\|sample` | 파일 올리기 / 연습용 거래 시트를 바로 엶 | txns.js (connect.js가 보냄) |
 
@@ -100,6 +105,14 @@ try {
 
 - 저장하지 않은 입력이 있는 화면은 `ctx.session.unsaved = async () => boolean`을 둔다(떠나기 전에 묻는다). 같은 화면이라도 주소(? 뒤 포함)가 바뀌면 묻는다.
 - 거래를 지우거나 거래 살펴보기를 끌 때는 요청 전에 `ctx.session.bumpEpoch()`를 부른다(consent.js의 끄기·모두 지우기).
+
+### 1.5 보내기 탭(send.js): 돈 보내기 | 알림 보내기
+
+- 위 탭은 `segTabs`(돈 보내기 · 알림 보내기). 탭을 바꾸면 `ctx.replaceParams`로 주소만 바꾼다(돈 보내기는 `#/send`, 알림 보내기는 `#/send?mode=notify`). 뒤로 가기 기록은 늘지 않는다.
+- 탭마다 작은 ctx를 만들어 `money.render(sub)`·`notify.render(sub)`에 넘긴다. `sub.main`은 탭 칸(`#send-panel`), `sub.onCleanup`·`sub.alive`·`sub.req`는 그 탭이 떠 있는 동안만 유효하다(탭을 바꾸면 정리 함수가 불리고 늦은 응답은 STALE).
+- `sub.replaceParams(values)`는 탭 이름(mode=notify)을 붙여 둔 채 ? 뒤를 바꾼다.
+- 고친 글이 있는 탭을 떠날 때는 `ctx.session.unsaved`로 먼저 묻는다(계속 쓰기면 탭을 그대로 둔다).
+- 다른 화면에서 알림 보내기로 보낼 때는 `#/send?txn=…`·`#/send?to=counselors`·`#/send?mode=notify`를 쓴다(그냥 `#/send`는 돈 보내기).
 
 ## 2. ui.js
 
@@ -192,6 +205,8 @@ h("div", { class: "sheet-actions" },
   h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => close() }));
 ```
 
+| `CHECKED_TEXT`, `checkedBadge()` | 돈 보내기에서 확인하고 내 거래 끝에 적은 거래(`item.practice`)의 배지 보내기 전 확인. `txnRow`·거래 시트·알림 보내기 거래 줄이 쓴다 |
+
 지운 것: `practicePill`(연습 화면 띠).
 
 ### 3.1 charts.js (홈 돈 흐름 차트, SVG 직접 그림)
@@ -238,6 +253,11 @@ import { isApp, isMobile, capabilities, openExternal, smsUri, mailtoUri, telUri,
 | `canPickContact()` | 연락처에서 고르기를 쓸 수 있으면 true(PC면 false → 버튼 숨김) |
 | `pickContact("phone" \| "email")` | `Promise<{name, value} \| null>`(취소·실패는 null). 권한 없이 한 건만 |
 | `copyText(text)` | `Promise<boolean>` |
+| `canListApps()` | 설치된 앱 목록을 읽고 열 수 있으면 true(안드로이드 앱만, 부를 때 `window.SafePauseNative`의 `listApps`·`openApp`을 확인). PC·휴대폰 브라우저·옛 앱은 false |
+| `listApps()` | `[{package, label}]`(앱이 정한 순서: 한글 가나다 → 영문 → 그 밖). 브리지의 JSON 글을 읽고, 패키지 이름 모양이 아닌 것·겹친 것은 뺀다. 이름은 한 줄 80글자까지(MainActivity와 같은 한도). 동기 호출이라 시트를 열 때 한 번만 부른다. 못 쓰면 빈 목록 |
+| `openApp(pkg)` | 그 앱을 연다. 열기를 시작했으면 true, 패키지 모양이 아니거나 못 열면 false |
+
+`capabilities()`에는 `apps`(= `canListApps()`)가 있다.
 
 ```js
 // notify.js: 문자 앱 열기 → 성공하면 기록 → 알림 탭 보낸 알림
@@ -283,9 +303,11 @@ canPickContact() ? h("button", { type: "button", class: "btn sm weak", onclick: 
 | `COUNSELOR_KINDS`, `COUNSELOR_KIND_KO`, `COUNSELOR_KIND_ICON` | 상담하는 곳 종류(발달장애인지원센터·장애인권익옹호기관·경찰·금융 상담·그 밖의 곳) |
 | `NOTICE_CHANNEL_KO`, `NOTICE_CHANNEL_ICON` | 보낸 알림 방법(문자 chat·메일 mail·전화 call·복사 copy) |
 | `MODE_KO`, `COUNSELING_TITLE`, `PERSONAS` | 그대로 |
+| `DECISION_ICON` | 안전 정지 카드 선택지 아이콘 `{send: "send", cancel: "stop", ask_helper: "helper"}`(돈 보내기) |
+| `PAY_CHANNELS` | 돈 보내기의 방법 `[{value, label, icon}]`: 계좌 이체 · 가게에서 결제 · 휴대폰 결제 |
+| `EXAMPLES` | 돈 보내기의 예시로 해 보기(심사·시연용) 3개 |
 
-지운 것(송금 연습): `EXAMPLES`, `PRACTICE_NOTE`, `DONE_KO`, `DECISION_KO`, `DECISION_ICON`, `ASK_NOBODY_KO`.
-alerts.js에는 옛 내가 고른 것 탭이 불러오기 오류 없이 돌도록 이 셋을 임시로 그 파일 안에 적어 두었다. 알림 탭을 새로 만들 때 함께 지운다.
+지운 것(송금 연습): `PRACTICE_NOTE`(연습 문구는 쓰지 않음), `DONE_KO`, `DECISION_KO`, `ASK_NOBODY_KO`.
 
 ## 8. views/connect.js (은행·카드 연결 준비 중 시트)
 
@@ -376,12 +398,18 @@ h("ul", { class: "legend" }, rows.map((r) => h("li", { class: `c${CHANNEL_CHART[
   - 합성 데이터 기준, 실제 피해 데이터 검증 아님 (eval)
   - 정말 모두 지울까요? (consent 모두 지우기)
   - 보내기 버튼은 문자·메일 앱에서 직접 눌러요. (notify)
+  - SafePause는 돈을 보내지 않아요. 보내기는 내 은행 앱에서 해요. (money)
+  - 은행 앱은 휴대폰 앱에서 열 수 있어요. / 은행 앱을 열지 못했어요. 다시 골라 주세요. (bankapp)
+  - 이 거래에서 돈을 받은 사람이에요. 다른 사람에게 알리는 게 좋아요. (notify)
   - 정식 버전에서 열려요. (ui.js에 있음)
   - 상담하는 곳에 알려 줘요. (consent)
 - notify.js: `openExternal`과 `/api/notices/record`를 쓴다. spellcheck 끄기 세 가지.
 - alerts.js: `send?txn=` 링크와 `alertCard` 또는 `speakButton`.
 - consent.js: `ctx.session.bumpEpoch()` 두 번 이상(거래 살펴보기 끄기·모두 지우기)과 `/api/wipe`.
-- helpers.js·counselors.js: spellcheck 끄기 세 가지.
+- helpers.js·counselors.js·money.js·bankapp.js: spellcheck 끄기 세 가지.
+- money.js: 카드 규칙(`initialFocus: "#card-title"`, `dismissible: false`, `card.choices.map`, `aria-labelledby` `card-level card-title`, Esc는 안 보낼래요로, `fitLayout`, `parseKoreanAmount`, 오류 칸이 소리로 듣기 앞). check·decide·payees는 money.js만 부른다.
+- 직접 이체 없음: 비밀번호·인증 번호 입력칸(`type: "password"`, one-time-code 등), 이체 API, `intent:` 주소가 없다.
+- 실제 은행·카드사·간편결제 이름과 패키지 이름이 화면 글에 없다(`BANK_NAMES`, `BANK_PACKAGES`).
 - 화면 확인: `python scratchpad/tools/webcheck.py --routes … --setup sample --out <폴더>`(360x780, `--font 2`, `--desktop`, `--dark`), errors가 빈 목록이어야 한다.
 
 ## 13. 백엔드 API 빠른 참조(설계서 3절, 실제 구현 기준)
@@ -399,5 +427,30 @@ h("ul", { class: "legend" }, rows.map((r) => h("li", { class: `c${CHANNEL_CHART[
 | `GET /api/notices` | `{items: [kind "auto" 또는 "manual" 기록], delivery_note}` |
 | `GET /api/insights` | 돈 흐름 분석(months·this_month·prev_month·channels·time_bands·top_payees·flagged_total) |
 | `GET /api/cards?limit=` | 쉬운 말 카드 |
+| `GET /api/payees` | 최근 계좌로 보낸 사람 이름 `{items}`(돈 보내기 칩) |
+| `POST /api/safepause/check` | `{to, amount, channel, to_id, time?}` → `{pending, assessment, card, notify_plan_preview, ask_helper_preview, ts_note}` |
+| `POST /api/safepause/decide` | `{pending, decision: send\|cancel\|ask_helper, helper_ids?}` → `{decision, added_to_history, pending, assessment, notify_plan, notices_recorded, result_title, result_lines, delivery_note, ts_note}` |
+| `POST /api/notify/suggest` | `{txn_ids}` → `{helpers: [{id, name, suggested, conflict, reason}], counselors: [{id, name, suggested}], counseling_due}` |
 
-앱(엔진 모드)에서는 동의·조력자·상담하는 곳·알림 기록·지우기가 AI 준비 전에도 바로 처리된다(worker.mjs BASIC). 담은 거래·돈 흐름 분석·거래 목록은 AI 준비가 끝난 뒤 온다.
+앱(엔진 모드)에서는 동의·조력자·상담하는 곳·알림 기록·지우기가 AI 준비 전에도 바로 처리된다(worker.mjs BASIC). 담은 거래·돈 흐름 분석·거래 목록, 돈 보내기의 check·decide·payees, 받는 사람 추천(suggest)은 거래 판단(numpy)이 필요해 AI 준비가 끝난 뒤 온다(worker.mjs BASIC에 넣지 않는다, 테스트가 확인).
+
+## 14. 돈 보내기·내 은행 앱(money.js·bankapp.js, css/views/money.css)
+
+- money.js(`export default {title, render}`, 보내기 탭이 부름)
+  - 입력: 받는 사람(최근 보낸 사람 칩, `GET /api/payees`), 금액(`parseKoreanAmount`, `= 30만 원 (300,000원)`, 0·100억 원 한도는 그 자리에서), 방법(`PAY_CHANNELS`), 자세히(보낼 시각 지금·오후 3시·밤 11시·새벽 2시, 계좌번호)
+  - 오류는 틀린 칸 바로 아래(받는 사람 `#pay-to-error`, 금액 `#pay-amount-easy`), 서버 오류는 확인 버튼 위(`#pay-error`)
+  - `POST /api/safepause/check` → 카드(안전 정지 카드 규칙은 파일 머리 주석) 또는 걱정 없음 결과 → `POST /api/safepause/decide`
+  - 결과: 보낼래요 → 요약 + `bankAppActions()` + 필수 문장, 안 보낼래요 → 보내지 않았어요, 물어볼래요 → [알림 보내기로 문자·메일 보내기](`#/send?mode=notify&txn=…&helper=…`)
+  - 결과 제목: 보낼래요·안 보낼래요는 decide의 `message`(계좌 이체 `내 은행 앱에서 보내 주세요.`·`보내지 않았어요.`, 가게·휴대폰 결제 `결제는 직접 해 주세요.`·`결제하지 않았어요.`), 물어볼래요는 `result_title`·`result_lines`. 서버 응답이 없는 동의 꺼짐 결과만 화면 표(SEND_TITLE, 같은 글)를 쓴다
+  - 거래 살펴보기 동의가 꺼져 있으면 확인하지 않은 결과 + 은행 앱 + 동의 켜러 가기
+  - `checkedItem(id)`: 이 창에서 확인한 거래 항목(물어볼래요는 거래 이력에 적지 않으므로 notify.js가 이것으로 미리 고른다. `unsaved: true`면 suggest의 txn_ids에서 뺀다)
+  - 필수 문장 `SafePause는 돈을 보내지 않아요. 보내기는 내 은행 앱에서 해요.`(화면 위 안내·결과). 연습이라는 말과 PRACTICE_NOTE는 쓰지 않는다
+  - 계좌 연결해서 바로 보내기는 `comingSoonSheet`(단계 5개)만
+- bankapp.js
+  - `getBankApp()`·`saveBankApp(app)`·`clearBankApp()`: localStorage `safepause.bankApp = {package, label}`(try/catch)
+  - `pickBankApp()` → `Promise<app | null>`: 검색 칸 + 돈 관련 앱(이름에 은행·뱅크·bank·페이·pay·증권·카드) 먼저 + 다른 앱. 회사 이름은 넣지 않는다
+  - `openBankApp(app)`, `bankAppUnavailable()`(PC면 `은행 앱은 휴대폰 앱에서 열 수 있어요.`)
+  - `bankAppActions()`: [내 은행 앱 열기](고른 앱 이름) / [다른 은행 앱 고르기], 못 열면 `은행 앱을 열지 못했어요. 다시 골라 주세요.`
+  - `bankAppSettings()`: 앱 설정의 내 은행 앱(고르기·바꾸기·지우기). 동의 화면의 모두 지우기는 `clearBankApp()`도 부른다
+- notify.js 받는 사람 추천: 거래를 고르거나 바꿀 때 `POST /api/notify/suggest {txn_ids}` → 추천 배지·미리 체크(본인이 바꾼 사람은 그대로), 돈을 받은 조력자는 체크를 풀고 `이 거래에서 돈을 받은 사람이에요. 다른 사람에게 알리는 게 좋아요.`, 그래도 체크하면 보내기 전에 확인 시트. 추천을 못 받으면 추천 없이
+- CSS(money.css): `.send-tabs` `.send-panel` `.mn-must` `.mn-form` `.mn-more` `.amount-easy`(`.bad`) `.pause` `.pause-head` `.pictos` `.pause-title` `.pause-question` `.helper-note` `.choice-btn` `.sheet.split`(`.sheet-body` `.sheet-foot`) `.result-hero`(`.stop` `.ask`) `.result-lines` `.result-notes` `.mn-summary` `.mn-must-line` `.ba-*`

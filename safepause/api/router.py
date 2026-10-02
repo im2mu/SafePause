@@ -23,6 +23,7 @@ from safepause.api.schemas import (
     NoticeRecordIn,
     PendingIn,
     SampleIn,
+    SuggestIn,
     TxnQuery,
     validation_detail,
 )
@@ -98,6 +99,7 @@ ROUTES: dict[tuple[str, str], Handler] = {
     ("GET", "/api/cards"): _cards,
     ("GET", "/api/notices"): lambda s, q, b, r: s.notices(),
     ("POST", "/api/notices/record"): lambda s, q, b, r: s.record_notice(_model(NoticeRecordIn, b)),
+    ("POST", "/api/notify/suggest"): lambda s, q, b, r: s.notify_suggest(_model(SuggestIn, b)),
     ("GET", "/api/decisions"): lambda s, q, b, r: s.decisions(),
     ("POST", "/api/eval/run"): _eval_run,
     ("POST", "/api/eval/file"): lambda s, q, b, r: s.eval_file(),

@@ -17,6 +17,12 @@ export function flaggedBadge() {
   return h("span", { class: "badge info" }, icon("bookmark-fill"), h("span", { text: "담음" }));
 }
 
+/** 보내기 전 확인(돈 보내기 화면)으로 확인하고 내 거래 끝에 적은 거래의 배지. */
+export const CHECKED_TEXT = "보내기 전 확인";
+export function checkedBadge() {
+  return h("span", { class: "tag" }, icon("shield"), h("span", { text: CHECKED_TEXT }));
+}
+
 /** 거래 금액 한 번만: 나간 돈 "-50,000원", 들어온 돈 "+50,000원". */
 export function txnAmount(t) {
   return moneyText(t.amount, t.direction === "out" ? "-" : "+");
@@ -57,6 +63,7 @@ export function txnRow(item, onOpen) {
   if (item.level && item.level !== "none") tags.push(levelBadge(item.level));
   for (const s of signals) tags.push(h("span", { class: "tag" }, icon(s.icon), h("span", { text: s.text })));
   if (item.flagged) tags.push(flaggedBadge());
+  if (item.practice) tags.push(checkedBadge());
   const body = [
     h("span", { class: `row-icon ${tone}`.trim() }, icon(CHANNEL_ICON[t.channel] || "cash")),
     h("span", { class: "row-main" },
@@ -69,7 +76,7 @@ export function txnRow(item, onOpen) {
   ];
   const label = [t.counterparty || "이름 없음", d ? formatTime(d) : "", CHANNEL_KO[t.channel] || t.channel,
     `${out ? "나감" : "들어옴"} ${moneyText(t.amount)}`, item.level && item.level !== "none" && LEVEL[item.level] ? LEVEL[item.level].text : "",
-    ...signals.map((s) => s.text), item.flagged ? "담음" : ""].filter(Boolean).join(", ");
+    ...signals.map((s) => s.text), item.flagged ? "담음" : "", item.practice ? CHECKED_TEXT : ""].filter(Boolean).join(", ");
   return onOpen
     ? h("button", { type: "button", class: "row txn-row", "aria-label": label, onclick: () => onOpen(item) }, body)
     : h("div", { class: "row txn-row" }, body);

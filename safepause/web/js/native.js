@@ -1,5 +1,5 @@
-/* 기기 기능 한곳 모음: 문자·메일·전화 앱 열기, 연락처에서 고르기, 글 복사, 접속 환경(앱·휴대폰·컴퓨터).
- * - 안드로이드 앱: SafePauseNative 브리지(openExternal·pickContact·capabilities). 새 권한 없이 시스템 창만 연다.
+/* 기기 기능 한곳 모음: 문자·메일·전화 앱 열기, 연락처에서 고르기, 내 은행 앱 열기, 글 복사, 접속 환경(앱·휴대폰·컴퓨터).
+ * - 안드로이드 앱: SafePauseNative 브리지(openExternal·pickContact·listApps·openApp·capabilities). 새 권한 없이 시스템 창·앱만 연다.
  * - 브라우저: 메일·전화는 링크로 열고, 문자는 휴대폰 브라우저에서만 연다. 연락처는 브라우저가 지원할 때만 고른다.
  * 화면은 이 모듈만 부르고 브리지를 직접 부르지 않는다(옛 앱에 없는 함수는 false·null로 돌아온다).
  */
@@ -32,8 +32,9 @@ function browserContacts() {
 
 /**
  * 이 기기에서 할 수 있는 일.
- * {app, mobile, sms, email, call, contacts, tts}
+ * {app, mobile, sms, email, call, contacts, apps, tts}
  * - sms: 문자 앱을 열 수 있음(앱·휴대폰 브라우저). PC는 false.
+ * - apps: 설치된 앱 목록에서 내 은행 앱을 고르고 열 수 있음(안드로이드 앱만, canListApps()와 같음).
  * - call: 전화 걸기 화면을 열 수 있음(앱·휴대폰 브라우저). PC는 false.
  * - contacts: 연락처에서 고르기를 쓸 수 있음(canPickContact()와 같음).
  * - tts: 기기 음성이 있음(실제 재생 가능 여부는 speech.available()).
@@ -48,12 +49,13 @@ export function capabilities() {
     return {
       app: true, mobile: true, sms: has("sms"), email: has("email"), call: has("dial"),
       contacts: Boolean(c.contacts) && typeof n.pickContact === "function",
+      apps: canListApps(),
       tts: c.tts === undefined ? safeTts(n) : Boolean(c.tts),
     };
   }
   return {
     app: isApp(), mobile, sms: mobile, email: true, call: mobile,
-    contacts: browserContacts(), tts: "speechSynthesis" in window,
+    contacts: browserContacts(), apps: false, tts: "speechSynthesis" in window,
   };
 }
 
@@ -152,6 +154,52 @@ export function pickContact(kind) {
       .catch(() => null);
   }
   return Promise.resolve(null);
+}
+
+// ---- 내 은행 앱(설치된 앱 목록에서 본인이 고른 앱을 연다) ------------------------------
+// 안드로이드 패키지 이름 모양(com.example.app). 다른 글은 브리지에 넘기지 않는다
+const PACKAGE_RE = /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+$/;
+const MAX_APPS = 2000;
+
+/** 설치된 앱 목록을 읽고 열 수 있으면 true(안드로이드 앱만). PC·휴대폰 브라우저·옛 앱은 false. */
+export function canListApps() {
+  const n = bridge();
+  if (!n || typeof n.listApps !== "function" || typeof n.openApp !== "function") return false;
+  const c = nativeCaps();
+  return c.apps === undefined ? true : Boolean(c.apps);
+}
+
+/**
+ * 홈 화면에 아이콘이 있는 앱 목록 [{package, label}](앱이 정한 순서 그대로). 은행 이름을 앱에 넣지 않고,
+ * 본인이 이 목록에서 자기 은행 앱을 한 번 고른다. 못 읽으면 빈 목록.
+ */
+export function listApps() {
+  if (!canListApps()) return [];
+  let raw;
+  try { raw = bridge().listApps(); } catch (e) { return []; }
+  let list = raw;
+  if (typeof raw === "string") { try { list = JSON.parse(raw); } catch (e) { return []; } }
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const x of list) {
+    const pkg = String((x && x.package) || "");
+    // 앱 이름은 한 줄, 80글자까지(MainActivity.cleanLabel과 같은 한도, 글자 단위로 잘라 깨진 글자가 없게)
+    const label = Array.from(String((x && x.label) || "").replace(/\s+/g, " ").trim()).slice(0, 80).join("");
+    if (!PACKAGE_RE.test(pkg) || seen.has(pkg)) continue;
+    seen.add(pkg);
+    out.push({ package: pkg, label: label || pkg });
+    if (out.length >= MAX_APPS) break;
+  }
+  return out;
+}
+
+/** 그 앱을 연다. 열기를 시작했으면 true, 앱이 없거나 못 열면 false. */
+export function openApp(pkg) {
+  const n = bridge();
+  const p = String(pkg || "");
+  if (!n || typeof n.openApp !== "function" || !PACKAGE_RE.test(p)) return false;
+  try { return Boolean(n.openApp(p)); } catch (e) { return false; }
 }
 
 // ---- 글 복사 ---------------------------------------------------------------------

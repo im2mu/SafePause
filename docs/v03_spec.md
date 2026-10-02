@@ -5,7 +5,11 @@
 ## 0. 제품 정체성 (가장 중요)
 
 - SafePause는 **은행 앱이 아니다.** 발달장애인의 **경제적 착취를 알아차리게 돕는 앱**이다.
-- **송금·결제 기능은 없다.** 그래서 다음을 화면에서 모두 없앤다.
+- **[2026-10-02 바뀜] 돈 보내기는 `docs/v03_spec_money.md`가 기준이다.** 보내기 탭은 돈 보내기 | 알림 보내기 두 탭이다.
+  SafePause는 돈을 직접 옮기지 않는다. 받는 사람·금액을 AI 확인 카드로 먼저 살펴보고, 본인이 정하면 본인이 고른 은행 앱을 연다.
+  아래 목록(송금 기능 없음)은 첫 설계 기록으로 남긴다. check·decide·payees는 돈 보내기 화면(money.js)이 다시 부르고,
+  연습이라는 말과 연습 화면 띠는 쓰지 않는다.
+- (첫 설계, 위 문서로 바뀜) **송금·결제 기능은 없다.** 그래서 다음을 화면에서 모두 없앤다.
   - '돈 보내기 연습'(check/decide 흐름)
   - '연습 화면이에요. 실제로 돈이 나가지 않아요.' 띠
   - '돈 보내기 전에 확인하기' 버튼
@@ -46,7 +50,7 @@
 | R19 | 접속 환경 감지: 휴대폰은 "이 휴대폰 안에서만", PC는 "이 컴퓨터 안에서만", 127.0.0.1 노출 금지 | format.deviceWord() |
 | R20 | "상담하는 곳을 알려 줘요" → "상담하는 곳에 알려 줘요" | consent.js 등 |
 | R21 | 금액 중복 표기 제거(50,000원 5만원 → 50,000원) | txnRow 등 목록 |
-| R22 | 송금 기능 없음(0절) | 화면 전체 |
+| R22 | (바뀜) 돈 보내기 = 확인 후 내 은행 앱 열기, 직접 이체 없음(`docs/v03_spec_money.md`) | send.js·money.js·bankapp.js, 안드로이드 listApps·openApp |
 | R26 | 성과보고서를 APK 기준으로 수정 | 별도 단계(보고서 파이프라인) |
 
 ## 2. 정보 구조와 경로
@@ -57,7 +61,7 @@
 |---|---|---|---|
 | 홈 | `#/home` | (머리글 SafePause) | 상태·이번 달 돈 흐름 분석(차트)·걱정되는 거래 요약·바로가기 |
 | 내 거래 | `#/txns` | 내 거래 | 거래 불러오기(은행·카드 연결 자리, 파일, 연습용)·목록·거래 바텀시트(담기·알리기) |
-| 보내기 | `#/send` | 알림 보내기 | 무엇을(거래) → 누구에게(조력자·상담하는 곳) → 어떻게(문자·메일) → 글 확인 → 앱 열기 |
+| 보내기 | `#/send` | 보내기 | 위 탭 돈 보내기(기본, `docs/v03_spec_money.md`) \| 알림 보내기(`?mode=notify`, `?txn=`·`?to=`가 있어도): 무엇을(거래) → 누구에게(조력자·상담하는 곳) → 어떻게(문자·메일) → 글 확인 → 앱 열기 |
 | 알림 | `#/alerts` | 알림 | 걱정되는 거래(쉬운 말 카드) · 담은 거래 · 보낸 알림 |
 | 전체 | `#/more` | 전체 | 설정·연결·보호자·심사용·도움말(준비 중 포함) |
 
@@ -188,7 +192,8 @@
 | `openExternal(uri)` | `sms:`·`smsto:`·`mailto:`·`tel:`만 허용한다. sms·smsto는 ACTION_SENDTO(+ `sms_body`, uri의 `?body=`에서 꺼냄), mailto는 ACTION_SENDTO(+ EXTRA_SUBJECT·EXTRA_TEXT), tel은 ACTION_DIAL을 쓴다. UI 스레드에서 실행하고, 시작하면 true, 앱이 없으면 false |
 | `pickContact(kind)` | kind는 `phone`·`email`이다. ACTION_PICK(Phone.CONTENT_URI / Email.CONTENT_URI) 결과에서 이름·번호(메일)를 읽어 `window.__safepauseContactPicked({kind, name, value})`를 부른다. 취소 시 `{kind, cancelled: true}`를 넘긴다. 문자열은 JSONObject로 안전하게 만든다 |
 | `speak(text)` (기존) | 발화 id를 붙인다. UtteranceProgressListener의 onDone·onError·onStop에서 `window.__safepauseSpeechDone()`을 UI 스레드로 부른다 |
-| `capabilities()` | `{"external":true,"contacts":true,"tts":<준비 여부>}` JSON 문자열 |
+| `capabilities()` | `{"external":true,"contacts":true,"tts":<준비 여부>}` JSON 문자열(돈 보내기 뒤 `"apps":true`도 있음) |
+| `listApps()`·`openApp(pkg)` | 내 은행 앱 고르기·열기(`docs/v03_spec_money.md` 안드로이드 절). Manifest queries에 MAIN·LAUNCHER, 권한 0개 그대로 |
 
 - WebView에서 `sms:`·`mailto:`·`tel:` 링크를 누르면 openExternal로 넘긴다. 그 밖의 외부 주소는 지금처럼 막는다.
 - Manifest `<queries>`에 SENDTO(sms, mailto)·DIAL(tel)·PICK(연락처) intent를 더한다.
@@ -288,7 +293,10 @@
   - [닫기]
 - 거래를 바꾸기 전 확인 시트, 연습용 거래 시트는 기존 동작을 유지한다(문구만 정리).
 
-### 6.3 보내기 = 알림 보내기 (views/notify.js, 경로 send, css/views/notify.css)
+### 6.3 보내기 탭의 알림 보내기 (views/notify.js, 경로 `send?mode=notify`, css/views/notify.css)
+
+[2026-10-02 바뀜] 보내기 탭은 views/send.js가 위 탭 두 개(돈 보내기 | 알림 보내기)를 그린다. 돈 보내기는 `docs/v03_spec_money.md`, 알림 보내기는 아래와 같다.
+알림 보내기는 거래를 고르면 `POST /api/notify/suggest`로 받는 사람을 추천받고, 돈을 받은 조력자는 체크를 풀고 경고한다(money 문서).
 
 1. **무엇을 알릴까요?**
    - 고른 거래 카드(params.txn이면 미리 고름) + [거래 고르기] 시트(꼭 확인·걱정·담은 거래 체크)

@@ -113,3 +113,8 @@ a.home-fact:active { background: var(--bg-sub); }
 .home-quick .quick-item { min-height: 0; gap: .5rem; padding: .9rem 1rem 1rem; box-shadow: var(--shadow-card); }
 .home-quick .quick-item b { line-height: 1.35; }
 .home-quick .quick-item > span:last-child { line-height: 1.4; }
+/* 돈 보내기 전 확인: 바로가기 맨 위 한 줄 전체(파란 그림) */
+.home-quick .quick-item.wide { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; gap: .5rem .9rem; }
+.home-quick .quick-item.wide .qi-icon { background: var(--primary); color: #fff; flex: none; }
+.home-quick .quick-item.wide .qi-text { display: grid; gap: .15rem; flex: 1 1 9rem; min-width: 0; }   /* 큰 글씨: 글은 그림 아래 줄로 */
+.home-quick .quick-item.wide .qi-text b { color: var(--text); line-height: 1.35; }

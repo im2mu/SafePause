@@ -404,7 +404,7 @@ def test_check_safe_payment_stores_nothing(client: TestClient) -> None:
     assert r["assessment"]["level"] == "none"
     assert r["card"] is None
     assert r["notify_plan_preview"]["notices"] == []
-    assert r["practice_note"] == "연습 화면이에요. 실제로 돈이 나가지 않아요."
+    assert r["practice_note"] == ""                           # v0.3: 연습 안내를 쓰지 않는다(키만 호환용)
     p = r["pending"]
     assert p["id"] == "live-00001" and p["direction"] == "out"
     assert p["counterparty_id"] == "900-0101-100001"          # 예전에 보낸 계좌를 이어 씀
@@ -479,7 +479,7 @@ def test_decide_send_is_never_blocked(client: TestClient) -> None:
     d = decide(client, {**night(), "ts": r["pending"]["ts"], "id": r["pending"]["id"]}, "send")
     assert d["assessment"]["level"] == "high"
     assert d["added_to_history"] is True                         # 고위험이어도 막지 않음
-    assert d["message"] == "보냈어요."
+    assert d["message"] == "내 은행 앱에서 보내 주세요."       # v0.3: SafePause는 돈을 옮기지 않는다
     assert d["delivery_note"] == DELIVERY_NOTE
     assert d["pending"]["id"] == r["pending"]["id"] == "live-00003"
     assert client.get("/api/data/summary").json()["count"] == sample["count"] + 3
@@ -500,7 +500,7 @@ def test_decide_send_is_never_blocked(client: TestClient) -> None:
 
     txns = client.get("/api/transactions").json()["items"]
     practice = [it for it in txns if it["practice"]]
-    assert len(practice) == 3 and all(it["txn"]["memo"] == "안전 정지 연습" for it in practice)
+    assert len(practice) == 3 and all(it["txn"]["memo"] == "보내기 전 확인" for it in practice)
 
 
 def test_decide_cancel_records_without_adding(client: TestClient) -> None:
@@ -508,7 +508,7 @@ def test_decide_cancel_records_without_adding(client: TestClient) -> None:
     set_consent(client, monitoring=True)
     d = decide(client, night(), "cancel")
     assert d["added_to_history"] is False and d["recorded"] is True
-    assert d["message"] == "안 보냈어요."
+    assert d["message"] == "보내지 않았어요."
     assert client.get("/api/data/summary").json()["count"] == sample["count"]
     items = client.get("/api/decisions").json()["items"]
     assert len(items) == 1 and items[0]["decision"] == "cancel"

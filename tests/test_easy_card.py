@@ -342,7 +342,7 @@ def test_practice_result_uses_channel_words() -> None:
     assert lines == ["새로 연 전자상가에서 80만 원을 결제하지 않았어요."]
     assert "에게" not in lines[0] and "보내" not in lines[0]
     title, lines = practice_result(Decision.SEND, make_txn(counterparty="엄마", amount=50_000))
-    assert (title, lines) == ("보냈어요 (연습)", ["엄마에게 5만 원을 보냈어요."])
+    assert (title, lines) == ("내 은행 앱에서 보내 주세요", ["엄마에게 5만 원을 보내기 전에 확인했어요."])
     title, lines = practice_result(Decision.ASK_HELPER, make_txn(channel=Channel.MICROPAY))
     assert lines == ["휴대폰으로 30만 원을 결제하기 전에 조력자에게 물어봐요.", "아직 결제하지 않았어요."]
 

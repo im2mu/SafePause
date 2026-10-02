@@ -16,7 +16,7 @@ applyPrefs();   // 글자 크기·화면 모드는 첫 화면을 그리기 전�
 const ROUTES = {
   home: () => import("./views/home.js"),
   txns: () => import("./views/txns.js"),
-  send: () => import("./views/notify.js"),          // 보내기 탭 = 알림 보내기
+  send: () => import("./views/send.js"),            // 보내기 탭 = 돈 보내기(?mode=money) | 알림 보내기(?mode=notify)
   alerts: () => import("./views/alerts.js"),
   more: () => import("./views/more.js"),
   "more/consent": () => import("./views/consent.js"),

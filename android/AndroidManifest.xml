@@ -6,6 +6,8 @@
   - 음성 읽기는 기기 안의 TTS 엔진만 쓴다.
   - 알림 보내기는 문자·메일 앱과 전화 다이얼 화면을 열기만 한다. 보내기·걸기는 사람이 그 앱에서 직접 누른다.
   - 연락처 고르기는 시스템 선택 창이 고른 한 건만 넘겨주므로 READ_CONTACTS가 필요 없다.
+  - 돈 보내기는 SafePause가 하지 않는다. 확인 카드 뒤에 본인이 고른 은행 앱을 열기만 하고, 이체는 그 앱에서 사람이 한다.
+    내 은행 앱 고르기는 홈 화면에 아이콘이 있는 앱(MAIN·LAUNCHER)만 본다. QUERY_ALL_PACKAGES는 쓰지 않는다.
   - queries는 안드로이드 11+ 패키지 가시성 규칙: 열 앱이 있는지 미리 확인하는 데 쓴다.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -42,6 +44,11 @@
         <intent>
             <action android:name="android.intent.action.PICK" />
             <data android:mimeType="vnd.android.cursor.dir/email_v2" />
+        </intent>
+        <!-- 내 은행 앱 고르기·열기(홈 화면에 아이콘이 있는 앱 목록, 고른 앱 실행) -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
         </intent>
     </queries>
 

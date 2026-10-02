@@ -322,12 +322,16 @@ function quickLinks() {
   return h("section", { class: "home-quick", "aria-labelledby": "home-quick-title" },
     h("h3", { id: "home-quick-title", class: "section-title", text: "바로가기" }),
     h("div", { class: "quick" },
+      quick("shield", "돈 보내기 전 확인", "AI가 먼저 살펴보고 내 은행 앱을 열어요", "#/send?mode=money", "wide"),
       quick("upload", "거래 불러오기", "파일·연결", "#/txns"),
-      quick("send", "알림 보내기", "문자·메일로", "#/send"),
+      quick("chat", "알림 보내기", "문자·메일로", "#/send?mode=notify"),
       quick("users", "조력자", "알릴 사람", "#/more/helpers"),
       quick("building", "상담하는 곳", "도움받을 곳", "#/more/counselors")));
 }
 
-function quick(ic, title, sub, href) {
-  return h("a", { class: "quick-item", href }, h("span", { class: "qi-icon" }, icon(ic)), h("b", { text: title }), h("span", { text: sub }));
+function quick(ic, title, sub, href, cls = "") {
+  const text = [h("b", { text: title }), h("span", { text: sub })];
+  // 한 줄 전체 칸(wide)은 그림 옆에 이름·설명을 둔다
+  return h("a", { class: `quick-item ${cls}`.trim(), href }, h("span", { class: "qi-icon" }, icon(ic)),
+    cls === "wide" ? h("span", { class: "qi-text" }, text) : text);
 }

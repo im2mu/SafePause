@@ -17,15 +17,19 @@ MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_MAPPING_CHARS = 4096                    # 열 이름 지정(JSON) 길이 한도(깊게 중첩된 JSON으로 인한 오류 방지)
 MAX_HELPERS = 10
 MAX_EVAL_SEEDS = 20
-LIVE_ID_PREFIX = "live-"                    # 안전 정지 연습으로 더한 거래 id
+LIVE_ID_PREFIX = "live-"                    # 보내기 전 확인(check/decide)으로 더한 거래 id
 LIVE_ID_DIGITS = 9                          # live-000000001 ~ live-999999999
-MAX_REMEMBERED_LIVE_IDS = 1000              # check가 준 연습 거래 id를 이만큼 기억한다(오래된 것부터 잊음)
-PRACTICE_MEMO = "안전 정지 연습"
+MAX_REMEMBERED_LIVE_IDS = 1000              # check가 준 확인 거래 id를 이만큼 기억한다(오래된 것부터 잊음)
+# 보내기 전 확인으로 더한 거래의 메모(내 거래 시트에 보임). v0.3: 연습이라는 말을 쓰지 않는다(이름은 호환용으로 그대로)
+PRACTICE_MEMO = "보내기 전 확인"
+LEGACY_PRACTICE_MEMOS = ("안전 정지 연습",)    # v0.2가 적은 메모. 저장은 그대로 두고 화면에 줄 때만 PRACTICE_MEMO로 보인다
 MIN_MONTHLY_DAYS = 14                       # 이보다 짧은 기간은 '한 달 평균'으로 늘려 말하지 않는다
 
+# v0.2 연습 화면 안내. 평가·옛 호환을 위해 상수만 남기고, v0.3 응답(check/decide의 practice_note)에는 넣지 않는다(빈 글)
 PRACTICE_NOTE = "연습 화면이에요. 실제로 돈이 나가지 않아요."
-TS_NOTE = ("연습 거래는 저장된 거래의 마지막 날에 이어서 적어요. "
+TS_NOTE = ("확인한 거래는 저장된 거래의 마지막 날에 이어서 적어요. "
            "그래서 날짜가 오늘과 달라요. 시각만 고른 대로예요.")
+LIVE_IDS_USED_UP = "보내기 전 확인 번호를 다 썼어요. 동의 화면에서 모두 지운 뒤 다시 해 주세요."
 TOO_BIG = "파일이 너무 커요(5MB까지)."
 NO_MONITORING = ("거래 살펴보기에 동의하지 않아서 분석하지 않았어요. "
                  "동의 화면에서 거래 살펴보기를 켜 주세요.")
@@ -61,5 +65,6 @@ MAX_NOTICE_MESSAGE = 1000
 MAX_TXN_ID_CHARS = 200                      # 담기·알림 기록에서 받는 거래 id 길이 한도(표준 CSV id는 파일 그대로라 넉넉히)
 NOTICES_NOTE = "이 기기에 적어 둔 기록이에요. 실제로 보냈는지는 문자·메일 앱에서 확인해 주세요."
 TXN_NOT_FOUND = "그 거래를 찾지 못했어요."
+CONFLICT_REASON = "이 거래에서 돈을 받은 사람이에요."   # 받는 사람 추천: 거래 상대방인 조력자
 INSIGHT_MONTHS = 6                          # 돈 흐름 분석: 최근 몇 달까지 보여 줄지
 TOP_PAYEES = 3

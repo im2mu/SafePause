@@ -6,7 +6,7 @@
 - samples/01_sample_transactions.csv   가상 근로자(seed 1, 걱정되는 거래 5종 섞음) 120일 거래(표준 CSV)
 - samples/02_analysis_results.csv      거래마다 판단 결과(괜찮아요·확인해요·꼭 확인해요, 걸린 약속, AI 점수)
 - samples/03_alert_cards.json          '알림' 화면의 기록 카드(쉬운 말 문장 원본)
-- samples/04_safe_pause_checks.json    보내기 연습 4가지(평범한 송금·새벽 송금·새 가게 큰 결제·휴대폰 결제)의 안전 정지 카드
+- samples/04_safe_pause_checks.json    돈 보내기 전 확인 4가지(평범한 송금·새벽 송금·새 가게 큰 결제·휴대폰 결제)의 안전 정지 카드
 - samples/05_validation_summary.json   현장 검증용 요약(이름·계좌·금액·날짜 없음)
 - samples/06_eval_quick.json           성능 확인(인물 3 × seed 3, 규칙+AI·규칙만·AI만)
 - samples/README.md                    각 파일 설명
@@ -80,7 +80,7 @@ README = """# 샘플 결과물 (공고 선택 사항: 학습 데이터셋 요약
 | 01_sample_transactions.csv | 가상 근로자(seed 1) 120일 거래 {count}건. 걱정되는 거래 5종을 마지막 30일에 섞음(label 열이 정답) |
 | 02_analysis_results.csv | 거래마다 판단(괜찮아요·확인해요·꼭 확인해요), 걸린 약속(규칙), AI 점수(0~1) |
 | 03_alert_cards.json | '알림' 화면의 기록 카드(쉬운 말 제목·문장·그림 이름) |
-| 04_safe_pause_checks.json | 보내기 연습 4가지의 안전 정지 카드와 조력자 안내 미리보기 |
+| 04_safe_pause_checks.json | 돈 보내기 전 확인 4가지의 안전 정지 카드와 조력자 안내 미리보기 |
 | 05_validation_summary.json | 현장 검증용 요약: 이름·계좌·금액·날짜 없이 거래 수·알림 수만 |
 | 06_eval_quick.json | 성능 확인(인물 3 × seed 3 = 9사례, 규칙+AI·규칙만·AI만) |
 | 07_dataset_stats.json | 학습·평가 데이터셋 통계(인물 3 × seed 1~40, `python tools/make_dataset_summary.py`) |

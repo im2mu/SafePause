@@ -4,6 +4,7 @@ import { h, icon, fill, toast, announce, skeleton, busy, confirmSheet } from "..
 import { formatWhen, deviceWord } from "../format.js";
 import { errorNotice } from "../components.js";
 import { STALE } from "../api.js";
+import { clearBankApp } from "./bankapp.js";
 
 const ITEMS = [
   { key: "monitoring", icon: "chart", title: "거래 살펴보기",
@@ -17,7 +18,7 @@ const ITEMS = [
     link: { href: "#/more/counselors", icon: "building", text: "상담하는 곳 정하기" } },
 ];
 // 모두 지우기에서 함께 지워지는 것
-const WIPED = ["동의한 것", "조력자", "상담하는 곳", "거래", "담은 거래", "보낸 알림 기록"];
+const WIPED = ["동의한 것", "조력자", "상담하는 곳", "거래", "담은 거래", "보낸 알림 기록", "내 은행 앱"];
 
 export default {
   title: "동의",
@@ -119,6 +120,7 @@ export default {
         const r = await ctx.req("POST", "/api/wipe");
         ctx.session.consent = null;
         try { sessionStorage.removeItem("safepause.onboard.later"); } catch (e) { /* 무시 */ }
+        clearBankApp();   // 이 기기에 기억한 내 은행 앱도 함께 잊는다
         fill(wipeOut, h("div", { class: "notice green", role: "status" }, icon("check"), h("p", { text: r.message })));
         toast(r.message);
         announce(r.message);

@@ -49,6 +49,16 @@
 }
 .np-has.off { color: var(--text-3); background: var(--bg-sub); }
 .np-has svg { width: .95rem; height: .95rem; flex: none; }
+/* 받는 사람 추천(POST /api/notify/suggest): 추천 배지, 돈을 받은 조력자 경고 */
+.np-rec-line { color: var(--text-3); margin: -.25rem .1rem .75rem; }
+.np-person .row-title { flex-wrap: wrap; }   /* 큰 글씨: 추천 배지는 이름 다음 줄로(이름이 한 글자씩 쪼개지지 않게) */
+.np-person .row-title > span:not(.badge) { min-width: 0; }
+.np-person .row-title .np-rec { font-size: 1rem; padding: .05rem .5rem; flex: none; }
+.np-rec svg { width: .95rem; height: .95rem; }
+.np-person.conflict { background: var(--caution-weak); }
+.np-person.conflict.on { border-color: var(--caution); }
+.row-main > .np-conflict { display: flex; gap: .4rem; align-items: flex-start; margin-top: .45rem; color: var(--caution-text); font-weight: 600; }
+.np-conflict svg { width: 1.1rem; height: 1.1rem; flex: none; margin-top: .25rem; }
 .np-none { display: grid; gap: .5rem; justify-items: start; color: var(--text-3); padding: .25rem .1rem; }
 .np-divider { height: 1px; background: var(--line); margin: 1rem 0 .25rem; }
 .np-manage { margin-top: .5rem; }
