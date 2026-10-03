@@ -54,6 +54,8 @@ a.home-fact:active { background: var(--bg-sub); }
 .home-fact.concern .home-fact-icon { background: var(--danger-weak); color: var(--danger); }
 .home-fact.concern .home-fact-value { color: var(--danger-text); }
 .home-fact .row-chev { margin-left: -.2rem; }
+.home-fact-end { display: inline-flex; align-items: center; gap: .65rem; margin-left: auto; flex: none; }
+.home-fact-end > .home-fact-value { margin-left: 0; }
 .home-speak { margin-top: var(--gap-action); }
 
 /* ---- 차트(js/charts.js) ---- */

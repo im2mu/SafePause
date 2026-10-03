@@ -193,9 +193,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
   .al-tabs .seg-count { font-size: 1.1rem; min-height: 0; flex: none; white-space: nowrap; }
 }
 .al-panel { outline: none; }
-/* 빈 상태 안의 버튼: 공용 .empty svg(큰 회색 그림) 규칙이 버튼 아이콘에 붙지 않게 */
 .al-panel .empty .btn, .np-pick-panel .empty .btn { margin-top: 1rem; }
-.al-panel .empty .btn svg, .np-pick-panel .empty .btn svg { width: 1.25rem; height: 1.25rem; margin: 0; color: currentColor; }
 .al-summary { color: var(--text-3); margin: 0 .25rem .75rem; }
 .al-reviewed-note { display: flex; align-items: flex-start; gap: .35rem; color: var(--ok-text); font-weight: 600; }
 .al-reviewed-note svg { width: 1.1rem; height: 1.1rem; flex: none; margin-top: max(0px, calc((1lh - 1.1rem) / 2)); }

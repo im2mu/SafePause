@@ -523,7 +523,7 @@ input[type="checkbox"]:focus-visible { outline: none; box-shadow: var(--focus); 
 :is(.notice ul, .bullets, .about-bullets, .consent-bullets) > li + li { margin-top: var(--gap-list); }
 
 .empty { text-align: center; padding: 2.5rem var(--space-4); color: var(--text-3); }
-.empty svg { width: 3rem; height: 3rem; margin: 0 auto var(--space-3); color: var(--grey-400); }
+.empty > svg { width: 3rem; height: 3rem; margin: 0 auto var(--space-3); color: var(--grey-400); }   /* 빈 상태 그림만(안의 버튼 그림은 버튼 규칙대로) */
 .empty b { display: block; color: var(--text-2); font-size: 1rem; margin-bottom: var(--space-1); }
 .empty p { margin-inline: auto; }
 

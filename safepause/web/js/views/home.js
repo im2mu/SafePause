@@ -217,7 +217,8 @@ function summaryCard(tm, prev, cmp, mWord, prevWord) {
       concern
         ? h("li", null, h("a", { class: "home-fact concern", href: "#/alerts" },
           h("span", { class: "home-fact-icon" }, icon("bell")), h("span", { class: "home-fact-label", text: "걱정되는 거래" }),
-          h("b", { class: "home-fact-value", text: `${nf.format(concern)}건` }), h("span", { class: "row-chev" }, icon("chevron"))))
+          // 수와 화살표는 한 덩어리(줄이 바뀌어도 화살표만 다음 줄로 떨어지지 않게)
+          h("span", { class: "home-fact-end" }, h("b", { class: "home-fact-value", text: `${nf.format(concern)}건` }), h("span", { class: "row-chev" }, icon("chevron")))))
         : fact("check-line", "걱정되는 거래", "없어요")),
     speak ? h("div", { class: "home-speak" }, speak) : null);
 }

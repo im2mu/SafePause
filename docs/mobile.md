@@ -139,6 +139,15 @@ python android/build_apk.py --sdk <SDK 폴더> --jdk <JDK 폴더> --www android/
 - 서명 키(`android/signing/`)는 저장소·배포 zip에 넣지 않습니다(.gitignore). **같은 키로 서명해야 설치된 앱을 지우지 않고
   업데이트**할 수 있으니 키 파일과 `keystore.properties`를 안전한 곳에 보관하세요.
 - `--debug`로 빌드하면 WebView 원격 디버깅과 화면 로그(logcat)가 켜집니다. 배포판은 끕니다(로그에 받는 사람·금액이 섞일 수 있어서).
+- 앱 묶음 경량화(기본): `assemble_www.py`가 원본 wheel의 sha256을 확인한 뒤, 실행 중에 읽지 않는 파일(패키지 안 tests·빌드 원본·
+  .pyi 등)과 한 번도 불리지 않는 scipy·scikit-learn 하위 패키지(`android/slim_wheels.py`의 PRUNE)를 빼고 다시 묶어 lock의 sha256을
+  고칩니다(Pyodide가 받을 때 무결성 확인). 앱 묶음 37.9 → 33.1MB. 원본 그대로 담으려면 `--no-slim`. scipy·scikit-learn 판이 바뀌면
+  빌드가 멈추며, 빼도 되는 목록은 `python android/slim_trace.py run` → `plan --lazy all`(Chrome 필요)로 다시 구합니다.
+- 화면 CSP: 페이지 응답의 CSP(`script-src 'self' 'wasm-unsafe-eval'` 등)에 더해 `.js`·`.mjs` 응답에도 최소 CSP를 붙여(MainActivity
+  SCRIPT_CSP) 엔진 워커에서 eval 같은 동적 코드 실행을 막습니다. INTERNET 권한이 없고 앱 밖 주소는 모두 403입니다.
+- 엔진 준비 순서(worker.mjs): 파이썬을 켜는 동안 엔진 묶음·pydantic을 함께 받고, AI 패키지 내려받기를 기본 준비보다 먼저 시작합니다.
+  준비가 끝나 요청이 없을 때만 큰 모듈을 하나씩 미리 불러 첫 분석을 빠르게 합니다. 패키지를 받지 못하면(무결성 실패 포함)
+  '준비됐어요' 대신 AI 부분을 켜지 못했다고 알립니다.
 
 ## 5. 설치 (심사위원·사용자)
 
