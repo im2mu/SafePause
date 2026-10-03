@@ -168,6 +168,8 @@ p, li, .sent, .row-sub, .hint, .list-head { text-wrap: pretty; }
    문장 6글자·이름 5글자까지만 묶어 큰 글씨 좁은 칸에서도 넘치지 않는다. 버튼·칩·배지 안에서는 줄 고르기(balance)에 맡긴다 */
 .bind { white-space: nowrap; }
 :is(.btn, .chip, .badge, .tag, .seg-tab, .soon, .toast) .bind { white-space: normal; }
+/* 묶음 하나가 그 글 칸보다 넓으면(아주 큰 글씨·좁은 화면·넓은 글꼴) ui.fitBundles가 .flow를 붙여 보통 글처럼 줄을 바꾼다(넘침 방지) */
+.nowrap.flow, .bind.flow { white-space: normal; }
 /* 금액 + 붙은 말(63만7천원이었어요)·7~16글자 낱말 안 문장부호(이름·계좌번호·연락처는, ui.keepNodes): 한 줄에 들면 통째로
    옮기고, 칸보다 길 때만(아주 큰 글씨) 정해 둔 자리(wbr: 금액 뒤·가운뎃점 뒤·여는 괄호 앞)에서 줄을 바꾼다.
    덩어리는 줄 위쪽에 맞춘다: 두 줄이 되어도 그 줄의 기준선이 첫 줄에 남아 목록 점(typing- / extensions)·두 줄 버튼의 그림이

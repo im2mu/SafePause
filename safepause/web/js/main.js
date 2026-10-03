@@ -8,7 +8,7 @@
  */
 import { api, ApiError, MODE, isConsentError, STALE } from "./api.js";
 import { engine } from "./engine-client.js";
-import { $, h, fill, icon, toast, announce, closeTopSheet, closeAllSheets, applyPrefs } from "./ui.js";
+import { $, h, fill, icon, toast, announce, closeTopSheet, closeAllSheets, applyPrefs, watchBundles } from "./ui.js";
 import * as speech from "./speech.js";
 import { hardProblem, wasmAllowed, layoutOk, showCompat } from "./compat.js";
 
@@ -279,6 +279,7 @@ async function boot() {
     render(currentRoute());
   });
   engineSlot();
+  watchBundles();   // 칸보다 넓은 묶음은 풀어 화면 밖으로 넘치지 않게(ui.fitBundles)
 
   let route = currentRoute();
   if (splitRoute(route).path !== "onboarding") {

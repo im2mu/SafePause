@@ -89,8 +89,9 @@ const BIND_MAX = 6;
 const PUNCT_IN = /[^\s\u00a0][([~/·\-–_)\]][^\s\u00a0]/;
 const PUNCT_WORD_MAX = 16;
 const SINGLE_WORD = /^[가-힣]$/;
-// 앞 낱말에 붙는 한 글자 낱말(의존 명사·단위): 가는 곳·건수 등·이번 달·한 장. 뒤 낱말이 아니라 앞 낱말과 묶는다
-const BACK_WORD = /^(?:곳|것|때|등|달|번|장|개|명|건|쯤|뿐|데|줄|중)$/;
+// 앞 낱말에 붙는 한 글자 낱말(의존 명사·단위): 가는 곳·건수 등·이번 달·한 장·알릴 수·확인한 뒤·본 후. 뒤 낱말이 아니라
+// 앞 낱말과 묶는다(뒤 낱말과 묶으면 알릴 / 수 있어요·확인한 / 뒤 이 앱을처럼 뜻 단위가 갈리고 짧은 가운데 줄이 생겼다)
+const BACK_WORD = /^(?:곳|것|때|등|달|번|장|개|명|건|쯤|뿐|데|줄|중|수|뒤|후)$/;
 const letters = (w) => (w.match(/[가-힣A-Za-z0-9]/g) || []).length;
 
 /**
@@ -427,6 +428,53 @@ export function picto(name, cls = "picto") {
   return markup ? svgFrom(markup, "0 0 64 64", cls, "4") : null;
 }
 
+// ---- 묶음 안전장치: 칸보다 넓은 묶음은 푼다 ---------------------------------------------
+// 시각·날짜·금액·낱말 묶음(span.nowrap·span.bind)은 한 줄에 들면 통째로 옮기지만, 묶음 하나가 그 글 칸(가장 가까운 블록)보다
+// 넓으면(아주 큰 글씨·좁은 화면·기기마다 다른 글꼴) 줄을 못 바꿔 화면 밖으로 넘친다. 그런 묶음만 .flow로 풀어 보통 글처럼
+// 줄을 바꾼다(들어가는 묶음은 그대로라 평소 모양은 같다). 글이 바뀔 때·창 크기나 글자 크기가 바뀔 때 다시 본다(watchBundles)
+const INLINE_DISPLAY = new Set(["inline", "inline-block", "contents"]);
+function blockInner(el) {
+  let p = el.parentElement;
+  while (p && INLINE_DISPLAY.has(getComputedStyle(p).display)) p = p.parentElement;
+  if (!p) return Infinity;
+  const s = getComputedStyle(p);
+  return p.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight);
+}
+
+/** 칸보다 넓은 묶음에 .flow를 붙인다. reset이면 먼저 모두 떼고 다시 잰다(창·글자 크기가 바뀐 뒤). */
+export function fitBundles(root = document.body, reset = false) {
+  if (!root) return;
+  if (reset) for (const el of root.querySelectorAll(".flow")) el.classList.remove("flow");
+  const wide = [];
+  const els = root.matches && root.matches(".nowrap, .bind") ? [root, ...root.querySelectorAll(".nowrap, .bind")] : root.querySelectorAll(".nowrap, .bind");
+  for (const el of els) {
+    if (el.classList.contains("flow") || el.closest(".sr-only")) continue;   // 화면 읽기 전용 글(1px 칸)은 보이지 않는다
+    const w = el.offsetWidth;   // 레이아웃 폭(시트가 올라오는 동안의 transform과 무관)
+    if (w > 0 && w > blockInner(el) + 0.5) wide.push(el);
+  }
+  for (const el of wide) el.classList.add("flow");   // 다 잰 뒤에 바꾼다(재고 바꾸기를 번갈아 하지 않게)
+}
+
+/** 화면 글이 바뀌거나(hidden·open 포함) 창·글자 크기가 바뀌면 fitBundles를 다시 부른다. main.js가 한 번 켠다. */
+export function watchBundles() {
+  if (typeof MutationObserver !== "function") return;
+  // 새로 들어온 부분(과 보이게 된 부분)만 잰다: 긴 목록을 그릴 때마다 화면 전체를 다시 재지 않게
+  new MutationObserver((records) => {
+    const roots = new Set();
+    for (const r of records) {
+      if (r.type === "attributes") roots.add(r.target);
+      else for (const n of r.addedNodes) roots.add(n.nodeType === 1 ? n : n.parentElement);
+    }
+    for (const el of roots) if (el && el.isConnected) fitBundles(el);
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "open"] });
+  let frame = 0;
+  window.addEventListener("resize", () => {
+    window.cancelAnimationFrame(frame);
+    frame = window.requestAnimationFrame(() => fitBundles(document.body, true));
+  });
+  fitBundles(document.body, true);
+}
+
 // ---- 알림(스크린리더) -------------------------------------------------------
 export function announce(message) {
   const el = $("#announcer");
@@ -709,6 +757,7 @@ export function applyPrefs(over = {}) {
   const font = over.font || getPref("font");
   const theme = over.theme || getPref("theme");
   if (font === "m") delete root.dataset.font; else root.dataset.font = font;
+  if (document.body) fitBundles(document.body, true);   // 글자 크기가 바뀌면 묶음 폭도 바뀐다
   if (theme === "auto") delete root.dataset.theme; else root.dataset.theme = theme;
   for (const meta of $$('meta[name="theme-color"]')) {
     const darkMedia = /dark/.test(meta.getAttribute("media") || "");
