@@ -182,12 +182,17 @@ def test_worker_boot_overlap_keeps_stage_contract() -> None:
     # AI 패키지는 기본 준비(모듈 불러오기) 전에 내려받기 시작한다
     assert w.index("../py/safepause.zip") < w.index("await loadPyodide(")
     assert 'packages: ["pydantic"], fullStdLib: false })' in w
-    load_ai = w.index('py.loadPackage(["numpy", "scipy", "scikit-learn"]')
+    assert 'const AI_PACKAGES = ["numpy", "scipy", "scikit-learn"];' in w
+    load_ai = w.index("py.loadPackage(AI_PACKAGES,")
     assert w.index("await syncfs(true);") < load_ai < w.index('py.pyimport("safepause.api.bridge")')
     # 실패 처리: 미리 시작한 약속의 거부는 기다리는 곳(fullReady·booted)에서 그대로 난다
     assert "zipBytes.catch(() => {});" in w and "aiPackages.catch(() => {});" in w
     assert "await aiPackages;" in w and "py.unpackArchive(await zipBytes" in w
     assert 'stage("error", "AI 분석 부분을 켜지 못했어요", String(e && e.message || e), false)' in w
+    # 받기·무결성 실패는 loadPackage가 예외 없이 넘어가므로 실제로 실렸는지 보고 AI 부분 실패로 알린다(준비됐어요를 띄우지 않음)
+    full = w[w.index("fullReady = (async () => {"):w.index("const booted = boot()")]
+    assert full.index("await aiPackages;") < full.index("AI_PACKAGES.filter((n) => !(py.loadedPackages && py.loadedPackages[n]))") < full.index('stage("full"')
+    assert "errorCallback: (m) => { loadErrors.push(String(m)); }" in w
 
 
 def test_worker_idle_warm_yields_to_requests() -> None:

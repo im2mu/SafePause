@@ -31,7 +31,7 @@ function syncfs(populate) {
   return new Promise((resolve, reject) => py.FS.syncfs(populate, (err) => (err ? reject(err) : resolve())));
 }
 
-const QUIET = { messageCallback: () => {}, errorCallback: () => {} };
+const AI_PACKAGES = ["numpy", "scipy", "scikit-learn"];
 
 async function boot() {
   const t0 = performance.now();
@@ -48,7 +48,8 @@ async function boot() {
   py.runPython("import sys; sys.path.insert(0, '/home/pyodide/app')");
   // AI 패키지 내려받기를 지금 시작해 아래 모듈 불러오기(동기)와 겹친다. 내려받기 요청이 실제로 나가도록 한 번 양보한다.
   // 설치는 기본 준비가 끝난 뒤 이어진다(loadPyodide 바로 뒤에 시작하면 설치가 저장 폴더 읽기 사이에 끼어 basic이 늦어졌다)
-  const aiPackages = py.loadPackage(["numpy", "scipy", "scikit-learn"], QUIET);
+  const loadErrors = [];
+  const aiPackages = py.loadPackage(AI_PACKAGES, { messageCallback: () => {}, errorCallback: (m) => { loadErrors.push(String(m)); } });
   aiPackages.catch(() => {});   // 실패는 아래 fullReady에서 그대로 난다
   await new Promise((resolve) => setTimeout(resolve, 0));
   bridge = py.pyimport("safepause.api.bridge");
@@ -58,6 +59,10 @@ async function boot() {
   fullReady = (async () => {
     stage("basic", "AI 분석 준비 중이에요", "numpy·scikit-learn 불러오는 중");
     await aiPackages;
+    // loadPackage는 받기·무결성(SRI) 실패에도 예외 없이 끝나고 오류 알림만 보낸다: 실제로 실렸는지 확인해 AI 부분 실패로 알린다
+    // (확인하지 않으면 '준비됐어요'를 띄운 뒤 첫 분석에서 import 오류가 난다)
+    const missing = AI_PACKAGES.filter((n) => !(py.loadedPackages && py.loadedPackages[n]));
+    if (missing.length) throw new Error(`AI 패키지를 싣지 못했어요: ${missing.join(", ")}${loadErrors.length ? ` (${loadErrors[0].slice(0, 200)})` : ""}`);
     bridge.warm();
     stage("full", "AI 분석까지 준비됐어요", `${Math.round(performance.now() - t0)}ms`);
     idleWarm = true;
