@@ -77,7 +77,7 @@
   padding: .5rem .1rem; background: none; border: 0; color: var(--text-2); font-weight: 700; text-align: left;
 }
 .np-expand-main { display: inline-flex; align-items: center; gap: min(.5rem, 2vw); min-width: 0; }
-.np-expand svg { width: min(1.25rem, 6vw); height: min(1.25rem, 6vw); flex: none; }   /* 큰 글씨: 그림이 글 칸을 줄이지 않게 */
+.np-expand svg { width: min(1.25rem, max(6vw, .8em)); height: min(1.25rem, max(6vw, .8em)); flex: none; }   /* 큰 글씨: 그림이 글 칸을 줄이지 않게 */
 .np-expand-count { display: inline-block; max-width: 100%; color: var(--text-3); font-weight: 600; }
 .np-expand .np-chev { color: var(--text-3); transition: transform .2s ease; }
 .np-expand[aria-expanded="true"] .np-chev { transform: rotate(180deg); }
@@ -243,7 +243,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 /* 같은 일 묶기(J5): 머리 줄 + 첫 카드 + 펼치기 */
 .al-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; padding: min(.6rem, 2.5vw); border-radius: var(--r-l); background: var(--line); background: color-mix(in srgb, var(--line) 45%, var(--bg-sub)); }
 .al-group-head { display: flex; align-items: flex-start; gap: min(.5rem, 2vw); padding: .25rem min(.4rem, 2vw) 0; color: var(--text-2); }
-.al-group-head > svg { width: min(1.2rem, 6vw); height: min(1.2rem, 6vw); flex: none; margin-top: max(0px, calc((1lh - min(1.2rem, 6vw)) / 2)); }
+.al-group-head > svg { width: min(1.2rem, max(6vw, .8em)); height: min(1.2rem, max(6vw, .8em)); flex: none; margin-top: max(0px, calc((1lh - min(1.2rem, max(6vw, .8em))) / 2)); }
 .al-group-main { flex: 1 1 auto; min-width: 0; }
 .al-group-main b { font-weight: 800; }
 .al-group-toggle .al-group-chev { transition: transform .2s ease; }

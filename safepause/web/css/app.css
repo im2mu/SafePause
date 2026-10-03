@@ -168,7 +168,6 @@ p, li, .sent, .row-sub, .hint, .list-head { text-wrap: pretty; }
 /* 낱말 묶음(ui.keepNodes): 한 글자 낱말 + 뒤 낱말(열 수 있어요), 글 끝 한두 글자 낱말 + 앞 낱말(불법금융 신고)의 사이 빈칸.
    문장 6글자·이름 5글자까지만 묶어 큰 글씨 좁은 칸에서도 넘치지 않는다. 버튼·칩·배지 안에서는 줄 고르기(balance)에 맡긴다 */
 .bind { white-space: nowrap; }
-:is(.btn, .chip, .badge, .tag, .seg-tab, .soon, .toast) .bind { white-space: normal; }
 /* 묶음 하나가 그 글 칸보다 넓으면(아주 큰 글씨·좁은 화면·넓은 글꼴) ui.fitBundles가 .flow를 붙여 보통 글처럼 줄을 바꾼다(넘침 방지) */
 .nowrap.flow, .bind.flow { white-space: normal; }
 /* 금액 + 붙은 말(63만7천원이었어요)·7~16글자 낱말 안 문장부호(이름·계좌번호·연락처는, ui.keepNodes): 한 줄에 들면 통째로
@@ -359,7 +358,7 @@ button.row:active, a.row:active { background: var(--bg-sub); }
   border-radius: 999px; padding: var(--space-2) min(var(--space-4), 5vw); font-weight: 600; font-size: 1rem;
   display: inline-flex; align-items: center; gap: .35rem;
 }
-.chip svg { width: min(1rem, 6vw); height: min(1rem, 6vw); flex: none; }
+.chip svg { width: min(1rem, max(6vw, .8em)); height: min(1rem, max(6vw, .8em)); flex: none; }
 .chip[aria-pressed="true"] { background: var(--grey-800); border-color: var(--grey-800); color: #fff; }
 :root[data-theme="dark"] .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); } }
@@ -383,10 +382,10 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 /* ui.busy·담기 버튼은 disabled 대신 aria-disabled로 막는다(초점이 body로 빠지지 않게, FE-04). 하는 중(aria-busy)은 아래 돌림표 */
 .btn[aria-disabled="true"]:not([aria-busy="true"]) { background: var(--bg-sub); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
 :is(.card, .sheet) :is(.btn:disabled, .btn[aria-disabled="true"]:not([aria-busy="true"])) { background: var(--surface-2); }
-.btn svg { width: min(1.25rem, 7vw); height: min(1.25rem, 7vw); flex: none; }   /* 큰 글씨에서 그림이 이름 칸을 줄이지 않게 화면 폭 상한 */
+.btn svg { width: min(1.25rem, max(7vw, .8em)); height: min(1.25rem, max(7vw, .8em)); flex: none; }   /* 큰 글씨에서 그림이 이름 칸을 줄이지 않게 화면 폭 상한 */
 /* 버튼 이름(ui.h가 그림 + 글을 span.btn-label 하나로 묶음): 그림은 첫 줄 글 바로 앞(글 가운데 높이), 줄은 가운데에서 고르게 */
 .btn-label { display: block; min-width: 0; text-align: center; text-wrap: balance; }
-.btn-label > svg, .btn-label > .btn-ic { display: inline-block; vertical-align: calc(.38em - min(.625rem, 3.5vw)); margin-inline-end: min(.5rem, 2vw); }
+.btn-label > svg, .btn-label > .btn-ic { display: inline-block; vertical-align: calc(.38em - min(.625rem, max(3.5vw, .4em))); margin-inline-end: min(.5rem, 2vw); }
 .btn-label > .btn-ic > svg { display: block; }
 .btn.primary { background: var(--primary); color: #fff; }
 .btn.primary:active:not(:disabled) { background: var(--primary-press); }
@@ -476,7 +475,7 @@ input[type="checkbox"]:focus-visible { outline: none; box-shadow: var(--focus); 
 /* 목록 카드 안 체크 줄은 목록 줄 안쪽 여백을 그대로(체크 칸이 카드 테두리에 붙지 않게) */
 .check-row.row { padding: .8rem var(--pad-row); }
 .check-row .grow { flex: 1; min-width: 0; }   /* 긴 신호 이름(휴대폰 소액결제 급증)이 줄을 바꾸게 */
-.check-row > svg { width: min(1.5rem, 6vw); height: min(1.5rem, 6vw); flex: none; color: var(--text-2); }   /* 무엇을 알릴까요의 신호 아이콘 */
+.check-row > svg { width: min(1.5rem, max(6vw, .8em)); height: min(1.5rem, max(6vw, .8em)); flex: none; color: var(--text-2); }   /* 무엇을 알릴까요의 신호 아이콘 */
 
 /* 스위치: 보이는 크기가 작아져도 누르는 자리는 48px 이상(L11) */
 .switch-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .875rem; padding: 1.1rem var(--pad-card); }
@@ -509,7 +508,7 @@ input[type="checkbox"]:focus-visible { outline: none; box-shadow: var(--focus); 
   display: flex; flex-wrap: wrap; gap: min(.75rem, 3vw); align-items: flex-start; padding: min(1rem, 4vw) min(1.1rem, 4.5vw);
   border-radius: var(--r-m); background: var(--surface-2); margin-bottom: var(--gap-block); font-size: 1rem; color: var(--text-2);
 }
-.notice > svg { width: min(1.375rem, 6vw); height: min(1.375rem, 6vw); flex: none; margin-top: max(0px, calc((1lh - min(1.375rem, 6vw)) / 2)); }
+.notice > svg { width: min(1.375rem, max(6vw, .8em)); height: min(1.375rem, max(6vw, .8em)); flex: none; margin-top: max(0px, calc((1lh - min(1.375rem, max(6vw, .8em))) / 2)); }
 .notice > svg + * { flex: 1 1 6em; min-width: 0; }
 .notice.blue { background: var(--primary-weak); color: var(--primary-weak-text); }
 .notice.red { background: var(--danger-weak); color: var(--danger-weak-text); }
@@ -591,7 +590,7 @@ tbody th { font-weight: 600; color: var(--text-2); }
 .engine-bar { display: flex; align-items: center; gap: .6rem; font-size: 1rem; font-weight: 600; color: var(--primary-weak-text); background: var(--primary-weak); border-radius: var(--r-m); padding: .65rem .9rem; margin: var(--space-2) 0 var(--space-3); }
 .engine-bar .spinner { width: 1rem; height: 1rem; border-radius: 50%; border: 2.5px solid var(--primary-weak); border: 2.5px solid color-mix(in srgb, var(--primary) 30%, transparent); border-top-color: var(--primary); animation: spin .8s linear infinite; flex: none; }
 .engine-bar.error { background: var(--danger-weak); color: var(--danger-weak-text); align-items: flex-start; }
-.engine-bar svg { width: min(1.25rem, 6vw); height: min(1.25rem, 6vw); flex: none; margin-top: max(0px, calc((1lh - min(1.25rem, 6vw)) / 2)); }   /* FE-12: 경고 아이콘이 화면 절반으로 커지지 않게 */
+.engine-bar svg { width: min(1.25rem, max(6vw, .8em)); height: min(1.25rem, max(6vw, .8em)); flex: none; margin-top: max(0px, calc((1lh - min(1.25rem, max(6vw, .8em))) / 2)); }   /* FE-12: 경고 아이콘이 화면 절반으로 커지지 않게 */
 .engine-bar p { flex: 1; min-width: 0; }
 
 /* 첫 실행 */
@@ -609,7 +608,7 @@ tbody th { font-weight: 600; color: var(--text-2); }
 .steps-dots i.on { width: 1.25rem; background: var(--primary); }
 .promise { display: grid; gap: var(--space-3); margin-top: 1.25rem; }
 .promise li { display: flex; gap: min(.75rem, 3vw); align-items: flex-start; background: var(--surface-2); border-radius: var(--r-m); padding: min(.9rem, 3.5vw) min(1rem, 4vw); }
-.promise li svg { width: min(1.5rem, 7vw); height: min(1.5rem, 7vw); color: var(--primary); flex: none; margin-top: max(0px, calc((1lh - min(1.5rem, 7vw)) / 2)); }
+.promise li svg { width: min(1.5rem, max(7vw, .8em)); height: min(1.5rem, max(7vw, .8em)); color: var(--primary); flex: none; margin-top: max(0px, calc((1lh - min(1.5rem, max(7vw, .8em))) / 2)); }
 
 /* 토스트: 문장마다 한 줄이지만 촘촘하게 */
 .toast-root { position: fixed; left: 0; right: 0; bottom: calc(var(--nav-h) + var(--space-4)); z-index: 80; display: grid; justify-items: center; pointer-events: none; padding: 0 var(--space-4); }
@@ -702,7 +701,7 @@ html:not([data-voice="none"]) .mn-novoice { display: none !important; }
 .ae-group { background: var(--surface-2); border-radius: var(--r-m); padding: .8rem min(1rem, 4vw); }
 .ae-group > * + * { margin-top: var(--gap-list); }   /* 묶음 안 줄(다른 정도 줄·평소와 다른 점·AI만 찾음)은 목록 간격 */
 .ae-title { display: flex; align-items: flex-start; gap: .4rem; font-size: 1rem; font-weight: 700; color: var(--text-2); margin-bottom: .4rem; }
-.ae-title svg, .ae-list svg, .ae-only svg { width: min(1.2rem, 6vw); height: min(1.2rem, 6vw); flex: none; margin-top: max(0px, calc((1lh - min(1.2rem, 6vw)) / 2)); }   /* 첫 줄 가운데(⑪) */
+.ae-title svg, .ae-list svg, .ae-only svg { width: min(1.2rem, max(6vw, .8em)); height: min(1.2rem, max(6vw, .8em)); flex: none; margin-top: max(0px, calc((1lh - min(1.2rem, max(6vw, .8em))) / 2)); }   /* 첫 줄 가운데(⑪) */
 .ae-list { display: grid; gap: var(--gap-list); }
 .ae-list li { display: flex; align-items: flex-start; gap: var(--space-2); font-weight: 600; }
 .ae-diff { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .1rem var(--space-3); }

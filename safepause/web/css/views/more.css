@@ -147,7 +147,7 @@
 .onboard-brandrow .onboard-brand { margin: 0; font-size: 1.3rem; overflow-wrap: normal; word-break: normal; }
 /* 약속 셋: 아주 큰 글씨에서 그림·여백이 글 칸을 좁히지 않게 화면 폭 상한 */
 .promise li { padding: min(.9rem, 3.5vw) min(1rem, 4vw); gap: min(.75rem, 3vw); }
-.promise li svg { width: min(1.5rem, 7vw); height: min(1.5rem, 7vw); }
+.promise li svg { width: min(1.5rem, max(7vw, .8em)); height: min(1.5rem, max(7vw, .8em)); }
 .onboard-intro.onboard-body { padding-top: 1.25rem; }
 .onboard-intro .steps-dots { margin-bottom: 1rem; }
 .onboard-intro .promise { gap: .5rem; margin-top: 1rem; }
@@ -167,7 +167,7 @@
 .guide-title { flex: 1 1 8em; min-width: 0; margin: 0; font-size: 1.05rem; font-weight: 700; }
 .guide-body { color: var(--text-2); }
 .guide-step > .guide-link { justify-self: start; margin-top: .4rem; }   /* 칸 사이(.6rem)와 더해 본문 → 버튼 1rem */
-.guide-link svg { width: min(1.1rem, 6vw); height: min(1.1rem, 6vw); }
+.guide-link svg { width: min(1.1rem, max(6vw, .8em)); height: min(1.1rem, max(6vw, .8em)); }
 /* 가는 곳 버튼: 끝 낱말(가기)이 홀로 다음 줄에 남지 않게 묶음을 지키고(⑬), 아주 큰 글씨(카드가 8글자보다 좁음)는 그림을 빼서 이름 칸을 넓힌다 */
 .guide-link .bind { white-space: nowrap; }
 @container (max-width: 8rem) { .guide-link svg { display: none; } .guide-link .btn-label > svg { display: none; } }
@@ -219,7 +219,7 @@
 /* 좁은 표 칸에서는 낱말 사이에서 줄을 바꾸고(지표 이름의 balance를 물려받지 않게), 그림은 첫 줄 가운데에 둔다 */
 .ev-mark { display: flex; align-items: flex-start; gap: .3rem; margin-top: var(--gap-sent); font-weight: 700; text-wrap: wrap; }
 .ev-mark > span { min-width: 0; }
-.ev-mark svg { width: min(1.1rem, 6vw); height: min(1.1rem, 6vw); flex: none; margin-top: max(0px, calc((1lh - min(1.1rem, 6vw)) / 2)); }
+.ev-mark svg { width: min(1.1rem, max(6vw, .8em)); height: min(1.1rem, max(6vw, .8em)); flex: none; margin-top: max(0px, calc((1lh - min(1.1rem, max(6vw, .8em))) / 2)); }
 .ev-mark.same { color: var(--ok-text); }
 .ev-mark.diff { color: var(--danger-text); }
 /* 값 칸: 조각(63.0% · (189/300)) 사이에서만 줄을 바꾼다. 다르면 계산한 값과 보고서 값을 두 줄로 */
@@ -267,7 +267,7 @@
 .ev-more > summary::-webkit-details-marker { display: none; }
 .ev-more-text { flex: 1 1 auto; min-width: 0; }
 .ev-more-title { display: block; font-weight: 700; color: var(--text-2); }
-.ev-more > summary > svg { width: min(1.2rem, 6vw); height: min(1.2rem, 6vw); flex: none; color: var(--text-3); transition: transform .2s ease; }
+.ev-more > summary > svg { width: min(1.2rem, max(6vw, .8em)); height: min(1.2rem, max(6vw, .8em)); flex: none; color: var(--text-3); transition: transform .2s ease; }
 .ev-more[open] > summary > svg { transform: rotate(180deg); }
 .ev-more > .table-wrap { margin-bottom: 0; border-top: 1px solid var(--line); border-radius: 0 0 var(--r-m) var(--r-m); }
 

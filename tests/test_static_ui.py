@@ -451,7 +451,7 @@ def test_spacing_tokens_and_rhythm() -> None:
     assert ":is(.card, .notice, .list, .sheet) > :last-child" in CSS
     # 목록: 점 목록은 들여쓰기 하나·항목 간격 .35rem, 안내 상자 아이콘은 첫 줄 가운데(1lh)
     assert "padding-left: var(--indent)" in CSS and "> li + li { margin-top: var(--gap-list); }" in CSS
-    assert "calc((1lh - min(1.375rem, 6vw)) / 2)" in _rule(".notice > svg")
+    assert "calc((1lh - min(1.375rem, max(6vw, .8em))) / 2)" in _rule(".notice > svg")
 
 
 def test_line_height_system_and_measure() -> None:
@@ -740,7 +740,7 @@ def test_engine_basic_after_ai_failure_and_fifo() -> None:
 def test_common_layout_rules_for_large_text() -> None:
     # L3·L4·L9·L10·L11·L14·L8: 큰 글씨·좁은 화면·가로 화면 공용 규칙
     assert ".bottom-nav .nav-item { min-height: 0;" in CSS                       # L3 아래 탭 이름이 잘리지 않게
-    assert ".notice > svg { width: min(1.375rem, 6vw)" in CSS                     # L4 안내 상자 아이콘 상한(첫 줄 가운데)
+    assert ".notice > svg { width: min(1.375rem, max(6vw, .8em))" in CSS                     # L4 안내 상자 아이콘 상한(첫 줄 가운데)
     assert ".notice > svg + * { flex: 1 1 6em;" in CSS                           # L4·⑩ 글 칸이 6글자보다 좁을 때만 아이콘을 글 위 줄로
     assert ".table-wrap td.num::before { white-space: normal;" in CSS            # L9 숫자는 끊지 않고 칸 이름만 줄바꿈
     assert ".switch::before {" in CSS and "max(100%, 48px)" in CSS               # L11 스위치 누르는 자리 48px
@@ -841,3 +841,12 @@ def test_bundle_spans_do_not_take_label_styles() -> None:
     assert ".quick-item span {" not in CSS
     assert ".quick-item b + span { color: var(--text-3); line-height: var(--lh-sub); }" in CSS
     assert re.search(r"\.keep-word \{ display: inline-block; max-width: 100%; vertical-align: top; \}", CSS)
+
+
+def test_icons_keep_size_with_large_text_2026_10_03() -> None:
+    # 글 옆 그림은 화면 폭 상한(vw)이 있어도 글자의 0.8배보다 작아지지 않는다(큰 글씨에서 그림이 글의 절반 크기로 보이던 것, K9).
+    # 상자 안 그림(목록 동그라미 등)은 상자 크기를 따른다. 버튼 안 낱말 묶음은 풀지 않는다(내 / 거래로 확인 방지, 넘치면 fitBundles)
+    for sel in (".chip svg", ".btn svg", ".check-row > svg", ".notice > svg", ".engine-bar svg", ".np-expand svg"):
+        rule = _rule(sel, CSS)   # 공용 + 화면별 CSS
+        assert re.search(r"max\(\d*\.?\d+vw, \.8em\)", rule), (sel, rule)
+    assert ":is(.btn, .chip, .badge, .tag, .seg-tab, .soon, .toast) .bind { white-space: normal; }" not in CSS
