@@ -20,7 +20,7 @@ from typing import Literal, Optional
 import numpy as np
 
 from safepause.config import Settings
-from safepause.detect.anomaly import PersonalAnomalyModel
+from safepause.detect.anomaly import MIN_TRAIN, PersonalAnomalyModel
 from safepause.detect.features import (
     FEATURE_NAMES,
     History,
@@ -29,6 +29,8 @@ from safepause.detect.features import (
     compute_features,
     feature_vector,
     walk,
+    walk_events,
+    walk_order,
 )
 from safepause.detect.rules import evaluate_rules_on
 from safepause.models import (
@@ -156,24 +158,103 @@ class RiskEngine:
         이력을 증분으로 갱신하고 이상 점수는 한 번에 계산해 1,000건도 빠르게 처리한다.
         """
         m = self._mode(mode)
-        items = list(txns)
-        n = len(items)
-        use_rules = m != "anomaly"
-        use_model = self._uses_model(m)
-        hits: list[list[SignalHit]] = [[] for _ in range(n)]
-        feats: list[Optional[dict[str, float]]] = [None] * n
-        matrix = np.zeros((n, len(FEATURE_NAMES)))
-        for idx, txn, hist in walk(items, self.settings, history or ()):
-            if use_rules:
-                hits[idx] = evaluate_rules_on(txn, hist, txn.ts)
-            if use_model and hist.baseline_ready(txn.ts):
-                f = compute_features(txn, hist, txn.ts)
-                feats[idx] = f
-                matrix[idx] = feature_vector(f)
-        scores = self.model.score_matrix(matrix) if (use_model and n) else np.zeros(n)
-        scores = np.where([f is not None for f in feats], scores, 0.0)  # 기준 없는 거래는 0
-        return [self._build(txn, hits[i], feats[i], float(scores[i]), m)
-                for i, txn in enumerate(items)]
+        return self._assess_batches(None, [(txns, history)], [m])[0][m]
+
+    def assess_modes(self, batches: Sequence[tuple[Sequence[Transaction], Iterable[Transaction] | None]],
+                     modes: Sequence[str]) -> list[dict[str, list[RiskAssessment]]]:
+        """(평가할 거래, 이력) 묶음 여러 개를 여러 방식으로 평가한다.
+
+        결과[k][mode]는 assess_many(묶음 k의 거래, 이력, mode)와 같다. 이력 걷기(룰·특징 계산)는 묶음마다
+        한 번만 하고(방식마다 다시 걷지 않음), 이상 점수는 모든 묶음의 행을 모아 한 번에 계산한다.
+        """
+        return self._assess_batches(None, batches, modes)
+
+    def fit_assess(self, train: Iterable[Transaction],
+                   batches: Sequence[tuple[Sequence[Transaction], Iterable[Transaction] | None]],
+                   modes: Sequence[str]) -> list[dict[str, list[RiskAssessment]]]:
+        """fit(train) 다음 assess_modes(batches, modes)를 한 것과 같은 결과(엔진 상태도 같음).
+
+        학습 거래가 첫 묶음의 이력 걷기 앞부분과 똑같으면(같은 거래 객체, 같은 순서: 내 거래 분석은 앞쪽 학습 구간,
+        성능 확인은 기준 기간 이력) 학습 특징을 그 걷기에서 함께 계산한다(같은 이력·같은 시각이라 값이 같음).
+        학습 거래 점수와 평가 점수는 한 번의 score_samples로 함께 계산한다.
+        """
+        return self._assess_batches(list(train), batches, modes)
+
+    def _assess_batches(self, train: Optional[list[Transaction]],
+                        batches: Sequence[tuple[Sequence[Transaction], Iterable[Transaction] | None]],
+                        modes: Sequence[str]) -> list[dict[str, list[RiskAssessment]]]:
+        mode_list = list(dict.fromkeys(self._mode(m) for m in modes))
+        will_fit = train is not None and len(train) >= MIN_TRAIN   # PersonalAnomalyModel.fit과 같은 조건
+        if train is not None:
+            self.model.configure(self.settings, self.seed)   # fit()의 첫 단계(학습 상태 비움)
+        model_on = will_fit or (train is None and self.model.fitted)
+        need_rules = any(m != "anomaly" for m in mode_list)
+        need_feats = model_on and any(m != "rules" for m in mode_list)
+
+        # 학습 거래가 fit()에서 걷는 순서(walk(train))
+        fit_order = [txn for _, _, txn in walk_order(train)] if will_fit else []
+        train_rows: list[list[float]] = []
+        train_ready: list[bool] = []
+        shared = False
+        prepared: list[tuple[list[Transaction], list[list[SignalHit]], list[Optional[dict[str, float]]]]] = []
+        for b, (txns, history) in enumerate(batches):
+            items = list(txns)
+            n = len(items)
+            order = walk_order(items, history or ())
+            share = (b == 0 and will_fit and len(order) >= len(fit_order)
+                     and all(e[2] is t for e, t in zip(order, fit_order)))
+            shared = shared or share
+            n_share = len(fit_order) if share else 0
+            hits: list[list[SignalHit]] = [[] for _ in range(n)]
+            feats: list[Optional[dict[str, float]]] = [None] * n
+            for pos, (kind, idx, txn, hist) in enumerate(walk_events(order, self.settings)):
+                f: Optional[dict[str, float]] = None
+                if pos < n_share:   # 학습 거래: fit()의 걷기와 같은 이력(같은 거래를 같은 순서로 더함)
+                    f = compute_features(txn, hist, txn.ts)
+                    train_rows.append(feature_vector(f))
+                    train_ready.append(hist.baseline_ready(txn.ts))
+                if kind != 1:
+                    continue
+                if need_rules:
+                    hits[idx] = evaluate_rules_on(txn, hist, txn.ts)
+                if need_feats and hist.baseline_ready(txn.ts):
+                    feats[idx] = f if f is not None else compute_features(txn, hist, txn.ts)
+            prepared.append((items, hits, feats))
+        if will_fit and not shared:   # 앞부분이 다르면 fit()처럼 학습 거래만 따로 걷는다
+            assert train is not None
+            for _, txn, hist in walk(train, self.settings):
+                train_rows.append(feature_vector(compute_features(txn, hist, txn.ts)))
+                train_ready.append(hist.baseline_ready(txn.ts))
+
+        # 특징이 있는 행(평소 기준이 있는 거래)만 모아 한 번에 점수를 낸다. 기준 없는 거래는 0(assess_many와 같음)
+        rows = [feature_vector(f) for _, _, feats in prepared for f in feats if f is not None]
+        extra = np.asarray(rows, dtype=float).reshape(-1, len(FEATURE_NAMES))
+        if will_fit:
+            ranks = self.model.fit_rows(train_rows, train_ready, extra)
+        elif need_feats and len(extra):
+            ranks = self.model.score_matrix(extra)
+        else:
+            ranks = np.zeros(0)
+        assert ranks is not None
+
+        out: list[dict[str, list[RiskAssessment]]] = []
+        k = 0
+        for items, hits, feats in prepared:
+            scores = [0.0] * len(items)
+            for i, f in enumerate(feats):
+                if f is not None:
+                    scores[i] = float(ranks[k])
+                    k += 1
+            result: dict[str, list[RiskAssessment]] = {}
+            for m in mode_list:
+                use_rules = m != "anomaly"
+                use_model = self._uses_model(m)
+                result[m] = [self._build(txn, list(hits[i]) if use_rules else [],
+                                         feats[i] if use_model else None,
+                                         scores[i] if use_model else 0.0, m)
+                             for i, txn in enumerate(items)]
+            out.append(result)
+        return out
 
     # ---- 내부 ----
     def _mode(self, mode: str | None) -> str:

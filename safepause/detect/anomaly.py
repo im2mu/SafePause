@@ -10,7 +10,7 @@ scikit-learn은 학습(fit)할 때 처음 불러온다. 룰만 쓰거나 학습 
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
@@ -68,23 +68,37 @@ class PersonalAnomalyModel:
         평소 기준이 아직 없는 초기 구간(워밍업) 거래는 특징값이 극단적이라 학습 행에서 빼되,
         빼고 나서 MIN_TRAIN 건이 안 되면 전부 쓴다. 정답 라벨(label)은 쓰지 않는다.
         """
+        self.configure(settings, seed)
+        txns = list(train_txns)
+        if len(txns) < MIN_TRAIN:
+            return self
+        rows_all: list[list[float]] = []
+        ready: list[bool] = []
+        for _, txn, hist in walk(txns, self.settings):
+            rows_all.append(feature_vector(compute_features(txn, hist, txn.ts)))
+            ready.append(hist.baseline_ready(txn.ts))
+        self.fit_rows(rows_all, ready)
+        return self
+
+    def configure(self, settings: Settings | None = None, seed: int | None = None) -> None:
+        """fit()의 첫 단계: 설정·seed를 바꾸고 학습 상태를 비운다(fitted=False)."""
         if settings is not None:
             self.settings = settings
         if seed is not None:
             self.seed = seed
         self._reset()
-        txns = list(train_txns)
-        if len(txns) < MIN_TRAIN:
-            return self
 
-        rows_all: list[list[float]] = []
-        rows_ready: list[list[float]] = []
-        for _, txn, hist in walk(txns, self.settings):
-            vec = feature_vector(compute_features(txn, hist, txn.ts))
-            rows_all.append(vec)
-            if hist.baseline_ready(txn.ts):
-                rows_ready.append(vec)
-        rows = rows_ready if len(rows_ready) >= MIN_TRAIN else rows_all
+    def fit_rows(self, rows_all: Sequence[Sequence[float]], ready: Sequence[bool],
+                 extra: Optional[np.ndarray] = None) -> Optional[np.ndarray]:
+        """학습 거래의 특징(walk 순서, rows_all)과 평소 기준 준비 여부(ready)로 학습한다. fit()과 같은 결과.
+
+        extra(특징 행렬, FEATURE_NAMES 순서)를 주면 학습 거래 점수와 한 번의 score_samples로 함께 계산해
+        학습 뒤 score_matrix(extra)와 같은 값을 돌려준다. IsolationForest 점수는 행마다 따로 계산되므로
+        (나무 순서대로 더함) 행을 모아 계산해도 값이 같다. 나무 200개를 도는 호출 횟수만 줄인다.
+        """
+        self._reset()
+        rows_ready = [vec for vec, ok in zip(rows_all, ready) if ok]
+        rows = rows_ready if len(rows_ready) >= MIN_TRAIN else list(rows_all)
         x = np.asarray(rows, dtype=float)
 
         from sklearn.ensemble import IsolationForest  # 지연 불러오기(모듈 설명 참고)
@@ -92,13 +106,21 @@ class PersonalAnomalyModel:
         forest = IsolationForest(n_estimators=N_ESTIMATORS, contamination="auto",
                                  random_state=self.seed)
         forest.fit(x)
+        more = (None if extra is None
+                else np.asarray(extra, dtype=float).reshape(-1, len(FEATURE_NAMES)))
+        if more is not None and len(more):
+            anomaly = -forest.score_samples(np.vstack([x, more]))
+        else:
+            anomaly = -forest.score_samples(x)
         self._forest = forest
-        self._train_sorted = np.sort(-forest.score_samples(x))
+        self._train_sorted = np.sort(anomaly[:len(x)])
         self._mean = x.mean(axis=0)
         self._std = x.std(axis=0)
         self.n_train = len(rows)
         self.fitted = True
-        return self
+        if more is None:
+            return None
+        return self._percentile(anomaly[len(x):])
 
     # ---- 점수 ----
     def score_matrix(self, x: np.ndarray) -> np.ndarray:
@@ -106,7 +128,11 @@ class PersonalAnomalyModel:
         x = np.asarray(x, dtype=float).reshape(-1, len(FEATURE_NAMES))
         if not self.fitted or self._forest is None or self._train_sorted is None:
             return np.zeros(len(x))
-        anomaly = -self._forest.score_samples(x)
+        return self._percentile(-self._forest.score_samples(x))
+
+    def _percentile(self, anomaly: np.ndarray) -> np.ndarray:
+        """이례도(-score_samples) → 학습 거래 이례도 분포 대비 백분위(0~1)."""
+        assert self._train_sorted is not None
         below = np.searchsorted(self._train_sorted, anomaly, side="left")
         return np.clip(below / len(self._train_sorted), 0.0, 1.0)
 

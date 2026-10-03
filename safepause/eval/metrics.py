@@ -425,19 +425,35 @@ def _run_cases(personas: list[str], seeds: list[int], modes: list[str], days: in
             case = synthetic_case(persona, seed, days, baseline_days, scenarios=True, start=start,
                                   intensity=intensity)
             ctrl = synthetic_case(persona, seed, days, baseline_days, scenarios=False, start=start)
-            engine = _fitted_engine(case.baseline_normal, settings, seed, modes)
             # 기준 기간이 똑같으면(기본 설정) 같은 모델을 대조군에도 쓴다.
             same = _signature(case.baseline_normal) == _signature(ctrl.baseline_normal)
-            ctrl_engine = engine if same else _fitted_engine(ctrl.baseline_normal, settings, seed, modes)
+            # 모든 방식을 한 번에 평가한다(이력 걷기는 묶음마다 한 번, 점수는 학습·사례·대조군을 모아 한 번).
+            # 결과는 방식마다 _fitted_engine 뒤 assess_many를 따로 부른 것과 같다
+            case_batch = (case.evaluated, case.baseline)
+            ctrl_batch = (ctrl.evaluated, ctrl.baseline)
+            engine = RiskEngine(settings, seed=seed)
+            if same:
+                assessed, control = _assess_all(engine, case.baseline_normal, [case_batch, ctrl_batch], modes)
+            else:
+                (assessed,) = _assess_all(engine, case.baseline_normal, [case_batch], modes)
+                (control,) = _assess_all(RiskEngine(settings, seed=seed), ctrl.baseline_normal, [ctrl_batch],
+                                         modes)
             for mode in modes:
-                assessed = engine.assess_many(case.evaluated, history=case.baseline, mode=mode)
-                control = ctrl_engine.assess_many(ctrl.evaluated, history=ctrl.baseline, mode=mode)
                 results[mode].append(score_case(
-                    case.evaluated, assessed, ctrl.evaluated, control,
+                    case.evaluated, assessed[mode], ctrl.evaluated, control[mode],
                     eval_days=case.eval_days, persona=persona, seed=seed, mode=mode,
                     model_version=engine.model_version(mode),
                 ))
     return results
+
+
+def _assess_all(engine: RiskEngine, train: list[Transaction],
+                batches: Sequence[tuple[Sequence[Transaction], Sequence[Transaction]]],
+                modes: Sequence[str]) -> list[dict[str, list[RiskAssessment]]]:
+    """_fitted_engine(train, …, modes) 뒤 묶음마다·방식마다 assess_many를 부른 것과 같은 결과."""
+    if any(m != "rules" for m in modes):  # 룰만 평가할 때는 학습이 필요 없다
+        return engine.fit_assess(train, batches, modes)
+    return engine.assess_modes(batches, modes)
 
 
 def _meta(personas: list[str], seeds: list[int], days: int, baseline_days: int,
@@ -552,9 +568,10 @@ def evaluate_file(txns: Iterable[Transaction], baseline_ratio: float = DEFAULT_B
     settings = settings or Settings()
     baseline, evaluated = split_baseline(txns, baseline_ratio)
     engine = RiskEngine(settings, seed=seed)
-    if mode != "rules":
-        engine.fit(baseline)
-    assessed = engine.assess_many(evaluated, history=baseline, mode=mode)
+    # fit(baseline) 뒤 assess_many(evaluated, history=baseline)와 같은 결과(학습 구간은 평가 걷기의 앞부분이라 한 번만 걷는다)
+    batch = [(evaluated, baseline)]
+    runs = engine.fit_assess(baseline, batch, [mode]) if mode != "rules" else engine.assess_modes(batch, [mode])
+    assessed = runs[0][mode]
     pairs = _pairs(evaluated, assessed)
     alerts = [(t, a) for t, a in pairs if _is_alert(a)]
     high = [(t, a) for t, a in alerts if _is_high(a)]

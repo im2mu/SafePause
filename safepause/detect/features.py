@@ -231,6 +231,9 @@ class History:
         self._line_label: dict[str, str] = {}     # 회선 키 → 처음 본 표기(공백만 뺀 원래 모양)
         self._cp_index: dict[tuple[Channel, Direction], _KeyIndex] = {}
         self._line_index = _KeyIndex()
+        # 채널·방향별 마지막 p95 계산(구간 인덱스 i, j와 값). 이력은 끝에만 더하므로 같은 (i, j)면 같은 값이다.
+        # 시간순으로 걸을 때 구간은 앞으로만 움직이므로 마지막 하나만 기억해도 다시 쓰는 경우를 모두 잡는다
+        self._p95_memo: dict[tuple[Channel, Direction], tuple[int, int, float]] = {}
         for txn in sorted(txns, key=lambda t: t.ts):  # 안정 정렬: 같은 시각은 입력 순서 유지
             self.append(txn)
 
@@ -380,7 +383,13 @@ class History:
         i, j = series.between(start, end)
         if j - i < MIN_P95_SAMPLES:
             return 0.0
-        return float(np.percentile(series.amounts[i:j], 95))
+        # 같은 구간(i, j)은 같은 금액 묶음이다(이력은 끝에만 더함): 마지막 계산을 다시 쓴다(np.percentile 호출 줄이기)
+        memo = self._p95_memo.get((channel, direction))
+        if memo is not None and memo[0] == i and memo[1] == j:
+            return memo[2]
+        value = float(np.percentile(series.amounts[i:j], 95))
+        self._p95_memo[(channel, direction)] = (i, j, value)
+        return value
 
     # ---- 최근 창 ----
     def _recent(self, series: _Series | None, as_of: datetime | None,
@@ -525,12 +534,11 @@ def as_history(txn: Transaction, history_before: HistoryLike,
     return History(past, settings, as_of=txn.ts)
 
 
-def walk(txns: Sequence[Transaction], settings: Settings | None = None,
-         context: Iterable[Transaction] = ()) -> Iterator[tuple[int, Transaction, History]]:
-    """시간순으로 (입력 인덱스, 거래, 그 직전까지의 이력)을 차례로 돌려준다.
+def walk_order(txns: Sequence[Transaction],
+               context: Iterable[Transaction] = ()) -> list[tuple[int, int, Transaction]]:
+    """walk()가 거래를 이력에 더하는 순서: (종류 0=context·1=평가 대상, 입력 인덱스, 거래).
 
-    context는 평가하지 않고 이력에만 쓰는 과거 거래(같은 id가 txns에 있으면 무시).
-    돌려받은 History는 다음 반복에서 갱신되므로 반복 안에서만 사용한다.
+    시간순이고, 같은 시각이면 context 먼저, 그다음 입력 순서다. context에서 txns와 같은 id는 뺀다.
     """
     eval_ids = {t.id for t in txns}
     events: list[tuple[datetime, int, int, Transaction]] = [
@@ -538,11 +546,31 @@ def walk(txns: Sequence[Transaction], settings: Settings | None = None,
     ]
     events.extend((t.ts, 1, i, t) for i, t in enumerate(txns))
     events.sort(key=lambda e: (e[0], e[1], e[2]))  # 같은 시각이면 context 먼저, 그다음 입력 순서
+    return [(kind, idx, txn) for _, kind, idx, txn in events]
+
+
+def walk_events(order: Iterable[tuple[int, int, Transaction]], settings: Settings | None = None
+                ) -> Iterator[tuple[int, int, Transaction, History]]:
+    """walk_order 순서의 모든 거래(context 포함)를 (종류, 입력 인덱스, 거래, 그 직전까지의 이력)으로 돌려준다.
+
+    돌려받은 History는 다음 반복에서 갱신되므로 반복 안에서만 사용한다.
+    """
     hist = History(settings=settings)
-    for _, kind, idx, txn in events:
+    for kind, idx, txn in order:
+        yield kind, idx, txn, hist
+        hist.append(txn)
+
+
+def walk(txns: Sequence[Transaction], settings: Settings | None = None,
+         context: Iterable[Transaction] = ()) -> Iterator[tuple[int, Transaction, History]]:
+    """시간순으로 (입력 인덱스, 거래, 그 직전까지의 이력)을 차례로 돌려준다.
+
+    context는 평가하지 않고 이력에만 쓰는 과거 거래(같은 id가 txns에 있으면 무시).
+    돌려받은 History는 다음 반복에서 갱신되므로 반복 안에서만 사용한다.
+    """
+    for kind, idx, txn, hist in walk_events(walk_order(txns, context), settings):
         if kind == 1:
             yield idx, txn, hist
-        hist.append(txn)
 
 
 def compute_features(txn: Transaction, hist: History,

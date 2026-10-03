@@ -191,8 +191,9 @@ def build_snapshot(txns: Sequence[Transaction], settings: Settings, seed: int) -
     ordered = sorted(txns, key=lambda t: t.ts)
     n_train = train_count(ordered)
     engine = RiskEngine(settings, seed)
-    engine.fit(ordered[:n_train])  # 30건 미만이면 모델 없이 룰만 쓴다
-    assessments = engine.assess_many(ordered) if ordered else []
+    # fit(ordered[:n_train]) 뒤 assess_many(ordered)와 같은 결과. 학습 구간은 평가 걷기의 앞부분이라 한 번만 걷는다.
+    # 30건 미만이면 모델 없이 룰만 쓴다
+    assessments = engine.fit_assess(ordered[:n_train], [(ordered, None)], [engine.mode])[0][engine.mode]
     return Snapshot(tuple(ordered), tuple(assessments), engine, n_train)
 
 
