@@ -17,7 +17,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Iterator, Optional
+from typing import Any, Iterable, Iterator, Optional
 
 if os.name == "nt":
     import msvcrt
@@ -76,6 +76,32 @@ _LOCK_POLL_SEC = 0.01
 
 # 파일 상태 표식: (이름, 수정 시각 ns, 크기, 파일 번호). 파일이 없으면 None 자리.
 FileSignature = tuple[str, Optional[int], Optional[int], Optional[int]]
+
+# 저장 파일 글 모양: json.dumps(obj, ensure_ascii=False, indent=2)와 같은 설정의 인코더(한 번 만들어 다시 씀)
+_ENCODER = json.JSONEncoder(ensure_ascii=False, indent=2)
+
+
+_ROWS_PER_CHUNK = 256   # 한 번에 글로 바꾸는 원소 수(메모리는 이만큼만, 인코더 호출은 줄이기)
+
+
+def _json_list_chunks(rows: Iterable[Any]) -> Iterator[str]:
+    """목록을 json.dumps(list(rows), ensure_ascii=False, indent=2)와 바이트까지 같은 글 조각으로 낸다.
+
+    indent=2 목록 글은 "[\\n" + "  원소,\\n  원소" + "\\n]" 모양이다(빈 목록은 "[]"). 원소를 _ROWS_PER_CHUNK개씩 같은
+    인코더로 글로 바꾼 뒤 앞의 "[\\n"과 뒤의 "\\n]"을 떼고 ",\\n"으로 이으면 전체를 한 번에 바꾼 글과 같다.
+    """
+    buf: list[Any] = []
+    first = True
+    for row in rows:
+        buf.append(row)
+        if len(buf) >= _ROWS_PER_CHUNK:
+            yield ("[\n" if first else ",\n") + _ENCODER.encode(buf)[2:-2]
+            first = False
+            buf = []
+    if buf:
+        yield ("[\n" if first else ",\n") + _ENCODER.encode(buf)[2:-2]
+        first = False
+    yield "[]" if first else "\n]"
 
 
 class StoreError(ValueError):
@@ -340,7 +366,7 @@ class Store:
             raise self._broken(TRANSACTIONS_FILE) from exc
 
     def save_transactions(self, txns: list[Transaction]) -> None:
-        self._write(TRANSACTIONS_FILE, [t.to_dict() for t in txns])
+        self._write_rows(TRANSACTIONS_FILE, (t.to_dict() for t in txns))
 
     # ---- 안전 정지 결정 기록 ----
     def append_decision(
@@ -480,8 +506,21 @@ class Store:
         )
 
     def _write(self, name: str, obj: Any) -> None:
-        """임시 파일에 쓴 뒤 바꿔 끼운다. 파일 시스템 오류(OSError)는 한국어 StoreError로 바꾼다."""
-        payload = json.dumps(obj, ensure_ascii=False, indent=2)
+        """임시 파일에 쓴 뒤 바꿔 끼운다. 파일 시스템 오류(OSError)는 한국어 StoreError로 바꾼다.
+
+        목록은 원소마다 이어 쓴다(_json_list_chunks: json.dumps(obj, ensure_ascii=False, indent=2)와 바이트까지 같은 글).
+        """
+        if isinstance(obj, list):
+            self._write_chunks(name, _json_list_chunks(obj))
+        else:
+            self._write_chunks(name, [_ENCODER.encode(obj)])
+
+    def _write_rows(self, name: str, rows: Iterable[Any]) -> None:
+        """목록을 한 원소씩 만들어 이어 쓴다(_write(name, list(rows))와 같은 파일). 거래 수만 건을 저장할 때
+        원소 dict 목록과 파일 글 전체를 한꺼번에 메모리에 두지 않는다(앱 안 엔진의 메모리 최대치 줄이기)."""
+        self._write_chunks(name, _json_list_chunks(rows))
+
+    def _write_chunks(self, name: str, chunks: Iterable[str]) -> None:
         with self._lock:
             try:
                 self.root.mkdir(parents=True, exist_ok=True)
@@ -490,7 +529,8 @@ class Store:
                 raise self._cannot_write(name) from exc
             try:
                 with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
-                    f.write(payload)
+                    for chunk in chunks:   # JSON으로 바꿀 수 없는 값이면 여기서 TypeError: 임시 파일을 지우고 그대로 낸다
+                        f.write(chunk)
                     f.flush()
                     os.fsync(f.fileno())
                 self._replace(Path(tmp_name), self._path(name))

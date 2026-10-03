@@ -6,6 +6,9 @@
  * 단계: basic(가벼운 요청) → full(AI 분석). AI가 필요한 요청은 full까지 기다린다.
  * 실패(FE-03): 파이썬을 켜지 못하면 error(fatal: true)로 모든 요청을 막는다. AI 부분(numpy·scikit-learn)만 못 켜면
  *   error(fatal: false)로 알리고, 동의 끄기·모두 지우기 같은 기본 요청(BASIC)은 계속 처리한다(AI가 필요한 요청만 503).
+ * 준비 순서(서로 기다릴 까닭이 없는 일은 겹친다): 엔진 묶음(zip) 받기와 pydantic 싣기는 파이썬을 켜는 동안,
+ *   AI 패키지 내려받기는 기본 준비(파이썬 모듈 불러오기)와 함께 한다.
+ *   full 뒤 요청이 없는 동안에는 첫 분석이 쓰는 큰 모듈(scikit-learn 등)을 한 조각씩 미리 불러 둔다(요청이 늘 먼저).
  */
 import { loadPyodide } from "../pyodide/pyodide.mjs";
 
@@ -28,26 +31,37 @@ function syncfs(populate) {
   return new Promise((resolve, reject) => py.FS.syncfs(populate, (err) => (err ? reject(err) : resolve())));
 }
 
+const QUIET = { messageCallback: () => {}, errorCallback: () => {} };
+
 async function boot() {
   const t0 = performance.now();
   stage("loading", "AI 엔진을 준비하고 있어요", "파이썬 불러오는 중");
-  py = await loadPyodide({ indexURL: new URL("../pyodide/", import.meta.url).href, fullStdLib: false });
+  // 엔진 묶음(zip)은 파이썬을 불러오는 동안 받아 둔다. 받기 실패는 아래 await에서 그대로 난다(그 전에 '처리 안 된 거부'로 남지 않게)
+  const zipBytes = fetch(new URL("../py/safepause.zip", import.meta.url)).then((r) => r.arrayBuffer());
+  zipBytes.catch(() => {});
+  // 입력 검사 패키지(pydantic, 작음)는 packages로 넘겨 파이썬을 켜는 동안 받는다(loadPyodide는 이것까지 실은 뒤 끝난다)
+  py = await loadPyodide({ indexURL: new URL("../pyodide/", import.meta.url).href, packages: ["pydantic"], fullStdLib: false });
   py.FS.mkdirTree("/spdata");
   py.FS.mount(py.FS.filesystems.IDBFS, {}, "/spdata");
   await syncfs(true);
-  await py.loadPackage(["pydantic"], { messageCallback: () => {}, errorCallback: () => {} });   // 입력 검사(작음)
-  const zip = await (await fetch(new URL("../py/safepause.zip", import.meta.url))).arrayBuffer();
-  py.unpackArchive(zip, "zip", { extractDir: "/home/pyodide/app" });
+  py.unpackArchive(await zipBytes, "zip", { extractDir: "/home/pyodide/app" });
   py.runPython("import sys; sys.path.insert(0, '/home/pyodide/app')");
+  // AI 패키지 내려받기를 지금 시작해 아래 모듈 불러오기(동기)와 겹친다. 내려받기 요청이 실제로 나가도록 한 번 양보한다.
+  // 설치는 기본 준비가 끝난 뒤 이어진다(loadPyodide 바로 뒤에 시작하면 설치가 저장 폴더 읽기 사이에 끼어 basic이 늦어졌다)
+  const aiPackages = py.loadPackage(["numpy", "scipy", "scikit-learn"], QUIET);
+  aiPackages.catch(() => {});   // 실패는 아래 fullReady에서 그대로 난다
+  await new Promise((resolve) => setTimeout(resolve, 0));
   bridge = py.pyimport("safepause.api.bridge");
   bridge.init("/spdata/store");
   stage("basic", "기본 기능을 쓸 수 있어요", `${Math.round(performance.now() - t0)}ms`);
 
   fullReady = (async () => {
     stage("basic", "AI 분석 준비 중이에요", "numpy·scikit-learn 불러오는 중");
-    await py.loadPackage(["numpy", "scipy", "scikit-learn"], { messageCallback: () => {}, errorCallback: () => {} });
+    await aiPackages;
     bridge.warm();
     stage("full", "AI 분석까지 준비됐어요", `${Math.round(performance.now() - t0)}ms`);
+    idleWarm = true;
+    scheduleIdleWarm();
   })();
   // AI 부분만 실패: 기본 요청은 계속 받는다(fatal false)
   fullReady.catch((e) => stage("error", "AI 분석 부분을 켜지 못했어요", String(e && e.message || e), false));
@@ -93,10 +107,31 @@ function reply(msg, res) {
   self.postMessage({ type: "response", id: msg.id, status: res.status, body: res.body });
 }
 
+// 쉬는 동안 미리 불러오기(첫 분석 대기 줄이기): 줄이 비어 있고 처리 중인 요청이 없을 때만 bridge.warm_more()로
+// 모듈을 하나씩 불러온다. 한 조각이 도는 동안 온 요청은 그 조각이 끝나면 먼저 처리되고, 다음 조각은 줄이 빈 뒤에 한다.
+// 못 불러오면 그만둔다(분석 때 같은 오류가 그대로 난다).
+const IDLE_WARM_GAP_MS = 30;   // 조각 사이 쉬는 틈: 그 사이 들어온 요청 메시지가 먼저 줄에 들어가게
+let idleWarm = false;
+let idleTimer = null;
+
+function scheduleIdleWarm() {
+  if (!idleWarm || idleTimer !== null) return;
+  idleTimer = setTimeout(() => {
+    idleTimer = null;
+    if (!idleWarm || running || queue.length) return;   // 요청을 처리한 뒤 pump가 다시 부른다
+    try {
+      idleWarm = Boolean(bridge.warm_more());
+    } catch (e) {
+      idleWarm = false;
+    }
+    scheduleIdleWarm();
+  }, IDLE_WARM_GAP_MS);
+}
+
 async function pump() {
   if (running) return;
   const msg = queue.shift();
-  if (!msg) return;
+  if (!msg) { scheduleIdleWarm(); return; }
   running = true;
   try {
     reply(msg, await run(msg));
