@@ -3,8 +3,10 @@
  * - 시트는 열 때 배경을 inert로 만들고, 닫을 때 초점을 연 버튼으로 되돌린다(그 버튼이 없어졌으면 위 시트 제목·본문). 열린 시트는 안드로이드 뒤로 가기로 닫힌다.
  * - 시트 안의 소리로 듣기는 시트를 닫으면 멈춘다(components.speakButton이 버튼이 화면에서 떨어지는 것을 보고 멈춤).
  * - 설명 글(p)은 한 문장에 한 줄씩 보인다: h("p", {text})가 문장 끝에서 나눠 span.sent로 넣는다(data-nosplit이면 그대로).
- * - p 안의 숫자 + 단위·날짜·시각·금액은 줄 끝에서 떨어지지 않는 묶음(span.nowrap)으로, 전화번호는 하이픈 뒤에서만
- *   줄을 바꾸는 묶음(span.tel-text)으로 넣는다(keepNodes, docs/v03_typography.md 4). textContent는 원래 글과 같다.
+ * - 글(p·dd·li·span·버튼 이름 등 모든 요소의 text)은 keepNodes로 넣는다: 숫자 + 단위·날짜·시각·금액은 줄 끝에서 떨어지지 않는
+ *   묶음(span.nowrap), 전화번호는 하이픈 뒤에서만 줄을 바꾸는 묶음(span.tel-text), 한 글자 낱말은 뒤 낱말과·글 끝 한두 글자
+ *   낱말은 앞 낱말과 한 덩어리(span.bind)로 둔다(docs/v03_typography.md 4·5). textContent는 원래 글과 같다.
+ * - 버튼 이름(그림 + 글 하나)은 span.btn-label 하나로 묶는다(h): 이름이 두 줄이 되어도 그림이 첫 줄 글 앞에 붙고 줄이 고르게 나뉜다.
  */
 import { PICTO, UI } from "./icons.js";
 
@@ -31,7 +33,24 @@ export function h(tag, attrs, ...children) {
   }
   if (text !== undefined) setText(el, text);
   append(el, children);
+  wrapButtonLabel(el);
   return el;
+}
+
+/**
+ * 버튼 이름 묶기(docs/v03_typography.md 5): .btn의 자식이 [그림(svg 또는 span.btn-ic), 글 span] 둘뿐이면 span.btn-label 하나로 묶는다.
+ * 그림과 글이 따로 flex 칸이면 이름이 두 줄이 될 때 글 칸이 넓어져 그림이 왼쪽 끝으로 떨어진다. 묶으면 그림은 첫 줄 글 바로 앞에
+ * 붙고(인라인), 줄은 가운데에서 고르게(balance) 나뉜다. 글 span에 클래스가 있으면(두 줄 짜임 .np-send-text 등) 그대로 둔다.
+ */
+function wrapButtonLabel(el) {
+  if (!el.classList || !el.classList.contains("btn") || el.childNodes.length !== 2) return;
+  const [ic, label] = el.childNodes;
+  const isIcon = ic.nodeType === 1 && (ic.namespaceURI === SVG_NS || ic.classList.contains("btn-ic"));
+  if (!isIcon || label.nodeType !== 1 || label.tagName !== "SPAN" || label.className) return;
+  const box = document.createElement("span");
+  box.className = "btn-label";
+  box.append(ic, label);
+  el.append(box);
 }
 
 // 문장 끝: 한글·닫는 괄호 뒤의 . ? ! 또는 ? ! 다음의 빈칸(1.5만·v0.3.0 같은 숫자 속 점은 나누지 않음)
@@ -63,43 +82,298 @@ function softBreaks(text, out) {
   if (last < text.length) out.push(document.createTextNode(text.slice(last)));
 }
 
+// 낱말 묶기(⑫·⑬): 한 덩어리의 글자 수 상한(한글·영문·숫자). 묶은 낱말은 줄을 바꾸지 않으므로 큰 글씨 좁은 칸에서도
+// 넘치지 않게 짧게 둔다(360폭 글자 2배의 가장 좁은 문장 칸이 6.5글자쯤)
+const BIND_MAX = 6;
+// 낱말 안 문장부호(앞뒤가 빈칸이 아닌 괄호·물결·붙임표·가운뎃점·빗금·밑줄): 브라우저가 그 앞이나 뒤에서 줄을 바꿀 수 있는 자리
+const PUNCT_IN = /[^\s\u00a0][([~/·\-–_)\]][^\s\u00a0]/;
+const PUNCT_WORD_MAX = 16;
+const SINGLE_WORD = /^[가-힣]$/;
+// 앞 낱말에 붙는 한 글자 낱말(의존 명사·단위): 가는 곳·건수 등·이번 달·한 장. 뒤 낱말이 아니라 앞 낱말과 묶는다
+const BACK_WORD = /^(?:곳|것|때|등|달|번|장|개|명|건|쯤|뿐|데|줄|중)$/;
+const letters = (w) => (w.match(/[가-힣A-Za-z0-9]/g) || []).length;
+
 /**
- * 글을 묶음 노드로: 글 조각(Text)과 span.nowrap(숫자 + 단위·날짜·시각·금액·문자·메일)·span.tel-text(전화번호).
- * 금액 묶음 바로 뒤에 한글이 세 글자 이상 붙으면(63만7천원이었어요) 그 사이에, 긴 기관 이름은 기관 말 앞에
- * 줄을 바꿔도 되는 자리(wbr)를 둔다(넘쳐서 낱말 끝 한두 글자만 다음 줄로 밀리지 않게). textContent는 원래 글과 같다.
+ * 글을 낱말 단위(unit)로 나눈다. unit = 빈칸 없이 이어진 조각들(묶음 + 붙은 말 포함), 사이 빈칸은 따로 둔다.
+ * 조각 kind: "text"(보통 글) · "keep"(시각·날짜·띄어 쓴 금액·빈칸 없는 금액) · "dot"(문자·메일) · "tel"(전화번호) · "kw"(금액 + 붙은 말).
+ * 돌려주는 값: {units: [{parts: [{kind, text}], space: 앞 빈칸}], tail: 끝 빈칸}
  */
-export function keepNodes(text) {
-  const s = String(text ?? "");
-  const out = [];
+function splitUnits(s) {
+  const units = [];
+  let cur = null;
+  let space = "";
+  const word = (kind, text) => {
+    if (!text) return;
+    if (!cur || space) { cur = { parts: [], space }; units.push(cur); space = ""; }
+    cur.parts.push({ kind, text });
+  };
+  const plain = (seg) => {
+    for (const t of seg.split(/([ \u00a0]+)/)) {
+      if (!t) continue;
+      if (/^[ \u00a0]+$/.test(t)) space += t; else word("text", t);
+    }
+  };
   let last = 0;
   KEEP_RE.lastIndex = 0;
   for (let m = KEEP_RE.exec(s); m; m = KEEP_RE.exec(s)) {
-    if (m.index > last) softBreaks(s.slice(last, m.index), out);
-    const span = document.createElement("span");
-    span.className = /^[\d*]+-/.test(m[0]) ? "tel-text" : "nowrap";
-    span.textContent = m[0];
-    out.push(span);
-    last = m.index + m[0].length;
-    if (/원$/.test(m[0]) && HANGUL_TAIL.test(s.slice(last))) out.push(document.createElement("wbr"));
+    if (m.index < last) continue;
+    plain(s.slice(last, m.index));
+    const k = m[0];
+    last = m.index + k.length;
+    if (/^[\d*]+-/.test(k)) { word("tel", k); continue; }
+    if (k.includes("·")) { word("dot", k); continue; }
+    const tail = /원$/.test(k) ? (HANGUL_TAIL.exec(s.slice(last)) || [""])[0] : "";
+    if (tail) {
+      const punct = (/^[.?!,)]*/.exec(s.slice(last + tail.length)) || [""])[0];
+      word("kw", k + "\u0000" + tail + punct);   // \u0000 = 금액 뒤 줄 바꿀 자리(wbr)
+      last += tail.length + punct.length;
+      continue;
+    }
+    word("keep", k);
   }
-  if (last < s.length) softBreaks(s.slice(last), out);
-  return out;
+  plain(s.slice(last));
+  return { units, tail: space };
 }
 
 /**
- * 글을 넣는다. p(문단)는 문장마다 span.sent(한 줄)로 나누고(data-nosplit이 있으면 나누지 않음), 숫자 묶음을 지킨다(keepNodes).
- * p가 아닌 요소는 글을 그대로 넣는다.
+ * 함께 둘 unit 묶음을 고른다(낱말 묶기). 돌려주는 값: [[첫 unit, 끝 unit], …]
+ *  - 한 글자 낱말(열·수·내·이·더…)은 뒤 낱말과: 앱에서 열 / 수 있어요 → 앱에서 / 열 수 있어요(줄 끝에 한 글자가 홀로 남지 않게).
+ *    앞 낱말에 붙는 한 글자 낱말(곳·등·달·번…, BACK_WORD)은 앞 낱말과: 처음 가는 곳 / 큰 금액 결제, 건수 등 / 11가지.
+ *  - 글 끝 묶음이 두 글자 이하면 앞 낱말을 더한다: 불법금융 / 신고 → 불법금융 신고, 돈을 / 낼 때 → 돈을 낼 때(꼬리 줄).
+ *    더할 낱말이 앞 묶음의 끝이면 합치고, 합쳐서 상한을 넘으면 앞 묶음에서 그 낱말을 떼어 온다(꼬리를 먼저 막는다)
+ *  - 전화번호·금액 + 붙은 말은 묶지 않는다(그 자체로 줄 바꾸는 규칙이 있다). 묶음은 BIND_MAX 글자까지
+ */
+function bindGroups(units) {
+  const n = units.length;
+  const text = (u) => u.parts.map((p) => p.text).join("");
+  // 줄바꿈 문자가 든 낱말(보낸 알림 글처럼 줄을 그대로 보이는 글)은 묶지 않는다(nowrap이 줄바꿈을 빈칸으로 바꾼다)
+  const free = (i) => units[i].parts.every((p) => p.kind !== "tel" && p.kind !== "kw" && !/[\n\r]/.test(p.text)) && !/[\n\r]/.test(units[i].space);
+  const single = (i) => units[i].parts.length === 1 && units[i].parts[0].kind === "text" && SINGLE_WORD.test(units[i].parts[0].text);
+  const size = (i0, i1) => { let c = 0; for (let i = i0; i <= i1; i += 1) c += letters(text(units[i])); return c; };
+  const ok = (i0, i1) => { for (let i = i0; i <= i1; i += 1) if (!free(i)) return false; return size(i0, i1) <= BIND_MAX; };
+  const back = (i) => single(i) && BACK_WORD.test(units[i].parts[0].text);
+  const groups = [];
+  for (let k = 0; k < n; k += 1) {
+    if (!single(k)) continue;
+    // 앞 낱말에 붙는 말(가는 곳): 앞 낱말과 묶는다(앞 낱말이 이미 묶음 끝이면 그 묶음을 늘린다)
+    if (back(k) && k > 0 && !single(k - 1)) {
+      const prev = groups.length && groups[groups.length - 1][1] === k - 1 ? groups[groups.length - 1] : null;
+      if (prev && ok(prev[0], k)) { prev[1] = k; continue; }
+      if (!prev && ok(k - 1, k)) { groups.push([k - 1, k]); continue; }
+    }
+    if (k === n - 1) continue;
+    let j = k;
+    while (j < n - 1 && single(j)) j += 1;
+    // 한 글자 낱말이 이어진 끝까지(열 수 있어요) → 6글자를 넘으면 바로 뒤 낱말까지(한 번 / 더 살펴봐요.)
+    const pick = [[k, j], [k, k + 1]].find(([a, b]) => ok(a, b));
+    if (!pick) continue;
+    groups.push(pick);
+    k = pick[1];
+  }
+  if (n >= 2 && free(n - 1)) {
+    let g = groups.length && groups[groups.length - 1][1] === n - 1 ? groups[groups.length - 1] : null;
+    if (!g) { g = [n - 1, n - 1]; groups.push(g); }
+    while (g[0] > 0 && size(g[0], g[1]) <= 2 && ok(g[0] - 1, g[1])) {
+      const prev = groups.find((q) => q !== g && q[1] === g[0] - 1);
+      if (prev && ok(prev[0], g[1])) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); continue; }
+      if (prev) { prev[1] -= 1; if (prev[1] <= prev[0]) groups.splice(groups.indexOf(prev), 1); }
+      g[0] -= 1;
+    }
+  }
+  return groups.filter(([x0, x1]) => x1 > x0).sort((p, q) => p[0] - q[0]);
+}
+
+/**
+ * 글을 묶음 노드로(textContent는 원래 글과 같다, docs/v03_typography.md 4·5). 묶음 span은 늘 글자로 시작하고 끝난다
+ * (앞뒤 빈칸을 span 안에 두지 않는다: 줄 고르기(balance)가 span 앞 빈칸에서 줄을 바꾸는 일이 있다).
+ *  - span.nowrap: 시각(새벽 4시 41분)·날짜(6월 27일)·띄어 쓴 금액(3만 5천 원)·문자·메일
+ *  - span.tel-text: 전화번호(하이픈 뒤에서만 줄을 바꾼다)
+ *  - span.keep-word: 금액 바로 뒤에 한글이 세 글자 이상 붙은 낱말(63만7천원이었어요). 한 줄에 들면 통째로 옮기고,
+ *    칸보다 길 때만(아주 큰 글씨) 금액 뒤(wbr)에서 줄을 바꾼다. 7~16글자 낱말 안 문장부호(이름·계좌번호·연락처는)도 같다
+ *  - 6글자까지 낱말 안 문장부호(약속(규칙)으로·비율(0~1)이에요)는 span.nowrap
+ *  - span.bind(opts.bind): 한 글자 낱말 + 뒤 낱말(열 수 있어요), 글 끝 한두 글자 꼬리 + 앞 낱말(불법금융 신고), 6글자까지.
+ *    버튼·칩·배지·태그·탭 안에서는 CSS가 묶음을 풀어 준다(줄 고르기 balance에 맡김)
+ *  - 긴 기관 이름은 기관 말 앞(지역발달장애인 / 지원센터)에 줄 바꿀 자리(wbr)
+ */
+export function keepNodes(text, { bind = false } = {}) {
+  const s = String(text ?? "");
+  const { units, tail } = splitUnits(s);
+  const groups = bind ? bindGroups(units) : [];
+  const out = [];
+  let buf = "";
+  const flush = () => { if (buf) softBreaks(buf, out); buf = ""; };
+  const span = (cls, children) => { flush(); const el = document.createElement("span"); el.className = cls; el.append(...children); out.push(el); return el; };
+  // 금액 + 붙은 말(63만7천원이었어요): inline-block 한 덩어리 + 금액 뒤 줄 바꿀 자리(wbr)
+  const keepWord = (t) => {
+    const [amount, rest] = t.split("\u0000");
+    const el = document.createElement("span");
+    el.className = "keep-word";
+    el.append(...(/[ \u00a0]/.test(amount) ? [Object.assign(document.createElement("span"), { className: "nowrap", textContent: amount })] : [amount]),
+      document.createElement("wbr"), rest);
+    return el;
+  };
+  const writeParts = (u) => {
+    for (const p of u.parts) {
+      if (p.kind === "kw") { flush(); out.push(keepWord(p.text)); }
+      // 전화번호: 하이픈 뒤(wbr)에서만 줄을 바꾼다(하이픈 뒤 숫자 앞은 브라우저가 줄을 바꾸지 않아 큰 글씨에서 넘쳤다)
+      else if (p.kind === "tel") span("tel-text", p.text.split(/(?<=-)/).flatMap((t, k) => (k ? [document.createElement("wbr"), t] : [t])));
+      else if ((p.kind === "keep" && /[ \u00a0]/.test(p.text)) || p.kind === "dot") span("nowrap", [p.text]);
+      else buf += p.text;   // 보통 글·빈칸 없는 금액(50,000원·63만7천원: 줄을 바꿀 자리가 없다)
+    }
+  };
+  // 낱말 안 문장부호(괄호·물결·붙임표·가운뎃점·빗금)에서 줄이 바뀌지 않게(비율(0~1)이에요, 약속(규칙)으로, typing-inspection):
+  //  - 6글자까지(BIND_MAX, 어느 칸에도 한 줄에 든다)는 줄을 바꾸지 않는 span.nowrap(인라인)
+  //  - 7~16글자는 inline-block 한 덩어리(span.keep-word): 한 줄에 들면 통째로 옮기고, 칸보다 길 때만 안에서 줄을 바꾼다.
+  //    가운뎃점으로 이은 말(이름·계좌번호·연락처는)·범위(밤 11시~새벽 6시에)는 가운뎃점·물결 뒤(wbr)에서 바꾼다(줄 첫머리에 오지 않게)
+  //  - 아주 긴 낱말(파일 경로)은 그대로
+  const writeUnit = (u) => {
+    const ut = u.parts.map((p) => p.text).join("");
+    if (!PUNCT_IN.test(ut) || letters(ut) > PUNCT_WORD_MAX || /[\n\r]/.test(ut) || u.parts.some((p) => p.kind === "kw" || p.kind === "tel")) { writeParts(u); return; }
+    flush();
+    const at = out.length;
+    writeParts(u);
+    flush();
+    const inner = out.splice(at);
+    // 이미 한 묶음(문자·메일 span.nowrap 하나)이면 그대로 둔다(겹쳐 싸지 않음)
+    if (inner.length === 1 && inner[0].nodeType === 1 && inner[0].className === "nowrap") { out.push(inner[0]); return; }
+    const el = document.createElement("span");
+    if (letters(ut) <= BIND_MAX) {
+      el.className = "nowrap";
+      el.append(...inner);
+    } else {
+      el.className = "keep-word";
+      // 줄 바꿀 자리(wbr): 가운뎃점 뒤, 물결 뒤에 한글이 올 때(밤 11시~새벽 6시에), 여는 괄호 앞(연결 / (마이데이터)은),
+      // 영문 붙임표 뒤(typing- / extensions). 숫자 범위(0~1) 안은 두지 않는다
+      const AT = /(?<=·)|(?<=~)(?=[가-힣])|(?<=[가-힣A-Za-z])(?=\()|(?<=[A-Za-z]-)(?=[A-Za-z])/;
+      // 닫는 괄호 + 붙은 한글(…데이터)은)과 글자 + 가운뎃점(금액·)은 줄을 바꾸지 않는 묶음으로: 은 한 글자가 홀로 남거나
+      // 가운뎃점이 줄 첫머리에 오지 않게(가운뎃점은 브라우저가 앞뒤에서 줄을 바꿀 수 있는 문장부호다). 가운뎃점 뒤가 덩어리 끝
+      // 한두 글자면(금액·날짜) 그것까지 한 묶음(가운뎃점 뒤에서 바뀌어 날짜만 홀로 남지 않게)
+      const put = (t) => {
+        let last = 0;
+        for (const m of t.matchAll(/\)[가-힣]+|[가-힣A-Za-z0-9]·(?:[가-힣A-Za-z0-9]{1,2}$)?/g)) {
+          if (m.index > last) el.append(t.slice(last, m.index));
+          el.append(Object.assign(document.createElement("span"), { className: "nowrap", textContent: m[0] }));
+          last = m.index + m[0].length;
+        }
+        if (last < t.length) el.append(t.slice(last));
+      };
+      const WBR = {};
+      const parts = [];
+      inner.forEach((nd, idx) => {
+        if (nd.nodeType === 3) nd.nodeValue.split(AT).forEach((t, k) => { if (k) parts.push(WBR); parts.push(t); });
+        else parts.push(nd);
+        const nx = inner[idx + 1];
+        if (nx && /[·~]$/.test(nd.textContent) && /^[가-힣]/.test(nx.textContent)) parts.push(WBR);
+      });
+      // 마지막 줄 바꿀 자리 뒤가 두 글자 이하면(금액·시간대· / 처음) 그 자리를 빼고 앞 조각과 붙인다
+      const lastW = parts.lastIndexOf(WBR);
+      const tailText = parts.slice(lastW + 1).map((x) => (typeof x === "string" ? x : x.textContent)).join("");
+      if (lastW > 0 && letters(tailText) <= 2) {
+        parts.splice(lastW, 1);
+        if (typeof parts[lastW - 1] === "string" && typeof parts[lastW] === "string") parts.splice(lastW - 1, 2, parts[lastW - 1] + parts[lastW]);
+      }
+      for (const x of parts) {
+        if (x === WBR) el.append(document.createElement("wbr"));
+        else if (typeof x === "string") put(x);
+        else el.append(x);
+      }
+    }
+    out.push(el);
+  };
+  // 낱말 묶음(span.bind) 안: 시각·날짜·띄어 쓴 금액·문자·메일은 span.nowrap을 그대로 둔다(버튼 안에서 묶음이 풀려도 끊기지 않게)
+  const bindChildren = (g) => {
+    const kids = [];
+    let t = "";
+    for (let j = g[0]; j <= g[1]; j += 1) {
+      if (j > g[0]) t += units[j].space;
+      for (const p of units[j].parts) {
+        const pt = p.text.replace("\u0000", "");
+        if ((p.kind === "keep" && /[ \u00a0]/.test(pt)) || p.kind === "dot") {
+          if (t) kids.push(document.createTextNode(t));
+          t = "";
+          kids.push(Object.assign(document.createElement("span"), { className: "nowrap", textContent: pt }));
+        } else t += pt;
+      }
+    }
+    if (t) kids.push(document.createTextNode(t));
+    return kids;
+  };
+  let gi = 0;
+  for (let i = 0; i < units.length; i += 1) {
+    const g = groups[gi];
+    buf += units[i].space;   // 낱말 앞 빈칸은 앞 글과 같은 조각에(줄이 바뀌는 자리, 빈칸만 든 조각을 되도록 만들지 않는다)
+    if (g && g[0] === i) {
+      span("bind", bindChildren(g));
+      i = g[1];
+      gi += 1;
+      continue;
+    }
+    writeUnit(units[i]);
+  }
+  buf += tail;
+  flush();
+  return glueGaps(out);
+}
+
+/**
+ * 묶음 둘 사이의 빈칸이 빈칸만 든 글 조각이 되지 않게 한다: 앞 묶음의 끝 글자(또는 뒤 묶음의 첫 글자)를 그 빈칸 조각으로 옮긴다
+ * (6월 22일 저녁 7시 → [6월 22]일 [저녁 7시]). 줄은 여전히 그 빈칸에서만 바뀌고(글자 사이는 keep-all이라 끊기지 않음),
+ * 묶음은 늘 글자로 시작한다(묶음 앞 빈칸은 그 앞에서 줄이 바뀌게 한다). textContent는 그대로다.
+ * 빈칸만 든 글 조각은 화면 읽기·측정 도구(TreeWalker의 빈 글 거르기)에서 사라져 줄 바뀐 자리를 낱말 가운데로 보이게 한다.
+ */
+function glueGaps(out) {
+  const plainSpan = (n) => n && n.nodeType === 1 && /^(bind|nowrap)$/.test(n.className) && n.childNodes.length === 1 && n.firstChild.nodeType === 3;
+  // 글자를 옮긴 뒤 묶음 끝·처음에 오면 그 곁에서 줄이 바뀔 수 있는 문장부호(가운뎃점·물결·괄호 등): 그런 자리는 만들지 않는다(가게· / 밤)
+  const PUNCT_EDGE = /[^\s\u00a0가-힣A-Za-z0-9]/;
+  for (let i = 1; i < out.length - 1; i += 1) {
+    const gap = out[i];
+    if (gap.nodeType !== 3 || !/^[ \u00a0]+$/.test(gap.nodeValue)) continue;
+    const prev = out[i - 1], next = out[i + 1];
+    const pt = plainSpan(prev) ? prev.firstChild.nodeValue : "";
+    const nt = plainSpan(next) ? next.firstChild.nodeValue : "";
+    // 앞 묶음 끝이 한 글자 낱말이면(한 번) 묶음 끝에 빈칸이 남는다([한 ]번): 줄을 바꾸지 않는 묶음 안 끝 빈칸 뒤에서는 줄이 바뀌지 않는다
+    if (pt.length >= 2 && !/[ \u00a0]/.test(pt.slice(-1)) && !PUNCT_EDGE.test(pt.slice(-2, -1))) {
+      prev.firstChild.nodeValue = pt.slice(0, -1);
+      gap.nodeValue = pt.slice(-1) + gap.nodeValue;
+    } else if (nt.length >= 3 && !/[ \u00a0]/.test(nt.slice(1, 2)) && !PUNCT_EDGE.test(nt.slice(1, 2))) {
+      next.firstChild.nodeValue = nt.slice(1);
+      gap.nodeValue += nt.slice(0, 1);
+    } else if (nt && prev && prev.nodeType === 1 && prev.classList.contains("keep-word")) {
+      // 앞이 한 덩어리(keep-word, inline-block)이고 뒤 묶음이 한 글자 낱말로 시작하면(조력자·기관용 한 장 요약) 빈칸을 뒤 묶음 앞에
+      // 붙인다: 한 덩어리 바로 뒤는 줄을 바꿀 수 있는 자리라 줄은 여전히 그 빈칸에서 바뀐다
+      next.firstChild.nodeValue = gap.nodeValue + nt;
+      gap.nodeValue = "";
+    }
+  }
+  return out.filter((n) => n.nodeType !== 3 || n.nodeValue !== "");
+}
+
+// 글을 그대로(묶음 없이) 넣는 요소: 글만 담을 수 있는 요소와 SVG 글
+const PLAIN_TAGS = new Set(["OPTION", "TITLE", "TEXTAREA", "SCRIPT", "STYLE"]);
+
+/**
+ * 글을 넣는다. p(문단)는 문장마다 span.sent(한 줄)로 나누고(data-nosplit이 있으면 나누지 않음), 숫자·낱말 묶음을 지킨다(keepNodes).
+ * p가 아닌 요소(dd·li·td·span·버튼 등)도 묶음을 지킨다(문장으로 나누지는 않음). option·textarea 등과 SVG 글은 그대로 넣는다.
  */
 export function setText(el, text) {
   const s = text === null || text === undefined ? "" : String(text);
-  if (el.tagName !== "P") { el.textContent = s; return el; }
+  if (el.tagName !== "P") {
+    if (PLAIN_TAGS.has(el.tagName) || el.namespaceURI === SVG_NS) { el.textContent = s; return el; }
+    const nodes = keepNodes(s, { bind: true });
+    if (nodes.length <= 1 && (!nodes.length || nodes[0].nodeType === 3)) { el.textContent = s; return el; }
+    // 묶음 노드는 span 하나에 담는다: flex 칸인 요소(버튼·칩·배지·섹션 제목 등)에 그대로 넣으면 조각마다 따로 flex 칸이 된다
+    const box = document.createElement("span");
+    box.append(...nodes);
+    el.replaceChildren(box);
+    return el;
+  }
   const parts = el.hasAttribute("data-nosplit") ? [s] : splitSentences(s);
-  if (parts.length < 2) { el.replaceChildren(...keepNodes(s)); return el; }
+  if (parts.length < 2) { el.replaceChildren(...keepNodes(s, { bind: true })); return el; }
   // 문장 사이 빈칸은 span 끝에 남겨 둔다(복사·소리로 읽기에서 문장이 붙지 않게)
   el.replaceChildren(...parts.map((part, i) => {
     const sp = document.createElement("span");
     sp.className = "sent";
-    sp.append(...keepNodes(i < parts.length - 1 ? `${part} ` : part));
+    sp.append(...keepNodes(i < parts.length - 1 ? `${part} ` : part, { bind: true }));
     return sp;
   }));
   return el;
@@ -331,7 +605,7 @@ export function soonBadge() {
 /**
  * 준비 중 기능 안내 시트. 동작하는 척하지 않고, 정식 버전에서 할 일을 비활성으로 보여 준다.
  * opts: {icon, title, lines[], steps?: [{title, sub?, options?: []}], action?: "연결하기", extra?: Node | (close) => Node}
- * - action이 있으면 "연결하기(준비 중)" 비활성 버튼을 둔다.
+ * - action이 있으면 "연결하기(준비 중)" 비활성 버튼을 둔다((준비 중)은 끊기지 않는 묶음이라 큰 글씨에서 괄호 앞에서 줄을 바꾼다).
  * - extra는 지금 쓸 수 있는 다른 방법(버튼 등)을 넣는 자리다.
  * 돌려주는 값: openSheet와 같은 {close, el}
  */
@@ -357,7 +631,9 @@ export function comingSoonSheet({ icon: ic = "info", title, lines = [], steps = 
     h("div", { class: "notice" }, icon("info"), h("p", { text: SOON_TEXT })),
     typeof extra === "function" ? extra(close) : extra,
     h("div", { class: "sheet-actions" },
-      action ? h("button", { type: "button", class: "btn primary big block", disabled: true, text: `${action}(준비 중)` }) : null,
+      // 글은 연결하기(준비 중) 그대로, (준비 중)은 끊기지 않는 묶음: 큰 글씨에서 괄호 앞에서 줄이 바뀐다(계좌 연결하기 / (준비 중))
+      action ? h("button", { type: "button", class: "btn primary big block", disabled: true },
+        h("span", null, action, h("wbr"), h("span", { class: "nowrap", text: "(준비 중)" }))) : null,
       h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => close() })),
   ], { label: title });
 }

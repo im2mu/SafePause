@@ -83,7 +83,7 @@
 #np-counselors { padding-top: .25rem; }
 
 /* 어떻게 보낼까요: 문자·메일·전화(못 쓰는 방법은 흐리게 + 이유) */
-.segmented.np-channels { grid-template-columns: repeat(auto-fit, minmax(min(4.5rem, 100%), 1fr)); }
+.segmented.np-channels { --seg-min: 4.5rem; }   /* 문자·메일·전화: 두 글자 이름 + 그림 */
 .np-channels input:disabled + span { opacity: .4; cursor: not-allowed; }
 .np-channels input:disabled { cursor: not-allowed; }
 .np-reasons { display: grid; gap: var(--gap-list); margin-top: .7rem; }
@@ -104,6 +104,7 @@
 .np-group .np-missing { margin-top: 0; }
 .np-msg-label { margin: .2rem 0 -.2rem; }
 .np-group .field { margin-bottom: 0; }
+.np-group > .hint, .np-group > p + p { margin-top: 0; }   /* 무리 안 줄 사이는 칸 사이(.6rem) 하나(메일 제목 → 안내가 .95rem이 되지 않게, ⑧) */
 .np-group .input { background: var(--surface); }
 .np-group textarea.input { padding-left: min(1rem, 3.5vw); padding-right: min(1rem, 3.5vw); }
 /* 아주 큰 글씨(단계 카드가 13글자보다 좁음): 무리 칸의 바탕·여백·그림을 빼서 글 칸을 넓힌다 */
@@ -122,14 +123,21 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 /* 메일 제목은 문장에 넣지 않고 이름표 + 값으로(C2) */
 .np-subject { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .6rem; }
 .np-subject-label { color: var(--text-3); font-weight: 600; }
-.np-subject-text { font-weight: 700; overflow-wrap: anywhere; }
+.np-subject-text { font-weight: 700; overflow-wrap: break-word; }
 .np-speak { justify-self: start; }
 
 /* 앱 열기 */
 .np-send-btns { display: grid; gap: .5rem; margin-top: .25rem; }
+/* 받는 사람 + 할 일 두 줄 이름: 그림은 첫 줄(받는 사람) 가운데에 맞춘다(⑪, 두 줄 가운데가 아니라) */
+.np-send-btn { align-items: flex-start; }
+.np-send-btn > .btn-ic { margin-top: max(0px, calc((1lh - 1.25rem) / 2)); }
 .np-send-btn[aria-disabled="true"] { opacity: .5; }
 .np-send-text { display: grid; text-align: left; line-height: var(--lh-ui); min-width: 0; }
-.np-send-who { font-weight: 600; opacity: .92; overflow-wrap: anywhere; }
+/* 받는 사람 줄은 보통 크기 글자라 대비 4.5:1 이상(⑤): 흐리게(opacity) 두지 않고, 파란 버튼 바탕은 진한 파랑(--primary-strong, 흰 글 5.4:1).
+   밝게·어둡게 모두 같은 바탕이다(어두운 모드의 밝은 파랑 바탕은 흰 글 3.2:1) */
+.np-send-who { font-weight: 700; }
+.np-send-btn.primary { background: var(--primary-strong); }
+.np-send-btn.primary:active:not(:disabled) { background: color-mix(in srgb, var(--primary-strong) 85%, #000); }
 .np-send-btn.done:not(.primary) { background: var(--surface); }
 .np-done { color: var(--ok-text); font-weight: 700; }
 .np-must { text-align: center; color: var(--text-3); font-weight: 600; margin-top: 1rem; }
@@ -138,14 +146,18 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 .np-fail .notice { margin-bottom: 0; }
 .np-sent-link { margin: .25rem 0 .5rem; }
 
-/* 거래 고르기 시트: 고르기·닫기는 시트 아래에 붙어 있다(목록이 길어도 늘 보임, L2) */
-.np-pick-sheet .np-pick-actions {
-  position: sticky; bottom: -1.5rem; z-index: 2; margin: .75rem calc(-1 * var(--gutter)) 0; padding: .75rem var(--gutter) 1.5rem;
+/* 거래 고르기 시트: 고르기 버튼 하나(고른 건수 + 고르기)만 든 낮은 띠가 시트 아래에 늘 붙어 있다(목록이 길어도, 글자가 커도
+   바로 누름, L2·⑮). 띠 높이는 버튼 하나(48px 이상) + 위아래 .5rem, 글자 2배에서도 시트의 20%쯤. 닫기는 제목 줄 오른쪽 */
+.np-pick-sheet { padding-bottom: 0; }
+.np-pick-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--space-2); margin-bottom: var(--gap-sheet-title); }
+.np-pick-head .sheet-title { flex: 1 1 9em; min-width: 0; margin-bottom: 0; }   /* 제목 칸이 9글자보다 좁아지면 닫기를 다음 줄 오른쪽으로 */
+.np-pick-close { flex: none; margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2)) 0 auto; color: var(--text-2); }
+.np-pick-bar {
+  position: sticky; bottom: 0; z-index: 2; margin: var(--space-3) calc(-1 * var(--gutter)) 0;
+  padding: var(--space-2) var(--gutter) max(var(--space-2), env(safe-area-inset-bottom));
   background: var(--surface); border-top: 1px solid var(--line);
-  grid-template-columns: repeat(auto-fit, minmax(min(7.5rem, 100%), 1fr));
 }
-/* 큰 글씨·짧은 화면: 고르기·닫기가 시트의 30%보다 크면 붙박이를 풀고 목록 뒤에 둔다(notify.js fitActions) */
-.np-pick-sheet .np-pick-actions.flow { position: static; margin: var(--space-5) 0 0; padding: 0; border-top: 0; }
+.np-pick-done { min-height: max(2.4rem, 48px); padding-top: var(--space-1); padding-bottom: var(--space-1); }
 .np-pick-more { margin-top: .75rem; }
 .np-pick-chips { padding-top: 0; }
 .np-pick-panel { min-height: 6rem; }
@@ -175,7 +187,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 .al-tabs .seg-tab[aria-selected="true"] .seg-count { color: var(--primary); }
 @container (max-width: 15rem) {
   .al-tabs { flex-direction: column; }
-  .al-tabs .seg-tab { flex: none; flex-direction: row; justify-content: space-between; text-align: left; padding: .55rem .8rem; overflow-wrap: anywhere; }
+  .al-tabs .seg-tab { flex: none; flex-direction: row; justify-content: space-between; text-align: left; padding: .55rem min(.8rem, 3vw); }
   .al-tabs .seg-tab > span:first-child { flex: 1 1 auto; min-width: 0; white-space: normal; }
   .al-tabs .seg-count { font-size: 1.1rem; min-height: 0; flex: none; white-space: nowrap; }
 }
@@ -237,16 +249,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 .al-group-toggle[aria-expanded="true"] .al-group-chev { transform: rotate(180deg); }
 .al-group-rest { display: grid; gap: .5rem; }
 
-/* 카드 자세히(거래 시트) */
-.al-d-head { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; }
-.al-d-head .sheet-title { margin-bottom: 0; }
-.al-d-badges { display: flex; flex-wrap: wrap; gap: .35rem; }
-.al-d-amount { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: .5rem; }
-.al-d-amount.in { color: var(--primary); }
-.al-d-facts { display: grid; gap: .1rem; margin: .5rem 0 0; }
-.al-d-fact { display: grid; grid-template-columns: 3.5em minmax(0, 1fr); gap: 0 .75rem; align-items: baseline; }
-.al-d-fact dt { color: var(--text-3); font-weight: 600; }
-.al-d-fact dd { margin: 0; font-weight: 600; }
+/* 카드 자세히(거래 시트): 머리는 app.css 공용(내 거래 시트와 같음, components.txnDetailHead), 여기는 지금 할 수 있는 일 */
 .al-next { display: grid; gap: .5rem; }
 .al-next-title { font-size: 1.05rem; font-weight: 800; }
 .al-next-list { display: grid; gap: var(--gap-list); }
@@ -287,6 +290,12 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 .np-picked-slot, .np-pick-panel, .al-flags, .al-sent, .al-panel, .np-send, .np-step { container-type: inline-size; }
 @container (max-width: 13rem) {
   .np-txn > .row-icon, .al-sent-row > .row-icon { display: none; }
+  .np-txn .row-tags .tag > svg { display: none; }   /* 태그 그림이 글 칸을 줄여 휴대폰 / 소액결제 / 급증처럼 꼬리가 생기지 않게(태그 글이 같은 뜻) */
+  .alert-head > .row-icon { display: none; }   /* 카드 머리 그림이 등급 배지와 한 줄에 못 들어 홀로 한 줄을 차지하지 않게(아주 큰 글씨, 카드 제목이 같은 일을 말한다) */
+  /* 거래 줄: 체크 칸·여백을 화면 폭 상한으로 줄여 시각(오전 11시 25분)이 한 줄에 들게 */
+  .np-check { padding-left: min(.8rem, 2.5vw); }
+  .np-check input { width: min(1.375rem, 6vw); height: min(1.375rem, 6vw); }
+  .np-txn { padding-left: min(.8rem, 2.5vw); padding-right: min(.8rem, 2.5vw); }
   /* 받는 사람 줄(L4·RF-1 후속): 종류 그림을 빼고, 체크 칸 옆에는 이름만 두고 연락처·번호/메일 표시·경고는 줄 전체 폭으로 내린다
      (이름 칸이 1~3글자 폭으로 줄어 메|일|없|음처럼 끊기거나 추천 배지가 잘리지 않게) */
   .np-person { flex-wrap: wrap; align-items: flex-start; row-gap: var(--space-1); padding-left: min(.6rem, 2.5vw); padding-right: min(.6rem, 2.5vw); }
@@ -296,6 +305,6 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
   .np-person .row-title { flex: 1 1 0; min-width: 0; }
   .np-person .row-main > :not(.row-title) { flex: 1 1 100%; margin-top: 0; }
   .al-row-actions, .al-sent-body { padding-left: min(1rem, 4vw); }
-  .notice { flex-direction: column; gap: .4rem; padding: .8rem min(.9rem, 4vw); }
+  .notice { padding: .8rem min(.9rem, 4vw); }   /* 아이콘은 글 옆 그대로(글 칸이 6글자보다 좁을 때만 위로, app.css .notice) */
 }
 

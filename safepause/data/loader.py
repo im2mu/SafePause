@@ -1,11 +1,14 @@
-"""거래내역 CSV·엑셀(.xlsx) 가져오기.
+"""거래내역 CSV·엑셀(.xlsx·.xls) 가져오기.
 
 - SafePause 표준 CSV(열: id,ts,amount,direction,channel,...)면 그대로 읽는다.
 - 그 밖의 CSV는 한국어 머리글(열 이름)을 보고 자동으로 짝을 짓는다. 특정 금융기관 양식을
-  지원한다는 뜻이 아니다(실제 양식으로 시험한 적 없음). 머리글을 모르면 ``mapping``으로 지정한다.
+  지원한다는 뜻이 아니다(실제 은행 파일로 시험한 적 없음. 공개 자료로 확인한 열 이름·파일 모양을 흉내 낸
+  합성 파일로만 시험: tests/test_loader_bank_formats.py). 머리글을 모르면 ``mapping``으로 지정한다.
 - 인코딩: 파일 앞이 FF FE / FE FF(BOM)면 UTF-16, 아니면 utf-8-sig → cp949 순서로 시도한다.
   엑셀(.xlsx)은 첫 시트를 CSV 글로 바꿔 같은 방법으로 읽는다(data.xlsx, 표준 라이브러리만, v0.3 수정 AUG-02).
-  옛 엑셀(.xls)·PDF·사진·HTML 파일은 앞 바이트(또는 글)로 알아보고 맞는 안내를 한다.
+  옛 엑셀(.xls, 엑셀 97~2003)도 첫 시트를 같은 방법으로 읽는다(data.xls). 암호가 걸린 엑셀은 안내한다.
+  확장자만 .xls인 웹 페이지(HTML 표) 파일은 머리글(날짜·금액 열)이 있는 첫 표를 읽는다(data.htmltable).
+  PDF·사진 파일, 표가 없는 HTML·XML 파일은 앞 바이트(또는 글)로 알아보고 맞는 안내를 한다.
 - 구분자: 쉼표·탭·세미콜론·세로줄(|)을 하나씩 써 보고, 머리글을 찾은 구분자를 쓴다.
 - 거래 종류(channel)·상대 식별값은 글자를 보고 추정하며, 추정했다는 사실을 리포트
   ``warnings``에 남긴다. 회선 번호(전화번호)를 알 수 없는 통신요금은 회선을 비워 둔다.
@@ -49,6 +52,8 @@ from safepause.data.synth import (
     round_amount,
     txn_from_standard_row,
 )
+from safepause.data.htmltable import HtmlTableError, html_tables
+from safepause.data.xls import XlsError, is_cfb, xls_to_csv_text
 from safepause.data.xlsx import XlsxError, is_zip, xlsx_to_csv_text
 from safepause.models import Channel, Direction, Transaction
 
@@ -86,19 +91,24 @@ _AUTO: dict[str, tuple[str, ...]] = {
     "time": ("거래시간", "시간", "시각", "이용시간", "승인시간", "거래시각"),
     "out_amount": ("출금액", "출금금액", "출금", "지급액", "지급금액", "지급", "찾으신금액", "인출금액"),
     "in_amount": ("입금액", "입금금액", "입금", "맡기신금액"),
-    "amount": ("금액", "거래금액", "이용금액", "승인금액"),
+    # 국내이용금액: 카드 이용내역 .xls의 '국내이용금액(원)'(해외 이용분은 다른 열, 공개 코드로 확인)
+    "amount": ("금액", "거래금액", "이용금액", "승인금액", "국내이용금액"),
     "kind": ("구분", "입출금구분", "거래구분"),
     # 상대 이름. '보낸분/받는분'처럼 '/'가 든 머리글은 나눠서 비교한다.
     # 적요(모바일이체·체크카드 같은 거래 종류 글자)는 상대로 쓰지 않는다(mapping으로 지정하면 씀).
+    # 상대계좌예금주명(받는 계좌 주인 이름)은 '거래내용'보다 먼저 쓴다. 이용하신곳 = 카드 가맹점(공개 코드로 확인)
     "counterparty": ("받는분", "보낸분", "받는사람", "보낸사람", "수취인", "수취인명", "상대방", "상대방명",
-                     "거래처", "거래처명", "가맹점명", "가맹점", "이용가맹점", "내용", "거래내용", "기재내용"),
+                     "상대계좌예금주명", "거래처", "거래처명", "가맹점명", "가맹점", "이용가맹점", "이용하신곳",
+                     "내용", "거래내용", "기재내용"),
     "memo": ("메모", "비고", "적요"),
-    "merchant": ("가맹점명", "가맹점", "이용가맹점"),
+    "merchant": ("가맹점명", "가맹점", "이용가맹점", "이용하신곳"),
     "counterparty_id": ("상대계좌번호", "상대계좌", "계좌번호", "가맹점번호"),
     "line": ("회선", "회선번호", "전화번호", "휴대폰번호"),
+    # 거래 종류 글(체크카드·타행이체·ATM출금 등). 거래 종류 추정에만 쓴다(구분·메모로 이미 쓴 열은 빼고 하나).
+    "type_text": ("적요", "거래구분"),
 }
 # 카드 이용내역의 금액 열: 구분 열이 없으면 모두 쓴 돈(출금)으로 본다(음수는 취소로 보고 건너뜀)
-_CARD_AMOUNT_COLUMNS: tuple[str, ...] = ("이용금액", "승인금액")
+_CARD_AMOUNT_COLUMNS: tuple[str, ...] = ("이용금액", "승인금액", "국내이용금액")
 
 _CHANNEL_KO = {
     Channel.TRANSFER: "이체", Channel.CARD: "카드", Channel.MICROPAY: "소액결제",
@@ -120,12 +130,13 @@ _TELECOM_RE = re.compile(
     re.IGNORECASE,
 )
 _ATM_RE = re.compile(r"ATM|현금(?!영수증)", re.IGNORECASE)
-_CARD_RE = re.compile(r"체크카드|신용카드|카드결제|카드승인")
+# '체크' 한 낱말: 거래구분 칸에 체크카드 결제를 '체크'로만 적는 은행 파일(공개 코드로 확인). '체크인' 등은 아님
+_CARD_RE = re.compile(r"체크카드|신용카드|카드결제|카드승인|(?<![가-힣A-Za-z])체크(?![가-힣A-Za-z])")
 # 휴대폰 번호: 010-1234-5678, 010-****-5678, +82 10-1234-5678, 82-10-1234-5678, +82(0)10…
 _PHONE_RE = re.compile(
     r"(?:(?<!\d)\+?82[-\s.]?(?:\(0\)[-\s.]?|0)?|0)(1[016789])[-\s.]?(\d{3,4}|\*{3,4})[-\s.]?(\d{4})"
 )
-_TOTAL_WORDS: tuple[str, ...] = ("합계", "소계")
+_TOTAL_WORDS: tuple[str, ...] = ("합계", "소계", "총계")
 _RANGE_MARKS: tuple[str, ...] = ("~", "～", "〜")
 
 _IN_WORDS = ("입금", "입")
@@ -163,19 +174,20 @@ def plain_message(text: str) -> str:
     return out
 _SAVE_AS_CSV = ("엑셀에서 [다른 이름으로 저장]을 누르고 파일 형식을 [CSV UTF-8(쉼표로 분리)]로 골라 저장한 뒤 "
                 "그 파일을 올려 주세요.")
-_EXPORT_HINT = "은행 앱이나 인터넷뱅킹에서 거래내역을 엑셀(.xlsx)이나 CSV 파일로 내려받아 올려 주세요."
+_EXPORT_HINT = "은행 앱이나 인터넷뱅킹에서 거래내역을 엑셀이나 CSV 파일로 내려받아 올려 주세요."
 _IMAGE_MESSAGE = "사진(이미지) 파일은 읽지 못해요. " + _EXPORT_HINT
-# 파일 앞 바이트 → 안내(CSV·엑셀(.xlsx)이 아닌 파일). zip(PK)은 _read_text가 엑셀로 읽어 본다
+# 파일 앞 바이트 → 안내(CSV·엑셀이 아닌 파일). zip(PK)은 .xlsx로, 복합 문서(D0CF11E0)는 .xls로 읽어 본다
 _SIGNATURES: tuple[tuple[bytes, str], ...] = (
-    (bytes.fromhex("D0CF11E0A1B11AE1"), "옛 엑셀 파일(.xls) 같은 문서 파일은 바로 읽지 못해요. " + _SAVE_AS_CSV),
     (b"%PDF", "PDF 파일은 읽지 못해요. " + _EXPORT_HINT),
     (b"\x89PNG\r\n\x1a\n", _IMAGE_MESSAGE),
     (b"\xff\xd8\xff", _IMAGE_MESSAGE),        # JPEG
     (b"GIF8", _IMAGE_MESSAGE),
 )
-_MARKUP_MESSAGE = ("웹 페이지(HTML) 모양의 파일이라 바로 읽지 못해요. 이 파일을 엑셀에서 연 뒤 "
+# 웹 페이지(HTML) 모양인데 날짜·금액 머리글이 있는 표가 없을 때(표가 없는 HTML, XML 등)
+_MARKUP_MESSAGE = ("웹 페이지(HTML) 모양의 파일인데 거래내역 표를 찾지 못했어요. 이 파일을 엑셀에서 연 뒤 "
                    "[다른 이름으로 저장]에서 [CSV UTF-8(쉼표로 분리)]로 저장해 올려 주세요.")
-_MARKUP_TAGS: tuple[str, ...] = ("<html", "<table", "<!doctype", "<?xml", "<head", "<body", "<meta")
+_MARKUP_TAGS: tuple[str, ...] = ("<html", "<table", "<!doctype", "<?xml", "<head", "<body", "<meta",
+                                 "<style", "<!--", "<tr")
 
 
 def load_csv(path_or_text: str | Path | bytes,
@@ -186,7 +198,15 @@ def load_csv(path_or_text: str | Path | bytes,
     리포트: ``{"rows", "loaded", "skipped", "format", "encoding", "header_row", "mapping",
     "warnings", "skipped_rows", "delimiter"}``. 읽은 거래가 하나도 없으면 LoaderError.
     """
-    text, encoding = _read_text(path_or_text)
+    # HTML 표 파일에서 표를 고를 때도 mapping의 열 이름을 쓴다. 잘못된 mapping 안내는 아래 검사가 한다
+    table_mapping = None
+    if isinstance(mapping, dict):
+        try:
+            _validate_mapping(mapping)
+            table_mapping = _column_mapping(mapping)
+        except LoaderError:
+            table_mapping = None
+    text, encoding = _read_text(path_or_text, table_mapping)
     if not text.strip(" \t\r\n,;|" + _BOM):
         raise LoaderError("파일이 비어 있어요.")
     if mapping is not None:
@@ -259,13 +279,16 @@ def _nothing_loaded_message(n_rows: int, skipped: list[tuple[int, str]]) -> str:
 # 읽기·머리글
 # ---------------------------------------------------------------------------
 
-def _read_text(src: str | Path | bytes) -> tuple[str, str]:
-    """(글, 인코딩 이름). 줄바꿈이 있는 str은 CSV 글 자체로 본다."""
+def _read_text(src: str | Path | bytes, col_mapping: dict[str, Any] | None = None) -> tuple[str, str]:
+    """(글, 인코딩 이름). 줄바꿈이 있는 str은 CSV 글 자체로 본다.
+
+    엑셀(.xlsx·.xls)과 HTML 표 파일은 표를 CSV 글로 바꿔 돌려준다(인코딩 이름 'xlsx'·'xls'·'html')."""
     if isinstance(src, (bytes, bytearray)):
         data = bytes(src)
     elif isinstance(src, str) and ("\n" in src or "\r" in src):
         text = src.lstrip(_BOM)
-        _check_markup(text)
+        if _is_markup(text):
+            return _html_table_text(text, col_mapping), "html"
         return text, "text"
     else:
         path = Path(src)
@@ -277,6 +300,11 @@ def _read_text(src: str | Path | bytes) -> tuple[str, str]:
             return xlsx_to_csv_text(data), "xlsx"
         except XlsxError as exc:
             raise LoaderError(str(exc)) from exc
+    if is_cfb(data):   # 옛 엑셀(.xls): 첫 시트를 CSV 글로. 암호·엑셀 95 이전·한글·워드 문서·손상은 안내
+        try:
+            return xls_to_csv_text(data), "xls"
+        except XlsError as exc:
+            raise LoaderError(str(exc)) from exc
     for magic, message in _SIGNATURES:
         if data.startswith(magic):
             raise LoaderError(message)
@@ -285,24 +313,56 @@ def _read_text(src: str | Path | bytes) -> tuple[str, str]:
             text = data.decode("utf-16")
         except UnicodeDecodeError as exc:
             raise LoaderError("UTF-16 글자를 읽지 못했어요. " + _SAVE_AS_CSV) from exc
-        _check_markup(text)
+        if _is_markup(text):
+            return _html_table_text(text, col_mapping), "html"
         return text, "utf-16"
     for enc in ENCODINGS:
         try:
             text = data.decode(enc)
         except UnicodeDecodeError:
             continue
-        _check_markup(text)
+        if _is_markup(text):
+            return _html_table_text(text, col_mapping), "html"
         return text, enc
     raise LoaderError("글자 인코딩을 알 수 없어요. UTF-8 또는 CP949(EUC-KR)로 저장해 주세요. "
                       "엑셀이라면 파일 형식을 [CSV UTF-8(쉼표로 분리)]로 골라 저장하면 돼요.")
 
 
-def _check_markup(text: str) -> None:
-    """HTML·XML 파일(은행 '엑셀 저장'이 HTML 표인 경우 등)이면 안내와 함께 LoaderError."""
+def _is_markup(text: str) -> bool:
+    """HTML·XML 파일인지(은행·카드사 '엑셀 저장'이 HTML 표인 경우 등). 글 앞부분의 태그로 본다."""
     head = text.lstrip(_BOM + " \t\r\n")[:2048].lower()
-    if head.startswith("<") and any(tag in head for tag in _MARKUP_TAGS):
-        raise LoaderError(_MARKUP_MESSAGE)
+    return head.startswith("<") and any(tag in head for tag in _MARKUP_TAGS)
+
+
+def _html_table_text(text: str, col_mapping: dict[str, Any] | None) -> str:
+    """HTML 글에서 머리글(날짜·금액 열, mapping이 있으면 그 열)을 찾은 첫 표를 CSV 글로.
+
+    머리글 아래에 거래 줄이 있는 표를 먼저 고른다. 그런 표가 없으면 머리글만 있는 첫 표(→ '거래 줄이 없어요' 안내).
+    머리글이 있는 표가 하나도 없으면(표가 없는 HTML, XML 등) 엑셀에서 CSV로 저장하라는 안내."""
+    try:
+        tables = html_tables(text)
+    except HtmlTableError as exc:
+        raise LoaderError(str(exc)) from exc
+    # mapping의 열이 든 표가 없으면 자동으로 고른다(뒤의 머리글 찾기가 '적은 열을 찾지 못했어요'라고 알린다)
+    for wanted in ([col_mapping, None] if col_mapping is not None else [None]):
+        header_only: list[list[str]] | None = None
+        for rows in tables:
+            hit = _find_header(rows, wanted)
+            if hit is None:
+                continue
+            if any(any(c.strip() for c in row) for row in rows[hit[0] + 1:]):
+                return _rows_csv(rows)
+            header_only = header_only or rows
+        if header_only is not None:
+            return _rows_csv(header_only)
+    raise LoaderError(_MARKUP_MESSAGE)
+
+
+def _rows_csv(rows: list[list[str]]) -> str:
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerows(rows)
+    return buf.getvalue()
 
 
 _CSV_BROKEN = ("CSV 모양을 읽지 못했어요. 한 칸의 글이 너무 길거나 따옴표가 잘못됐을 수 있어요. "
@@ -502,6 +562,9 @@ def _resolve_columns(header: list[str], mapping: dict[str, Any] | None) -> dict[
         cols["amount"] = cols["kind"] = None
     else:
         cols["out_amount"] = cols["in_amount"] = None
+    # 거래 종류 글: 구분(입금·출금)이나 메모로 이미 쓴 열은 빼고 하나(거래 종류 추정에만 쓴다)
+    cols["type_text"] = next((c for c in _AUTO["type_text"]
+                              if c in present and c not in (cols["kind"], cols["memo"])), None)
     # 상대: 후보 순서대로, '/'가 든 머리글은 나눠 비교. 메모 열(적요 등)은 상대로 쓰지 않는다.
     cps: list[str] = []
     for alias in _AUTO["counterparty"]:
@@ -625,7 +688,7 @@ def _load_mapped(header: list[str], body: list[tuple[int, list[str]]],
         return fixed_direction, abs(value), ""
 
     text_cols = list(dict.fromkeys(
-        [*(cols.get("counterparty") or []), cols.get("memo"), cols.get("merchant")]
+        [*(cols.get("counterparty") or []), cols.get("memo"), cols.get("merchant"), cols.get("type_text")]
     ))
     text_cols = [c for c in text_cols if c]
     date_cols = [c for c in (cols.get("datetime"), cols.get("time")) if c]

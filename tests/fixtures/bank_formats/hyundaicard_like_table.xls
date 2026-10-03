@@ -1,0 +1,17 @@
+<html>
+<head><meta charset="utf-8"><title>이용내역</title></head>
+<body>
+<table><tr><td colspan="6">이용내역 조회 (가상)</td></tr><tr><td>조회기간</td><td colspan="5">2026년 05월 01일 ~ 2026년 05월 31일</td></tr></table>
+<table>
+<thead><tr><th>이용일</th><th>이용카드</th><th>이용가맹점</th><th>이용금액</th><th>할부/회차</th><th>적립</th></tr></thead>
+<tbody>
+<tr><td>2026년 05월 30일</td><td>본인 001</td><td>가상마트</td><td>52,300</td><td>일시불</td><td>0</td></tr>
+<tr><td>2026년 05월 28일</td><td>본인 001</td><td>가상전자</td><td>1,200,000</td><td>3/1</td><td>0</td></tr>
+<tr><td>2026년 05월 27일</td><td>가족 002</td><td>가상카페</td><td>4,500</td><td>일시불</td><td>0</td></tr>
+<tr><td>2026년 05월 27일</td><td>가족 002</td><td>가상카페</td><td>-4,500</td><td>일시불</td><td>0</td></tr>
+<tr><td colspan="3">국내 일시불 소계 3건</td><td>52,300</td><td></td><td></td></tr>
+<tr><td colspan="3">본인 소계</td><td>1,252,300</td><td></td><td></td></tr>
+</tbody>
+</table>
+</body>
+</html>

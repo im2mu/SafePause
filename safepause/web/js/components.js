@@ -65,7 +65,7 @@ export function txnSignals(item) {
  * 조각 안 숫자·날짜·시각·금액은 묶음이라 끊기지 않는다(ui.keepNodes: 2026년 / 6월 27일 / (토)처럼 묶음 사이에서만).
  */
 export function subParts(parts, cls = "row-sub") {
-  return h("span", { class: `${cls} parts` }, parts.filter(Boolean).map((t) => h("span", null, keepNodes(String(t)))));
+  return h("span", { class: `${cls} parts` }, parts.filter(Boolean).map((t) => h("span", null, keepNodes(String(t), { bind: true }))));
 }
 
 /** 날짜와 시각을 따로: ["2026년 6월 27일 (토)", "새벽 4시 41분"](subParts에서 날짜·시각 사이에서만 줄을 바꾸게). */
@@ -109,6 +109,24 @@ export function txnRow(item, onOpen) {
   return onOpen
     ? h("button", { type: "button", class: "row txn-row", "aria-label": label, onclick: () => onOpen(item) }, body)
     : h("div", { class: "row txn-row" }, body);
+}
+
+/**
+ * 거래 자세히 시트의 머리(내 거래 시트·알림 카드 자세히가 같이 쓴다, ⑭): 이름 + 배지 한 줄 → 큰 금액(한 번) → 사실 상자(언제·어떻게·메모).
+ * badges: 이름 옆 배지 칸(화면이 상태가 바뀌면 다시 채운다). 언제 값은 날짜·시각 묶음 사이에서만 줄을 바꾼다(setText → keepNodes).
+ */
+export function txnDetailHead(item, badges) {
+  const t = item.txn;
+  const fact = (label, value) => h("div", { class: "tx-fact" }, h("dt", { text: label }), h("dd", { text: value }));
+  return [
+    h("div", { class: "tx-head" },
+      h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: t.counterparty || "이름 없음" }), badges),
+    h("p", { class: `tx-amount${t.direction === "out" ? "" : " in"}`, "data-nosplit": true, text: txnAmount(t) }),
+    h("dl", { class: "tx-facts" },
+      fact("언제", formatWhen(t.ts)),
+      fact("어떻게", CHANNEL_KO[t.channel] || t.channel),
+      t.memo ? fact("메모", t.memo) : null),
+  ];
 }
 
 export function dateHead(ts) {
@@ -258,8 +276,9 @@ export function noVoiceNote(cls = "muted") {
  * - 머리 그림은 신호 선 아이콘(SIGNAL_ICON, 내 거래 표시와 같은 그림)이다. 신호가 없으면 AI(sparkle) 또는 등급 아이콘.
  * - 카드 줄이 이미 같은 금액을 말하면 머리 줄에 금액을 또 쓰지 않는다(C10).
  * opts.actions: 카드 아래에 더할 버튼들(예: [알리기]·[담기]·[자세히]).
+ * opts.question: false면 카드 질문 줄을 빼다(목록의 모든 카드가 같은 문장이면 화면이 목록 위에 한 번만 쓴다, ⑥).
  */
-export function alertCard(item, { actions = null } = {}) {
+export function alertCard(item, { actions = null, question = true } = {}) {
   const c = item.card;
   const t = item.txn;
   const lv = LEVEL[c.level] || LEVEL.caution;
@@ -277,7 +296,7 @@ export function alertCard(item, { actions = null } = {}) {
     subParts([...whenParts(t.ts), t.counterparty || "(이름 없음)", said ? "" : moneyText(t.amount)], "muted card-meta"),
     // 카드 줄은 문장마다 한 줄(li 안 p), 숫자와 단위(168만 원)·시각은 줄 끝에서 떨어지지 않게(keepUnits, 보이는 글만)
     h("ul", { class: "pause-lines" }, lines.map((line) => h("li", null, h("p", { text: keepUnits(line) })))),
-    c.question ? h("p", { class: "muted card-question", text: keepUnits(c.question) }) : null,
+    c.question && question ? h("p", { class: "muted card-question", text: keepUnits(c.question) }) : null,
     speak || actions ? h("div", { class: "card-actions" }, speak, actions) : null);
 }
 
@@ -314,10 +333,10 @@ export function aiExplain(item, { heading = 3 } = {}) {
       body.push(h("p", { class: "muted", text: AI_TEXT.aiLearning }));
     } else {
       const top = topText(ai.percentile);
-      if (top) body.push(h("p", { class: "ae-diff" }, h("span", { text: AI_TEXT.diffLabel }), h("b", { class: "ae-diff-value", text: top })));
+      if (top) body.push(h("div", { class: "ae-diff" }, h("span", { text: AI_TEXT.diffLabel }), h("b", { class: "ae-diff-value", text: top })));
       else if (ai.percentile !== null && ai.percentile !== undefined) body.push(h("p", { text: "평소 내 거래와 비슷한 편이에요." }));
       if (ai.top_feature) body.push(h("p", { text: keepUnits(sentence(ai.top_feature)) }));
-      if (ai.only_ai) body.push(h("p", { class: "ae-only" }, icon("sparkle"), h("span", { text: AI_TEXT.aiOnly })));
+      if (ai.only_ai) body.push(h("div", { class: "ae-only" }, icon("sparkle"), h("span", { text: AI_TEXT.aiOnly })));
       if (!body.length) body.push(h("p", { class: "muted", text: AI_TEXT.aiNone }));
     }
     aiBlock = h("div", { class: "ae-group ae-ai" },

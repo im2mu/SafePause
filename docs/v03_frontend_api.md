@@ -6,6 +6,7 @@
 
 - **2026-10-03 수정(적대적 검증 145건 반영)**: 결정·계약은 `docs/v03_fixplan.md`가 이 문서보다 우선한다. 이 문서의 15절에 화면 공용 계약(새 함수·상수·CSS)을 예시와 함께 모았다.
 - **2026-10-03 화면 글 정리(`docs/v03_typography.md`)**: 간격 토큰·문장 < 문단 < 구역 리듬·줄 높이 다섯 가지·글 폭 34em·숫자 묶음(`ui.keepNodes`)·문단 묶기(`ui.paragraphs`). 16절에 화면 담당이 지킬 것을 모았다.
+- **2026-10-03 화면 글 정리 2차(`docs/v03_typography.md` 5절)**: 모든 요소의 글이 묶음을 지킨다(`setText` → `keepNodes`, dd·li·span·버튼 이름 포함), 낱말 묶기(`span.bind`)·금액 + 붙은 말(`span.keep-word`), 줄바꿈은 낱말 사이에서만(`overflow-wrap: break-word`), 버튼 이름 묶기(`span.btn-label`), 거래 자세히 머리 공용(`components.txnDetailHead`), 거래 고르기 낮은 고르기 띠, 확인 거래는 주소 대신 sessionStorage.
 - 공용 파일(화면 기반 담당): `index.html`, `js/main.js`, `js/api.js`, `js/ui.js`, `js/components.js`, `js/format.js`, `js/labels.js`, `js/icons.js`, `js/speech.js`, `js/native.js`, `js/engine-client.js`, `js/views/connect.js`, `engine/worker.mjs`, `css/app.css`, `icons/`(파비콘 `logo.svg`), `tests/test_static_ui.py`.
 - 화면 파일(화면 담당): `js/views/*.js`(connect.js 빼고), `css/views/{home,txns,notify,money,more}.css`, `js/charts.js`(홈 담당이 새로 만듦).
 - 공용 모듈에 필요한 것이 생기면 직접 고치지 말고 화면 기반 담당(총괄)에게 요청한다.
@@ -50,7 +51,7 @@
 | `#/send?to=counselors` | 알림 보내기 탭 + 상담하는 곳 목록을 펼쳐 둠 | notify.js |
 | `#/send?mode=notify&txn=<id>&helper=<조력자 id>&ask=1&channel=sms\|email` | 돈 보내기의 물어볼래요 → [문자로 물어보기]·[메일로 물어보기]: 그 조력자만 미리 체크, 묻는 글, 그 방법을 먼저 고름. 저장하지 않은 확인 거래는 `checkedItem(id)`로 미리 고르고 suggest에 `pending`으로 넘긴다 | notify.js |
 | `#/send?mode=notify&resend=<보낸 알림 id>` | 보낸 알림의 다시 보내기: 그 기록의 받는 사람·글·거래로 채움(고치지 않으면 떠날 때 묻지 않음) | notify.js |
-| `#/send?mode=notify&txn=live-…&chk_to=<받는 사람 이름>&chk_amt=<금액>&chk_ch=transfer\|card\|micropay&chk_conflict=<조력자 id,…>` | 돈 보내기에서 확인만 하고 저장하지 않은 거래(안 보낼래요·물어볼래요 → 알림 보내기). 새로 고치거나 앱이 다시 열려 이 창의 기억(`checkedItem`)이 사라져도 그 거래와 돈 받은 조력자 경고를 다시 그린다. 계좌번호·시각은 넣지 않는다(개인정보 최소). money.js `notifyRoute`가 붙이고 notify.js `syncUrl`이 지킨다 | notify.js |
+| `#/send?mode=notify&txn=live-…` | 돈 보내기에서 확인만 하고 저장하지 않은 거래(안 보낼래요·물어볼래요 → 알림 보내기). 주소에는 거래 id만 넣는다(2026-10-03 2차: 받는 사람 칸에 적은 계좌번호 같은 글이 주소·방문 기록에 남지 않게). 받는 사람 이름·금액·방법·시각·등급·신호·돈 받는 조력자 id는 `money.checkedItem(id)`가 이 창의 기억 + 이 탭의 sessionStorage(`safepause.checked`, try/catch, 탭을 닫거나 모두 지우기·거래 살펴보기 끄기 때 `clearChecked()`로 사라짐)에서 찾는다. 새로 고쳐도 시각(ts)까지 되살아나 받는 사람 추천·미리 체크가 처음과 같다. 옛 `chk_*` 주소 값은 읽지 않고 지운다 | notify.js |
 | `#/alerts?tab=cards\|flags\|sent` | 걱정되는 거래 / 담은 거래 / 보낸 알림 탭(옛 이름 `risky`·`flagged`도 받음) | alerts.js |
 | `#/txns?q=<이름>&period=all\|1m\|3m` | 내 거래 이름 검색·기간(홈 많이 보낸 곳 TOP 3가 보냄) | txns.js |
 | `#/txns?open=upload\|sample\|bank\|card\|phone` | 파일 올리기 / 연습용 거래 / 은행·카드·휴대폰 결제 연결(준비 중) 시트를 바로 엶 | txns.js (connect.js가 보냄) |
@@ -131,8 +132,17 @@ import { h, fill, append, setText, splitSentences, $, $$, icon, picto, toast, an
 ### 2.1 h()와 한 문장 한 줄(R18)
 
 - `h(tag, attrs, ...children)`. attrs: `class`, `text`, `dataset`, `style`(CSSOM으로 넣음, 인라인 style 속성 아님), `onclick` 같은 `on*`, `value`, `checked`, `disabled`, `selected`, 그 밖은 setAttribute. `null·undefined·false`는 건너뛴다.
-- **p의 글은 숫자 묶음을 지킨다(`keepNodes`)**: 시각(`새벽 4시 41분`)·날짜(`6월 27일`)·금액(`5만 원`, `3만 5천 원`, `63만7천원`, `50,000원`)·두 글자 낱말 둘을 이은 말(`문자·메일`)은 `span.nowrap`, 전화번호는 `span.tel-text`(하이픈 뒤에서만 줄바꿈). 금액 바로 뒤에 한글이 세 글자 이상 붙으면(`63만7천원이었어요`) 그 사이, 긴 기관 이름은 기관 말 앞(`지역발달장애인 / 지원센터`)에 `wbr`을 둔다. `textContent`는 원래 글과 같다. 해(`2026년`)·요일(`(토)`)은 묶지 않는다(묶음이 길면 큰 글씨 좁은 칸에서 넘친다).
-- p가 아닌 요소의 이름(`span.np-name`, `b.preset-name` 등)에 묶음이 필요하면 `h("span", {class}, keepNodes(name))`.
+- **모든 요소의 글은 묶음을 지킨다(`setText` → `keepNodes`, 2026-10-03 2차)**: p뿐 아니라 dd·li·td·span·버튼 이름 등 `h(tag, {text})`·`setText`로 넣는 글 모두(option·title·textarea·script·style과 SVG 글은 그대로). p가 아닌 요소는 묶음 노드를 span 하나에 담아 넣는다(flex 칸인 요소에서 조각마다 따로 칸이 되지 않게).
+  - 시각(`새벽 4시 41분`)·날짜(`6월 27일`)·띄어 쓴 금액(`3만 5천 원`): 묶음 안 빈칸에서 줄을 바꾸지 않는다(첫 낱말은 글, 나머지는 빈칸 + 낱말을 `span.nowrap`에. 빈칸만 든 글 조각을 만들지 않아 묶음 사이 빈칸은 늘 글자와 같은 조각에 있다. 묶음에서 글자를 옮겨 그 끝·처음이 문장부호가 되면(`가게·` / `밤`) 옮기지 않는다: 가운뎃점·괄호 곁은 브라우저가 줄을 바꿀 수 있는 자리다). 빈칸 없는 금액(`50,000원`·`63만7천원`)은 줄 바꿀 자리가 없어 그대로 둔다.
+  - `문자·메일`은 가운뎃점 앞뒤 글자를 `span.nowrap`에(가운뎃점 뒤에서 끊기지 않게), 전화번호는 `span.tel-text`(하이픈 뒤 `wbr`에서만 줄바꿈: 하이픈 뒤 숫자 앞은 브라우저가 줄을 바꾸지 않아 큰 글씨에서 넘쳤다).
+  - 금액 바로 뒤에 한글이 세 글자 이상 붙은 낱말(`63만7천원이었어요`)은 `span.keep-word`(inline-block): 한 줄에 들면 통째로 옮기고, 칸보다 길 때만(아주 큰 글씨) 금액 뒤(`wbr`)에서 줄을 바꾼다.
+  - 낱말 안 문장부호(괄호·물결·붙임표·가운뎃점·빗금, 2026-10-03 2차): 6글자까지(`약속(규칙)으로`·`상대·7일`)는 `span.nowrap`, 7~16글자(`이름·계좌번호·연락처는`·`밤 11시~새벽 6시에`·`연결(마이데이터)은`·`typing-extensions`)는 `span.keep-word`이고 안에서는 가운뎃점 뒤·물결 뒤(한글 앞)·여는 괄호 앞·영문 붙임표 뒤의 `wbr`에서만 줄을 바꾼다(숫자 범위 `0~1` 안은 두지 않음). 덩어리 안 `글자 + 가운뎃점`(`액·`)과 `닫는 괄호 + 붙은 한글`(`)은`)은 `span.nowrap`이라 가운뎃점이 줄 첫머리에 오거나 조사 한 글자가 홀로 남지 않고, 마지막 자리 뒤가 두 글자 이하면(`금액·시간대·처음`의 `처음`) 그 자리를 빼고 붙인다. 더 긴 낱말(파일 경로)은 그대로(성능 확인 화면은 `breakPaths`가 `/`·`_` 뒤, 경로를 여는 괄호 앞·`.json)` 뒤에 `wbr`).
+  - 이름표(버튼·칩·배지·태그·탭) 안 `span.keep-word`는 `vertical-align: top`(덩어리가 두 줄이 되어도 버튼 그림이 첫 줄 옆에 남게). `.btn.block`은 크기 컨테이너이고, 이름 칸이 8글자(`8rem`)보다 좁으면(360폭 글자 2배) 버튼 이름 안 `keep-word`를 풀어 정해 둔 자리에서 줄을 바꾼다(덩어리가 그림 옆에 다 들지 않아 그림만 첫 줄에 남지 않게).
+  - 긴 기관 이름은 기관 말 앞(`지역발달장애인 / 지원센터`)에 `wbr`.
+  - 낱말 묶기(`opts.bind`, `setText`·`subParts`가 켬): 한 글자 낱말은 뒤 낱말과(`열 수 있어요`), 앞 낱말에 붙는 한 글자 말(`곳·것·때·등·달·번·장·개·명·건·쯤·뿐·데·줄·중`, `BACK_WORD`)은 앞 낱말과(`처음 가는 곳`, `건수 등`), 글 끝 한두 글자 꼬리는 앞 낱말과(`불법금융 신고`, `돈을 낼 때`) 6글자까지 묶는다(`span.bind`, 큰 글씨 좁은 칸에서도 넘치지 않는 길이). 버튼·칩·배지·태그·탭 안에서는 CSS가 묶음을 풀어 줄 고르기(balance)에 맡긴다(좁은 칸에서 넘치지 않게).
+  - `textContent`는 원래 글과 같다. 해(`2026년`)·요일(`(토)`)은 묶지 않는다.
+- 직접 노드로 넣는 이름(`span.np-name`, `b.preset-name` 등)에 묶음이 필요하면 `h("span", {class}, keepNodes(name))`(낱말 묶기 없이).
+- **버튼 이름 묶기(`h`)**: `.btn`의 자식이 [그림(svg 또는 `span.btn-ic`), 클래스 없는 글 span] 둘뿐이면 `span.btn-label` 하나로 묶는다. 이름이 두 줄이 되어도 그림이 첫 줄 글 바로 앞에 붙고(인라인), 줄은 가운데에서 고르게 나뉜다. 두 줄 짜임 이름(`.np-send-text` 등 클래스 있는 span)과 `.choice-btn`은 그대로다.
 - **`h("p", {text})`는 문장 끝(한글·닫는 괄호 뒤의 `. ? !` 또는 `? !` 다음 빈칸)에서 나눠 `span.sent`(display:block)로 한 줄씩 넣는다.**
   - 숫자 속 점(1.5만, v0.3.0)은 나누지 않는다.
   - `textContent`는 원래 글과 같다(문장 사이 빈칸 유지). 소리로 읽기·복사에 그대로 써도 된다.
@@ -203,6 +213,7 @@ import { levelBadge, flaggedBadge, flagBadge, reviewBadge, notifiedBadge, checke
 | `subParts(parts, cls?)` | 작은 글 조각 줄(`시각 · 방법` 등). 조각(flex 칸)이 칸에 들어가면 한 줄로 두고, 칸보다 긴 조각만 안의 빈칸에서 줄을 바꾼다(조각 안 숫자·날짜·시각은 `keepNodes` 묶음이라 `2026년 / 6월 27일 / (토)`처럼 묶음 사이에서만). 줄이 바뀐 조각 앞 가운뎃점은 숨긴다. 기본 클래스 `row-sub`. 조각 글은 보통 빈칸이다(예전처럼 줄 바꾸지 않는 빈칸으로 바꾸지 않음) |
 | `whenParts(ts)` | `["2026년 6월 27일 (토)", "새벽 4시 41분"]`: subParts에 날짜·시각을 따로 넣을 때 |
 | `dateHead(ts)` | 날짜 머리 |
+| `txnDetailHead(item, badges)` | 거래 자세히 시트 머리(내 거래 시트·알림 카드 자세히 공용, 2026-10-03 2차): 이름(h2.sheet-title) + 배지 칸 한 줄(`.tx-head`) → 큰 금액 한 번(`p.tx-amount`) → 사실 상자(`dl.tx-facts`: 언제·어떻게·메모). 배지 칸(`span.tx-badges`)은 화면이 상태가 바뀌면 다시 채운다 |
 | `flagButton(ctx, item, {cls, onChange(flagged, count)})` | 알림 목록에 담기 ↔ 담기 취소 토글(POST /api/flags, /api/flags/remove, 글은 `FLAG_TEXT`). 담으면 토스트 "알림 탭에 담았어요.", 빼면 "담은 거래에서 뺐어요." `item.flagged`도 바꾼다. 알림 카드의 작은 버튼도 이것을 쓴다(`{cls: "btn sm"}`). 하는 동안 `disabled`를 쓰지 않는다(초점 유지) |
 | `reviewButton(ctx, item, {cls, onChange(reviewed, count)})` | 내가 한 거예요 ↔ 확인 취소 토글(POST /api/reviews, /api/reviews/remove, 글은 `REVIEW_TEXT`). `item.reviewed`도 바꾼다. 탐지 등급은 그대로다 |
 | `menuRow({icon, tone, title, sub, href \| onclick, soon, end})` | 전체 탭·설정의 한 줄. `soon: true`면 준비 중 배지를 **제목 바로 아래 고정 줄**(`.menu-soon`)에 붙인다(L15). 준비 중 항목은 `onclick: () => comingSoonSheet({...})` |
@@ -426,10 +437,12 @@ openCardConnect(ctx, { onUpload: openUpload, onSample: openSample });
 
 - 글 줄바꿈(L8): `p, li, .sent`는 `text-wrap: pretty`(마지막 줄 한두 글자 방지), 배지·칩·버튼·제목·탭은 `text-wrap: balance`. `textarea.input`은 `word-break: keep-all; overflow-wrap: break-word`.
 - 아래 탭(L3·L6): 휴대폰 폭에서 탭 칸 높이·여백·간격에 px 상한(글자 200%에서도 이름이 탭 안에). 320폭에서는 탭 사이를 넓히고 이름 안 빈칸을 좁힌다.
-- 안내 상자(L4): `.notice` 여백·아이콘·`ul` 들여쓰기에 화면 폭 상한. 글 칸이 9글자보다 좁아지면(아주 큰 글씨) 아이콘이 글 위 줄로 올라간다(`.notice > svg + * { flex: 1 1 9em }`, 컨테이너 쿼리를 쓰지 않음: 글자 배율을 나중에 바꾸면 옛 배율로 판단하는 브라우저가 있음). 안내 상자 안 첫 글 묶음은 하나의 요소(div·p·ul)로 넣는다.
+- 안내 상자(L4): `.notice` 여백·아이콘·`ul` 들여쓰기에 화면 폭 상한. 글 칸이 6글자보다 좁아질 때만(320폭 아주 큰 글씨) 아이콘이 글 위 줄로 올라간다(`.notice > svg + * { flex: 1 1 6em }`, 2026-10-03 2차: 9글자 기준은 320폭 1.3배의 짧은 글에서도 아이콘을 올려 보냈다. 컨테이너 쿼리를 쓰지 않음: 글자 배율을 나중에 바꾸면 옛 배율로 판단하는 브라우저가 있음). 안내 상자 안 첫 글 묶음은 하나의 요소(div·p·ul)로 넣는다.
 - 머리글 제목(L4): 두 줄까지 보인다(잘림 줄임표 대신).
 - 표 숫자(L9): 좁은 화면 카드 모양 표에서 `td.num` 값은 끊지 않고 칸 이름(`data-label`)만 줄을 바꾼다.
-- 고르기 묶음(L10): 카드 밖 `.segmented` 바탕은 페이지 바탕보다 진하다(고르지 않은 칸도 버튼으로 보임).
+- 고르기 묶음(L10): 카드 밖 `.segmented` 바탕은 페이지 바탕보다 진하다(고르지 않은 칸도 버튼으로 보임). 칸 폭은 `--seg-min`(칸 이름이 한 줄에 드는 폭, rem). 셋인 묶음은 한 줄에 셋이 다 들지 않으면 한 칸씩 세로로(2+1 없음), 넷인 묶음은 4 → 2+2 → 1(2026-10-03 2차, `:has()` + `min()/max()` 식). 어떻게 보내요?는 `.seg-pay-channel { --seg-min: 9rem }`, 알림 방법은 4.5rem, 글자 크기·화면 모드는 4.6rem(한 칸씩일 때는 견본과 이름을 한 줄에).
+- 목록 줄(2차): `.list`는 크기 컨테이너다. 목록 폭이 9글자보다 좁으면(360폭 글자 2배) 줄 앞 둥근 그림(`.row-icon`)을 빼 글 칸을 넓힌다(시각 `오전 11시 25분`이 한 줄에). 알림 보내기 거래 줄(단계 카드·거래 고르기가 13글자보다 좁을 때)은 표시 태그의 그림도 뺀다(`휴대폰 / 소액결제 / 급증` 꼬리 막기). 지울 것 태그(`.wipe-items`)는 낱말 묶음을 지킨다(`내가 / 확인한 거래`).
+- 버튼(2차): 그림은 `min(1.25rem, 7vw)`, 작은 버튼 좌우 여백은 `min(.85rem, 3.5vw)`, 칩 좌우 여백은 `min(1rem, 5vw)`(큰 글씨에서 이름 칸을 지킨다). 두 줄 이름 버튼(받는 사람 + 할 일)의 파란 바탕은 `--primary-strong`(흰 글 5.4:1).
 - 스위치(L11): 보이는 크기가 작아져도 누르는 자리는 `::before`로 48px 이상.
 - 가로·짧은 화면(L14, 높이 480px 이하): 아래 탭은 그림·이름 한 줄(높이 최대 60px), `.cta-bar`는 따라오지 않음, 시트는 화면 높이를 거의 다 쓴다.
 - 하는 중 버튼: `.btn[aria-disabled="true"]`는 꺼진 모양, `[aria-busy]`는 돌림표(ui.busy·담기 버튼).
@@ -530,7 +543,8 @@ AI 부분(numpy·scikit-learn)만 못 켜면 `engine.status`가 `{stage: "error"
   - 결과: 보낼래요 → 요약 + `bankAppActions()`(계좌 이체일 때만) + 필수 문장, 안 보낼래요 → 보내지 않았어요 + [알림 보내기로 문자·메일 보내기](카드가 있었을 때), 물어볼래요 → 제목 조력자에게 물어봐요 + [문자로 물어보기]·[메일로 물어보기](`#/send?mode=notify&txn=…&helper=…&ask=1&channel=…`, 할 수 있는 방법만)
   - 결과 제목: 보낼래요·안 보낼래요는 decide의 `message`(계좌 이체 `내 은행 앱에서 보내 주세요.`·`보내지 않았어요.`, 가게·휴대폰 결제 `결제는 직접 해 주세요.`·`결제하지 않았어요.`), 물어볼래요는 `result_title`·`result_lines`. 서버 응답이 없는 동의 꺼짐 결과만 화면 표(SEND_TITLE, 같은 글)를 쓴다
   - 거래 살펴보기 동의가 꺼져 있으면 확인하지 않은 결과 + 은행 앱 + 동의 켜러 가기
-  - `checkedItem(id)`: 이 창에서 확인한 거래 항목(물어볼래요는 거래 이력에 적지 않으므로 notify.js가 이것으로 미리 고른다. `unsaved: true`면 suggest의 txn_ids에서 뺀다)
+  - `checkedItem(id, epoch)`: 확인한 거래 항목(물어볼래요·안 보낼래요는 거래 이력에 적지 않으므로 notify.js가 이것으로 미리 고른다. `unsaved: true`면 suggest의 txn_ids에서 빼고 `pending`으로 넘긴다). 이 창의 기억 + 이 탭의 sessionStorage(`safepause.checked`: 받는 사람 이름·금액·방법·시각·등급·신호·돈 받는 조력자 id, 계좌번호 칸 값은 넣지 않음, 5건까지). `clearChecked()`는 둘 다 지운다(consent.js가 모두 지우기·거래 살펴보기 끄기 때 부른다)
+  - 결과 글(2026-10-03 2차): 물어볼래요는 제목을 되풀이하는 서버 첫 줄을 받는 사람·금액만 남겨 다음 줄과 합친다(`김*호에게 30만 원을 아직 보내지 않았어요.`, `askLines`). 조력자 설정대로 적어 둔 기록 안내는 서버 문장과 장소 문장을 한 문장으로(`이영희에게 알릴 수 있게 이 휴대폰에 적어 두기만 했어요. 문자나 메일은 알림 보내기에서 직접 보내요.`, `recordedNote`). 내 거래에 적는 날짜 안내(ts_note)는 접어 둔다(`details.mn-ts`, 소리로 듣기에는 그대로)
   - 필수 문장 `SafePause는 돈을 보내지 않아요. 보내기는 내 은행 앱에서 해요.`(화면 위 안내·결과). 연습이라는 말과 PRACTICE_NOTE는 쓰지 않는다
   - 계좌 연결해서 바로 보내기는 `comingSoonSheet`(단계 5개)만
 - bankapp.js
@@ -540,6 +554,8 @@ AI 부분(numpy·scikit-learn)만 못 켜면 `engine.status`가 `{stage: "error"
   - `bankAppActions()`: [내 은행 앱 열기](고른 앱 이름) / [다른 은행 앱 고르기], 못 열면 `은행 앱을 열지 못했어요. 다시 골라 주세요.`
   - `bankAppSettings()`: 앱 설정의 내 은행 앱(고르기·바꾸기·지우기). 동의 화면의 모두 지우기는 `clearBankApp()`도 부른다
 - notify.js 받는 사람 추천: 거래를 고르거나 바꿀 때 `POST /api/notify/suggest {txn_ids}` → 추천 배지·미리 체크(본인이 바꾼 사람은 그대로), 돈을 받은 조력자는 체크를 풀고 `이 거래에서 돈을 받은 사람이에요. 다른 사람에게 알리는 게 좋아요.`, 그래도 체크하면 보내기 전에 확인 시트. 추천을 못 받으면 추천 없이
+- notify.js 거래 고르기 시트(2026-10-03 2차): 고르기 버튼 하나(`N건 고르기`·`고르지 않기`)만 든 낮은 띠(`.np-pick-bar`, position sticky, 버튼 48px 이상 + 위아래 .5rem)가 시트 아래에 늘 붙어 있다. 글자 2배에서도 시트의 20%쯤이라 첫 줄을 고른 뒤 바로 누른다(1차의 붙박이 풀기 `fitActions`는 없앰). 닫기는 제목 줄 오른쪽(`.np-pick-close`, 제목 칸이 9글자보다 좁으면 다음 줄 오른쪽). 고른 거래·거래 고르기 줄은 날짜·시각·방법을 따로 조각으로(`subParts`)
+- notify.js 앱 열기 버튼: 받는 사람 줄(`.np-send-who`)은 굵기 700·흐림 없음, 파란 버튼 바탕은 `--primary-strong`(흰 글 5.4:1, 밝게·어둡게 같음). 그림은 첫 줄(받는 사람) 가운데
 - CSS(money.css): `.send-tabs` `.send-panel` `.mn-must` `.mn-form` `.mn-more` `.amount-easy`(`.bad`) `.pause` `.pause-head` `.pictos` `.pause-title` `.pause-question` `.helper-note` `.choice-btn` `.sheet.split`(`.sheet-body` `.sheet-foot`) `.result-hero`(`.stop` `.ask`) `.result-lines` `.result-notes` `.mn-summary` `.mn-must-line` `.ba-*`
 
 ## 15. 2026-10-03 화면 공용 계약 요약(수정 계획 2절)
@@ -588,14 +604,16 @@ h("p", { text: keepUnits(line) });
 |---|---|
 | 같은 내용 2~3문장 | p 하나에 `text`로(문장마다 한 줄은 자동). 줄 목록이면 `lines.join(" ")` 또는 `paragraphs(lines)` |
 | 다른 내용 | p를 나눈다(`p + p` .6rem). 목록처럼 촘촘해야 하면 `ul` 또는 `--gap-list` |
-| 숫자·시각·금액·전화번호 | p의 `text`로 넣으면 묶음이 자동(`keepNodes`). span에 넣는 이름은 `keepNodes(name)` |
+| 숫자·시각·금액·전화번호 | `text`로 넣으면(p·dd·li·span·버튼 모두) 묶음이 자동(`setText` → `keepNodes`). 노드로 넣는 이름은 `keepNodes(name)` |
+| 버튼 이름 | `h("button", {class: "btn …"}, icon(…), h("span", {text}))`면 자동으로 `span.btn-label`(그림이 첫 줄 글 앞). 따로 클래스를 단 글 span은 묶지 않는다 |
+| 같은 문장이 카드마다 | 목록 위에 한 번만(알림 카드 질문 줄은 모든 카드가 같으면 `alertCard(item, {question: false})` + 목록 요약 문장) |
 | 카드 | 제목(h2·h3) 아래 .35rem, 버튼(`.card > .btn`·`.btn-row`·`.card-actions`) 위 1rem은 자동. 따로 margin을 주지 않는다 |
 | 안내 상자 | `notice > svg + (p 또는 div)`. 아이콘은 첫 줄 가운데(1lh)로 자동 |
 | 아이콘 + 글 한 줄(`.ba-why` 등) | 아이콘 `margin-top: max(0px, calc((1lh - 아이콘 크기) / 2))`로 첫 줄 가운데에 맞춘다 |
 | 줄 높이 | 숫자를 쓰지 않고 `var(--lh-*)` |
 | 큰 글씨(200%) | 여백·그림은 `min(…, vw)`(필요하면 px 상한도). 좁은 칸은 그림을 빼거나(`@container`) 글을 줄 전체 폭으로 내린다(알림 보내기 받는 사람 줄 참고) |
 
-측정: `scratchpad/w5/typo/measure.js`(webcheck `--eval`)가 ① 1~2글자 마지막 줄·낱말 가운데 끊김 ② 문장 < 문단 < 구역 간격 ③ 가로 넘침·잘린 글을 잰다. `run_matrix.py`가 17개 경로 × 폭 360·412·1280 × 글자 1·1.6·2배 × 밝게·어둡게를 돌린다.
+측정(정본): `scratchpad/w5/rv_typo/measure2.js`·`run_audit.py`(1차의 `w5/typo/measure.js`는 줄 높이 1.3 글의 줄을 합쳐 세는 결함이 있어 쓰지 않는다). 2차는 `scratchpad/w6/fix/audit/`의 `measure3.js`(measure2 계산은 그대로 두고 필드만 덧붙임: 글자-글자 사이 줄바꿈 `wordChop`과 그중 `wbr` 자리가 아닌 `wordChopFree`, 빈칸·`wbr`이 아닌 곳에서 바뀐 줄 `chopFree`, 같은 줄 안 inline-block 나란히(`overlapsInline`)와 그 밖의 겹침, 아이콘·placeholder·숨김 넘침)와 `run_audit.py --out --repo`로 20개 경로 + 시트 21상태 × 폭 320·360·412·768·1280 × 글자 1·1.3·1.6·2배 × 밝게·어둡게(1,640화면)를 잰다. 결과는 `docs/v03_typography.md` 4.4·5절.
 
 ## 17. 성능 확인: 보고서 수치 다시 계산(2026-10-03, `views/eval.js`)
 

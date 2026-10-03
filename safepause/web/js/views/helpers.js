@@ -30,7 +30,7 @@ export default {
       h("p", { class: "page-sub", text: "조력자는 내가 믿는 사람이에요. 누구에게, 언제 알릴지 내가 정해요." }),
       consentNote, listSlot, addBtn, status,
       h("div", { class: "notice helper-rule" }, icon("info"),
-        h("p", { text: "조력자가 돈을 받는 사람이면 그 조력자에게는 알리지 않게 골라 둬요. 그때는 다른 조력자나 상담하는 곳에 알릴 수 있어요." })),
+        h("p", { text: "조력자가 돈을 받는 사람이면 그 사람에게는 알리지 않게 골라 둬요. 그때는 다른 조력자나 상담하는 곳에 알릴 수 있어요." })),
       h("div", { class: "list" },
         menuRow({ icon: "building", tone: "blue", title: "상담하는 곳도 정하기", sub: "센터·기관에도 알릴 수 있어요.", href: "#/more/counselors" })));
 

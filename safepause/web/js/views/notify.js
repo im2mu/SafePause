@@ -9,9 +9,9 @@
  *   helper=<조력자 id>(돈 보내기에서 물어볼 사람으로 고른 사람)는 그 사람만 미리 체크한다.
  *   ask=1(돈 보내기의 물어볼래요)이면 묻는 글로 채우고, channel=sms|email이면 그 방법을 먼저 고른다.
  *   resend=<보낸 알림 id>면 그 알림의 받는 사람·글·거래로 채운다(다시 보내기, AUG-06).
- *   chk_to·chk_amt·chk_ch·chk_conflict: 돈 보내기에서 확인만 하고 저장하지 않은 거래(txn=live-…)의 받는 사람 이름·금액·방법과
- *   돈을 받는 조력자 id. 새로 고치거나 앱이 다시 열려 이 창의 기억(checkedItem)이 사라져도 그 거래와 경고를 다시 그린다.
- *   계좌번호·시각은 넣지 않는다(개인정보 최소).
+ *   돈 보내기에서 확인만 하고 저장하지 않은 거래(txn=live-…)는 주소에 id만 있다. 받는 사람 이름·금액·방법·시각·등급과
+ *   돈을 받는 조력자 id는 money.checkedItem(이 창의 기억 + 이 탭의 sessionStorage)에서 찾는다: 새로 고쳐도 그 거래와 경고,
+ *   같은 시각 기준의 추천이 다시 그려진다(⑯). 받는 사람 칸의 글은 주소에 넣지 않는다(⑰, 옛 chk_* 값은 지운다).
  * - 받는 사람 추천: 거래를 고르거나 바꿀 때 POST /api/notify/suggest로 조력자 설정(알릴 등급·범위·자동으로 알리기)에 맞는
  *   사람을 미리 체크하고 추천 배지를 단다. 저장하지 않은 확인 거래(돈 보내기의 안 보낼래요·물어볼래요)는 pending으로 함께 넘긴다(RF-1).
  *   그 거래에서 돈을 받은 조력자는 체크를 풀고 경고한다. 그래도 체크하면 보내기 전에 한 번 더 묻는다(본인 결정).
@@ -142,13 +142,6 @@ export default {
     const askMode = params.get("ask") === "1";
     const wantChannel = ["sms", "email"].includes(params.get("channel")) ? params.get("channel") : "";
     const resendId = String(params.get("resend") || "").slice(0, 40);
-    // 저장하지 않은 확인 거래(주소에 남긴 최소 정보: 이름·금액·방법 + 돈을 받는 조력자 id)
-    const chkAmount = Math.round(Number(params.get("chk_amt")));
-    const urlChecked = params.get("chk_to") && Number.isFinite(chkAmount) && chkAmount > 0 ? {
-      to: String(params.get("chk_to")).slice(0, 40), amount: Math.min(chkAmount, 10000000000),
-      channel: ["transfer", "card", "micropay"].includes(params.get("chk_ch")) ? params.get("chk_ch") : "transfer",
-      conflicts: listParam("chk_conflict").slice(0, MAX_TO),
-    } : null;
 
     // ---- 상태(그리기 함수보다 먼저 둔다) ----
     let picked = [];            // 고른 거래(_item 형식)
@@ -313,21 +306,12 @@ export default {
       refreshSuggest();
     }
 
-    /** 새로 고친 뒤 주소 값으로 다시 만든 확인 거래(받는 사람 이름·금액·방법만, 등급·시각은 모름). 저장된 거래가 아니라 추천에 pending으로 넘긴다. */
-    function checkedFromUrl(id) {
-      if (!urlChecked || !isLive(id)) return null;
-      return {
-        txn: { id, counterparty: urlChecked.to, amount: urlChecked.amount, channel: urlChecked.channel, direction: "out" },
-        level: "none", signals: [], reasons: [], practice: true, flagged: false, unsaved: true, conflict_ids: urlChecked.conflicts,
-      };
-    }
-
-    /** 거래 id로 항목 찾기: 이 창에서 확인한 거래(또는 주소에 남긴 확인 거래) → 걱정되는 거래 → 최근 거래부터 500건씩. */
+    /** 거래 id로 항목 찾기: 돈 보내기에서 확인한 거래(이 창 기억·이 탭 sessionStorage) → 걱정되는 거래 → 최근 거래부터 500건씩. */
     async function findTxns(ids) {
       const found = new Map();
       // 돈 보내기에서 방금 확인한 거래(안 보낼래요·물어볼래요는 거래 이력에 적지 않는다)는 이 창이 기억한 항목을 쓴다.
       // 모두 지우기·거래 살펴보기 끄기 뒤(세대가 바뀜)에는 쓰지 않는다(IA-1)
-      for (const id of ids) { const c = checkedItem(id, ctx.session.epoch) || checkedFromUrl(id); if (c) found.set(id, c); }
+      for (const id of ids) { const c = checkedItem(id, ctx.session.epoch); if (c) found.set(id, c); }
       const want = new Set(ids.filter((id) => !found.has(id)));
       if (!want.size) return ids.map((id) => found.get(id)).filter(Boolean);
       const take = (items) => { for (const it of items || []) if (want.has(it.txn.id) && !found.has(it.txn.id)) found.set(it.txn.id, it); };
@@ -467,18 +451,14 @@ export default {
 
     /** 고른 거래·들어온 길을 주소에 남긴다(새로 고치거나 탭을 오가도 고른 거래가 남게, RF-8). */
     function syncUrl() {
-      const un = picked.find((it) => it.unsaved);
       ctx.replaceParams({
         txn: picked.length ? picked.map((it) => it.txn.id).join(",") : null,
         to: toCounselors ? "counselors" : null,
         helper: wantHelpers.size ? [...wantHelpers].join(",") : null,
         ask: askMode ? "1" : null,
         channel: wantChannel || null,
-        // 저장하지 않은 확인 거래는 새로 고쳐도 다시 그릴 수 있게 최소 정보만 남긴다(계좌번호·시각은 넣지 않음)
-        chk_to: un ? String(un.txn.counterparty || "").slice(0, 40) : null,
-        chk_amt: un ? String(Math.round(Number(un.txn.amount) || 0)) : null,
-        chk_ch: un ? un.txn.channel || "transfer" : null,
-        chk_conflict: un && (un.conflict_ids || []).length ? un.conflict_ids.join(",") : null,
+        // 저장하지 않은 확인 거래의 정보는 주소에 두지 않는다(sessionStorage, ⑰). 옛 주소에 남은 chk_* 값은 지운다
+        chk_to: null, chk_amt: null, chk_ch: null, chk_conflict: null,
       });
     }
 
@@ -883,14 +863,15 @@ export default {
     }
 
     // ================= 거래 고르기 시트: 꼭 확인할 거래 · 걱정되는 거래 · 담은 거래 =================
-    // 확인 버튼은 시트 아래에 붙어 있다(목록이 길어도 늘 보임, L2). 목록은 50건씩 더 불러온다(FN-05)
+    // 고르기 버튼(고른 건수 + 고르기 한 줄)은 시트 아래 낮은 띠에 늘 붙어 있다(목록이 길어도, 글자가 커도 바로 누름, L2·⑮).
+    // 닫기는 제목 줄 오른쪽에 둔다(띠를 버튼 하나 높이로 낮게). 목록은 50건씩 더 불러온다(FN-05)
     function openPicker() {
       let draft = picked.slice();
       const data = {};
       let view = "high";
       const panel = h("div", { class: "np-pick-panel" }, skeleton(2));
       const doneText = h("span");
-      const doneBtn = h("button", { type: "button", class: "btn primary big block" }, doneText);
+      const doneBtn = h("button", { type: "button", class: "btn primary block np-pick-done" }, doneText);
       const chipBtns = PICK_TABS.map((t) => h("button", {
         type: "button", class: "chip", "data-v": t.value, "aria-pressed": "false",
         onclick: () => { view = t.value; paintChips(); show(); const line = panel.querySelector(".np-pick-total"); if (line) announce(line.textContent); },
@@ -971,14 +952,7 @@ export default {
         if (sheet.el.isConnected && view === v) { show(from); announce(`거래를 더 불러왔어요. 모두 ${nf.format(data[v].items.length)}건이에요.`); }
       }
 
-      // 아래에 붙은 고르기·닫기가 시트의 30%보다 크면(큰 글씨·짧은 화면) 붙박이를 풀어 목록을 가리지 않게 한다(L2)
-      const actions = h("div", { class: "sheet-actions np-pick-actions" }, doneBtn,
-        h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => sheet.close() }));
-      function fitActions() {
-        if (!actions.isConnected) return;
-        actions.classList.remove("flow");
-        actions.classList.toggle("flow", actions.offsetHeight > sheet.el.clientHeight * 0.3);
-      }
+      const bar = h("div", { class: "np-pick-bar" }, doneBtn);
       const sheet = openSheet((close) => {
         doneBtn.addEventListener("click", () => {
           picked = draft.slice(0, MAX_PICK);
@@ -991,13 +965,13 @@ export default {
           announce(picked.length ? `거래 ${picked.length}건을 골랐어요.` : "거래를 고르지 않았어요.");
         });
         return [
-          h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: "어떤 거래를 알릴까요?" }),
+          h("div", { class: "np-pick-head" },
+            h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: "어떤 거래를 알릴까요?" }),
+            h("button", { type: "button", class: "btn sm ghost np-pick-close", text: "닫기", onclick: () => close() })),
           h("p", { class: "sheet-sub", text: `한 번에 ${MAX_PICK}건까지 고를 수 있어요.` }),
-          chips, panel, actions,
+          chips, panel, bar,
         ];
-      }, { label: "거래 고르기", className: "np-pick-sheet", onClose: () => window.removeEventListener("resize", fitActions) });
-      window.addEventListener("resize", fitActions);
-      window.requestAnimationFrame(fitActions);
+      }, { label: "거래 고르기", className: "np-pick-sheet" });
       paintChips();
       paintDone();
 
@@ -1034,8 +1008,15 @@ function pickRow(item) {
       h("span", { class: "np-txn-top" },
         h("span", { class: "row-title", text: t.counterparty || "(이름 없음)" }),
         h("span", { class: `row-amount${out ? "" : " in"}`, text: txnAmount(t) })),
-      subParts([whenText(t.ts), CHANNEL_KO[t.channel] || t.channel]),
+      // 날짜 · 시각 · 방법을 조각으로(조각 사이에서만 줄을 바꾼다: 날짜와 시각이 한 조각이면 그 사이가 칸 안에서 갈렸다)
+      subParts([...whenPieces(t.ts), CHANNEL_KO[t.channel] || t.channel]),
       tags.length ? h("span", { class: "row-tags" }, tags) : null));
+}
+
+/** ["6월 27일", "새벽 4시 41분"] */
+function whenPieces(ts) {
+  const d = parseTs(ts);
+  return d ? [`${d.getMonth() + 1}월 ${d.getDate()}일`, formatTime(d)] : [];
 }
 
 /** 번호 단계 카드. h3에 id를 붙여 묶음 이름으로 쓴다. */

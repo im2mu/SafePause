@@ -26,7 +26,7 @@
 /* ---- 카드 공통: 작은 회색 이름(h4) → 굵은 결론 한 줄(.home-insight) → 설명·차트(D6, 요약 카드의 kpi-label·큰 숫자와 같은 위계) ---- */
 .home-card h4 { font-size: 1rem; font-weight: 600; line-height: var(--lh-sub); color: var(--text-3); margin: 0 0 .15rem; }
 .home-insight { font-size: 1.2rem; font-weight: 800; line-height: var(--lh-title); letter-spacing: -0.01em; color: var(--text); margin: 0 0 var(--gap-list); }
-.home-insight + p { margin-top: 0; }
+.home-insight + p { margin-top: 0; }   /* 결론 줄은 카드 제목처럼(div) 아래 설명과 .35rem(⑧: 문단이 아니라 제목 줄) */
 .home-ok { display: flex; align-items: center; gap: .6rem; margin-top: var(--space-2); padding: .8rem .9rem; border-radius: var(--r-m); background: var(--ok-weak); color: var(--ok-text); font-weight: 600; }
 .home-ok svg { width: 1.3rem; height: 1.3rem; flex: none; }
 
@@ -49,7 +49,7 @@ a.home-fact { margin: 0 calc(-1 * min(.5rem, 3vw)); padding-left: min(.5rem, 3vw
 a.home-fact:active { background: var(--bg-sub); }
 .home-fact-icon { width: min(2rem, 9vw, 44px); height: min(2rem, 9vw, 44px); border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--bg-sub); color: var(--text-3); }
 .home-fact-icon svg { width: min(1.1rem, 5vw); height: min(1.1rem, 5vw); }
-.home-fact-label { flex: 1 1 4rem; min-width: 0; color: var(--text-2); font-weight: 600; text-wrap: balance; }
+.home-fact-label { flex: 1 1 4rem; min-width: auto; color: var(--text-2); font-weight: 600; text-wrap: balance; }
 .home-fact-value { margin-left: auto; font-variant-numeric: tabular-nums; }
 .home-fact.concern .home-fact-icon { background: var(--danger-weak); color: var(--danger); }
 .home-fact.concern .home-fact-value { color: var(--danger-text); }
@@ -78,7 +78,7 @@ a.home-fact:active { background: var(--bg-sub); }
 .chart .track { fill: var(--chart-track); }
 
 .chart-key { display: flex; align-items: center; gap: .5rem; color: var(--text-3); margin-top: var(--space-1); line-height: var(--lh-sub); }
-.chart-key + .chart-key { margin-top: var(--gap-list); }   /* 차트 아래 설명 줄끼리는 목록 간격 */
+.chart-key + .chart-key { margin-top: var(--gap-para); }   /* 차트 아래 설명은 뜻이 다른 두 문단(⑧) */
 .chart-key-dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--chart-flag); flex: none; }
 .chart-readout { margin-top: var(--space-3); padding: .75rem min(.9rem, 3vw); border-radius: var(--r-m); background: var(--surface-2); color: var(--text-2); font-weight: 600; }
 .chart-readout:empty { display: none; }   /* 막대를 누르기 전에는 비어 있어 숨긴다 */
@@ -109,7 +109,7 @@ a.home-top-link:active { background: var(--bg-sub); }
 }
 .home-top-main { flex: 1; min-width: 0; display: grid; gap: var(--gap-list); }
 .home-top-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 .75rem; }
-.home-top-name { min-width: 0; overflow-wrap: anywhere; }
+.home-top-name { min-width: 0; overflow-wrap: break-word; }
 .home-top-money { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .home-top .hbar-track { height: .6rem; }
 .home-top .hbar-track > i { min-width: 4px; }

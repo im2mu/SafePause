@@ -908,8 +908,9 @@ def test_non_csv_files_get_matching_guidance(data: bytes, fragment: str) -> None
     with pytest.raises(LoaderError) as e:
         load_csv(data)
     # v0.3 수정 AUG-02: 엑셀(.xlsx)은 바로 읽으므로 PDF·사진은 엑셀이나 CSV로 내려받으라고 안내한다
+    # (2026-10-03: 옛 엑셀(.xls)도 읽으므로 안내에 .xls를 넣었다. 손상된 .xls는 CSV로 저장하라고 안내)
     message = str(e.value)
-    assert fragment in message and ("CSV UTF-8" in message or "엑셀(.xlsx)이나 CSV" in message or ".csv나 .xlsx" in message)
+    assert fragment in message and ("CSV UTF-8" in message or "엑셀이나 CSV" in message or ".csv, .xls, .xlsx" in message)
     assert "인코딩" not in message
 
 

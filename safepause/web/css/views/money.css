@@ -19,6 +19,8 @@
 .amount-easy { font-size: 1rem; font-weight: 700; color: var(--primary); min-height: 1.5rem; margin-top: .35rem; font-variant-numeric: tabular-nums; }
 .amount-easy.bad { color: var(--danger-text); }
 .mn-add { padding-top: .5rem; }
+/* 어떻게 보내요?(셋): 가장 긴 이름(가게에서 결제 + 그림)이 한 줄에 드는 칸 폭. 셋이 다 들어가지 않으면 한 칸씩 세로로(④) */
+.seg-pay-channel { --seg-min: 9rem; }
 
 /* 자세히(보낼 시각·계좌번호): 접어 둔 칸 */
 .mn-more { margin: 0 0 1rem; border-radius: var(--r-m); background: var(--surface-2); }
@@ -106,7 +108,15 @@
 .result-main { margin-top: .25rem; }
 .result-notes { display: grid; gap: .6rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .result-notes > .btn { justify-self: stretch; }
-.mn-notes p { color: var(--text-3); }
+/* 내 거래에 적는 날짜 안내(접어 둠, ⑥) */
+.mn-ts > summary {
+  list-style: none; display: flex; align-items: center; gap: var(--space-2); min-height: 2.4rem; cursor: pointer;
+  color: var(--text-3); font-weight: 600; border-radius: var(--r-s);
+}
+.mn-ts > summary::-webkit-details-marker { display: none; }
+.mn-ts-chev { width: 1.1rem; height: 1.1rem; flex: none; color: var(--text-3); transition: transform .2s ease; }
+.mn-ts[open] .mn-ts-chev { transform: rotate(180deg); }
+.mn-ts > p { margin-top: var(--space-1); }
 .result-notes .notice { margin-bottom: 0; }
 /* 결과의 필수 문장(은행 앱 버튼 바로 아래) */
 .mn-must-line { display: flex; gap: .5rem; align-items: flex-start; margin-top: .75rem; color: var(--primary-weak-text); font-weight: 700; }
@@ -117,12 +127,12 @@
 .mn-sum-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .1rem 1rem; padding: .65rem 0; }
 .mn-sum-row + .mn-sum-row { border-top: 1px solid var(--line); }
 .mn-summary dt { color: var(--text-3); font-weight: 600; }
-.mn-summary dd { margin: 0 0 0 auto; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
+.mn-summary dd { margin: 0 0 0 auto; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: break-word; min-width: 0; }
 
 /* ==== 내 은행 앱 ========================================================== */
 .ba-actions { display: grid; gap: .5rem; margin-top: .25rem; }
 .ba-open-text { display: grid; text-align: left; line-height: var(--lh-ui); min-width: 0; }
-.ba-open-name { font-weight: 600; opacity: .9; overflow-wrap: anywhere; }
+.ba-open-name { font-weight: 600; opacity: .9; overflow-wrap: break-word; }
 .ba-why { display: flex; gap: .45rem; align-items: flex-start; color: var(--text-3); font-weight: 600; }
 .ba-why svg { width: 1.15rem; height: 1.15rem; flex: none; margin-top: max(0px, calc((1lh - 1.15rem) / 2)); }
 .ba-fail:empty { display: none; }
@@ -146,5 +156,5 @@
 .ba-set-head { display: flex; align-items: center; gap: min(.75rem, 3vw); }
 .ba-set-main { flex: 1 1 auto; min-width: 0; }
 .card .ba-set-main h3 { margin: 0; }
-.ba-set-name { font-weight: 700; color: var(--text-2); overflow-wrap: anywhere; }
-.ba-set-btns { margin-top: .15rem; }
+.ba-set-name { font-weight: 700; color: var(--text-2); overflow-wrap: break-word; }
+.ba-settings > .ba-set-btns { margin-top: calc(var(--gap-action) - .6rem); }   /* 본문 → 버튼은 칸 사이(.6rem)와 더해 1rem(⑦) */

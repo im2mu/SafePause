@@ -5,6 +5,7 @@ import { formatWhen, deviceWord, keepUnits } from "../format.js";
 import { errorNotice } from "../components.js";
 import { STALE } from "../api.js";
 import { clearBankApp } from "./bankapp.js";
+import { clearChecked } from "./money.js";
 
 // 설명(lines)은 문단 목록이다: 문단 하나 = 문장 배열(문장마다 한 줄, 같은 문단은 촘촘하게)
 const ITEMS = [
@@ -91,7 +92,7 @@ export default {
       const next = sw.getAttribute("aria-checked") !== "true";
       sw.setAttribute("aria-busy", "true");
       sw.setAttribute("aria-checked", next ? "true" : "false");   // 누르는 즉시 보여 준다(리뷰 L2)
-      if (it.key === "monitoring" && !next) ctx.session.bumpEpoch();   // 끄는 즉시 옛 분석 응답을 버린다(리뷰 H1)
+      if (it.key === "monitoring" && !next) { ctx.session.bumpEpoch(); clearChecked(); }   // 끄는 즉시 옛 분석 응답·확인 거래 기억을 버린다(리뷰 H1·⑰)
       try {
         render(await ctx.req("PUT", "/api/consent", { [it.key]: next }));
         status.replaceChildren();   // 앞서 난 오류 안내를 지운다
@@ -126,6 +127,7 @@ export default {
       });
       if (!ok) return;
       ctx.session.bumpEpoch();   // 지우는 즉시 옛 분석 응답을 버린다(리뷰 H1)
+      clearChecked();            // 돈 보내기에서 확인한 거래 기억(이 탭의 sessionStorage 포함)도 지운다(⑰)
       try {
         const r = await ctx.req("POST", "/api/wipe");
         ctx.session.consent = null;

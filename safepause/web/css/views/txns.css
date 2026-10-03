@@ -41,7 +41,8 @@
 .tx-find-card { padding-top: 1rem; padding-bottom: .6rem; margin-bottom: .75rem; }
 .tx-search { margin-bottom: .75rem; }
 .tx-search-row { position: relative; display: flex; align-items: center; }
-.tx-search-input { flex: 1 1 auto; min-width: 0; padding-right: 3rem; }
+/* 지우기 버튼 자리(56px까지)만 비우고, 큰 글씨에서는 왼쪽 여백도 화면 폭 상한(placeholder가 칸 안에 들게, ⑨) */
+.tx-search-input { flex: 1 1 auto; min-width: 0; padding-left: min(var(--space-4), 4vw); padding-right: calc(min(2.75rem, 56px) + var(--space-1)); }
 .tx-search-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }   /* 지우기 버튼은 하나만 */
 .tx-search-clear { position: absolute; right: .15rem; top: 50%; transform: translateY(-50%); }
 .tx-search-clear svg { width: 1.25rem; height: 1.25rem; }
@@ -59,7 +60,7 @@
 
 /* ---- 걸러 보기 칩·목록 ---- */
 .tx-chips { padding-top: 0; }
-.tx-chips .chip { padding-left: .8rem; padding-right: .8rem; }   /* 360px에서 칩 4개가 두 줄에 들어가게 */
+.tx-chips .chip { padding-left: min(.8rem, 3vw); padding-right: min(.8rem, 3vw); }   /* 360px에서 칩 4개가 두 줄에 들어가게(큰 글씨는 화면 폭 상한) */
 .tx-chips .chip > span:first-child { min-width: 0; overflow-wrap: normal; }   /* 큰 글씨: 낱말 사이에서만 줄바꿈 */
 .chip-count { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-3); font-weight: 700; }
 .chip[aria-pressed="true"] .chip-count { color: inherit; opacity: .8; }
@@ -67,17 +68,7 @@
 .tx-more { margin-bottom: .75rem; }
 .tx-more-status:not(:empty) { margin-top: .75rem; }   /* 더 보기 실패: 목록 아래 오류 + 다시 불러오기(FE-01) */
 
-/* ---- 거래 시트: 이름·배지 한 줄, 큰 금액, 사실 상자, 이유 상자 ---- */
-.tx-head { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; margin-bottom: .25rem; }
-.tx-head .sheet-title { margin-bottom: 0; min-width: 0; }
-.tx-badges { display: inline-flex; flex-wrap: wrap; gap: .3rem; }
-.tx-amount { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: var(--lh-num); margin: 0 0 .85rem; }
-.tx-amount.in { color: var(--primary); }
-.tx-facts { margin: 0; padding: .35rem min(.9rem, 4vw); border-radius: var(--r-m); background: var(--surface-2); }
-.tx-fact { display: flex; flex-wrap: wrap; gap: .1rem .75rem; padding: .5rem 0; }
-.tx-fact + .tx-fact { border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
-.tx-fact dt { color: var(--text-3); font-weight: 600; flex: 0 0 4.2rem; }
-.tx-fact dd { margin: 0; flex: 1 1 9rem; min-width: 0; font-weight: 600; }
+/* ---- 거래 시트: 머리(이름·배지·금액·사실 상자)는 app.css 공용(components.txnDetailHead, 알림 카드 자세히와 같음) ---- */
 .tx-sub-title { font-size: 1.05rem; font-weight: 700; margin: 0 0 .5rem; }
 .tx-reasons { padding: .1rem min(.9rem, 4vw); border-radius: var(--r-m); background: var(--surface-2); }
 .tx-reasons li { display: flex; gap: var(--gap-row); align-items: flex-start; padding: .65rem 0; }
@@ -86,8 +77,6 @@
 .tx-reason-main b { display: block; font-weight: 700; }
 .tx-reason-main .muted { margin-top: .1rem; }
 /* 왜 걱정되나요(components.aiExplain) 안 신호 줄: 이름 아래 쉬운 설명 한 줄 */
-.tx-sheet .ae-list li.tx-ae-li { align-items: flex-start; }
-.tx-sheet .ae-list li.tx-ae-li > svg { margin-top: max(0px, calc((1lh - min(1.2rem, 6vw)) / 2)); }
 .tx-ae-main { display: grid; gap: .1rem; flex: 1 1 auto; min-width: 0; }
 .tx-ae-easy { font-weight: 400; }
 .tx-ae-main > .tx-ae-easy { margin-top: 0; }

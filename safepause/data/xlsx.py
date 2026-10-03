@@ -24,6 +24,7 @@ MAX_UNZIPPED = 30 * 1024 * 1024   # 읽는 부분의 압축 해제 합계 상한
 MAX_ENTRIES = 5000                # zip 안 파일 수 상한
 MAX_ROWS = 100_000                # 줄 수 상한(엑셀 줄 번호 기준)
 MAX_COLS = 256                    # 이보다 오른쪽 칸은 읽지 않는다
+MAX_CELLS = 3_000_000             # 표 전체 칸 수 상한(줄마다 맨 오른쪽 칸까지 센다. 작은 파일이 큰 빈 표로 불어나는 것 방지)
 HEADER_SCAN_ROWS = 30             # 일반 서식 날짜 열을 찾을 때 머리글을 훑어보는 앞쪽 줄 수
 _MAX_SERIAL = 2958466             # 9999-12-31 다음 날(이보다 크면 날짜가 아님)
 
@@ -34,8 +35,9 @@ _SAVE_AS_CSV = ("엑셀에서 [다른 이름으로 저장]을 누르고 파일 �
                 "그 파일을 올려 주세요.")
 TOO_BIG = "엑셀 파일이 너무 커요. 압축을 푼 크기가 30MB를 넘어요. 기간을 나눠 내려받아 올려 주세요."
 TOO_MANY_ROWS = f"엑셀 파일의 줄이 너무 많아요({MAX_ROWS:,}줄까지). 기간을 나눠 내려받아 올려 주세요."
+TOO_MANY_CELLS = f"표의 칸이 너무 많아요({MAX_CELLS:,}칸까지). 기간을 나눠 내려받아 올려 주세요."
 BROKEN = "엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐거나 암호가 걸려 있을 수 있어요. " + _SAVE_AS_CSV
-NOT_EXCEL = "엑셀(.xlsx)이 아닌 압축 파일은 읽지 못해요. 거래내역 파일(.csv나 .xlsx)을 골라 올려 주세요."
+NOT_EXCEL = "엑셀(.xlsx)이 아닌 압축 파일은 읽지 못해요. 거래내역 파일(.csv, .xls, .xlsx)을 골라 올려 주세요."
 
 _DTD_RE = re.compile(rb"<!\s*(DOCTYPE|ENTITY)", re.IGNORECASE)
 _REF_RE = re.compile(r"([A-Za-z]{1,3})(\d+)$")
@@ -118,11 +120,14 @@ def _first_sheet_path(pkg: _Package) -> tuple[str, bool]:
     root = _parse(book)
     date1904 = False
     rid: Optional[str] = None
-    for el in root.iter():
-        name = _local(el.tag)
-        if name == "workbookPr":
+    # 날짜 체계는 통합 문서 바로 아래 workbookPr에서만 읽는다. 엑셀은 extLst 안에도 x14:workbookPr
+    # (chartTrackingRefBase 등, date1904 없음)를 적으므로 그것이 앞의 값을 덮으면 1904 파일 날짜가 1462일 어긋난다.
+    for el in root:
+        if _local(el.tag) == "workbookPr":
             date1904 = str(_attr(el, "date1904") or "").strip().lower() in ("1", "true")
-        elif name == "sheet" and rid is None:
+            break
+    for el in root.iter():
+        if _local(el.tag) == "sheet" and rid is None:
             rid = _attr(el, "id")
     if rid:
         rels = pkg.read("xl/_rels/workbook.xml.rels")
@@ -286,6 +291,7 @@ def _read_rows(data: bytes, shared: list[str], kinds: list[Optional[str]],
     rows: list[list[_Cell]] = []
     sheet_data: Optional[ET.Element] = None
     last_row = 0
+    n_cells = 0
     try:
         for event, el in ET.iterparse(io.BytesIO(data), events=("start", "end")):
             name = _local(el.tag)
@@ -320,6 +326,9 @@ def _read_rows(data: bytes, shared: list[str], kinds: list[Optional[str]],
             number = max(number, last_row + 1)
             rows.extend([] for _ in range(number - last_row - 1))   # 빈 줄(줄 번호를 엑셀과 맞춘다)
             width = max(cells) + 1
+            n_cells += width
+            if n_cells > MAX_CELLS:
+                raise XlsxError(TOO_MANY_CELLS)
             rows.append([cells.get(k, ("", None)) for k in range(width)])
             last_row = number
     except ET.ParseError as exc:
@@ -420,6 +429,11 @@ def xlsx_to_csv_text(data: bytes) -> str:
         if sheet is None:
             raise XlsxError(BROKEN)
         rows = _read_rows(sheet, shared, kinds, date1904)
+    return rows_to_csv_text(rows, date1904)
+
+
+def rows_to_csv_text(rows: list[list[_Cell]], date1904: bool = False) -> str:
+    """칸 목록(글, 숫자 값) → CSV 글. 서식이 일반인 날짜·시각 열은 머리글을 보고 바꾼다(.xls 읽기도 같이 쓴다)."""
     buf = io.StringIO()
     writer = csv.writer(buf, lineterminator="\n")
     for line in _convert_by_header(rows, date1904):
@@ -427,5 +441,5 @@ def xlsx_to_csv_text(data: bytes) -> str:
     return buf.getvalue()
 
 
-__all__ = ["MAX_COLS", "MAX_ENTRIES", "MAX_ROWS", "MAX_UNZIPPED", "XlsxError", "format_kind", "is_zip",
-           "serial_to_text", "xlsx_to_csv_text"]
+__all__ = ["MAX_CELLS", "MAX_COLS", "MAX_ENTRIES", "MAX_ROWS", "MAX_UNZIPPED", "XlsxError", "format_kind", "is_zip",
+           "rows_to_csv_text", "serial_to_text", "xlsx_to_csv_text"]

@@ -45,12 +45,13 @@
 .consent-bullets { margin-top: .3rem; color: var(--text-3); }   /* 점·들여쓰기·항목 간격은 공용 .bullets */
 .consent-link { margin-top: .7rem; }
 .wipe-card p { color: var(--text-2); }
-.wipe-items { display: flex; flex-wrap: wrap; gap: .4rem; margin: .8rem 0 1.1rem; }
+.wipe-items { display: flex; flex-wrap: wrap; gap: .4rem; margin: var(--space-3) 0 0; }   /* 목록 → 버튼은 카드 규칙(1rem) 하나만(⑦) */
 .wipe-items .tag { color: var(--text-2); }
+.wipe-items .tag .bind { white-space: nowrap; }   /* 내가 / 확인한 거래(꼬리 없이). 묶음은 5글자 안이라 320폭 2배에도 든다 */
 
 /* ---- 조력자·상담하는 곳: 목록 ---- */
-.consent-state { display: flex; align-items: center; gap: .4rem; margin: 0 .25rem .75rem; color: var(--ok-text); font-weight: 600; }
-.consent-state svg { width: 1.2rem; height: 1.2rem; flex: none; }
+.consent-state { display: flex; align-items: flex-start; gap: .4rem; margin: 0 .25rem .75rem; color: var(--ok-text); font-weight: 600; }
+.consent-state svg { width: 1.2rem; height: 1.2rem; flex: none; margin-top: max(0px, calc((1lh - 1.2rem) / 2)); }   /* 두 줄이 되어도 첫 줄 가운데(⑪) */
 .helper-rule { margin-top: 1.25rem; }
 .helper-rule + .list { margin-top: .25rem; }
 .page-btn { margin-bottom: .75rem; }
@@ -88,19 +89,26 @@
 .full-title .row-title { white-space: normal; overflow: visible; }
 .preset-list { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); margin-bottom: .75rem; }
 .preset-list .preset-card { margin-bottom: 0; display: flex; flex-direction: column; gap: .6rem; }
-.preset-top { display: flex; align-items: flex-start; gap: .75rem; }
-.preset-main { flex: 1; min-width: 0; display: grid; gap: .15rem; }
+/* 이름 칸이 11글자(지역발달장애인지원센터)보다 좁아지면 그림을 이름 위 줄로(이름이 낱말 가운데에서 꺾이지 않게) */
+.preset-top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .75rem; }
+.preset-main { flex: 1 1 11em; min-width: 0; display: grid; gap: .15rem; }
 .preset-name { font-weight: 700; }
 .preset-phone { display: inline-flex; align-items: center; gap: .3rem; color: var(--text-2); font-weight: 700; }
 .preset-phone svg { width: 1.1rem; height: 1.1rem; flex: none; color: var(--text-3); }
 .preset-card > .btn, .preset-card > .preset-btns { margin-top: auto; }   /* 같은 높이 카드에서 버튼을 아래로 */
+.preset-card > :nth-last-child(2) { margin-bottom: calc(var(--gap-action) - .6rem); }   /* 본문 → 버튼은 칸 사이(.6rem)와 더해 1rem(⑦) */
 
 /* ---- 앱 설정 ---- */
 .pref-head { display: inline-flex; align-items: center; gap: .5rem; }
 .pref-head svg { width: 1.3rem; height: 1.3rem; color: var(--text-3); flex: none; }
 .pref-card { display: grid; gap: .9rem; }
-.pref-seg { grid-template-columns: repeat(auto-fit, minmax(min(3.1rem, 100%), 1fr)); }   /* 보통 글씨는 3칸, 아주 큰 글씨는 2칸 */
+/* 글자 크기·화면 모드(셋): 칸에 이름(아주 크게)이 한 줄로 들면 세 칸, 아니면 한 칸씩 세로로(그때는 견본·그림과 이름을 한 줄에) */
+.pref-card { container-type: inline-size; }
+.pref-seg { --seg-min: 4.45rem; }   /* 아주 크게(3.9글자) + 좌우 여백 */
 .segmented label > .pref-opt { flex-direction: column; gap: .2rem; min-height: 4.2rem; padding: .55rem .25rem; }
+@container (max-width: 14.25rem) {   /* 세 칸이 안 들어가는 폭(3 × 4.45rem + 칸 사이 + 묶음 여백) */
+  .segmented label > .pref-opt { flex-direction: row; gap: var(--space-2); min-height: 2.75rem; padding: var(--space-2) var(--space-3); }
+}
 .pref-opt svg { width: 1.4rem; height: 1.4rem; }
 .pref-sample { font-weight: 800; line-height: 1; color: var(--text-2); }   /* 글자 크기 견본 한 글자 */
 .pref-sample.fs-m { font-size: 1.1rem; }
@@ -148,18 +156,21 @@
 .onboard-terms { margin-top: .6rem; }
 
 /* ---- 사용법 안내(J10) ---- */
-.guide-intro .onboard-title { font-size: 1.35rem; font-weight: 800; margin: 0 0 var(--space-2); letter-spacing: -0.02em; outline: none; }
+.guide-intro .onboard-title { font-size: 1.35rem; font-weight: 800; margin: 0 0 var(--gap-list); letter-spacing: -0.02em; outline: none; }   /* 카드 제목 → 본문 .35rem(⑦) */
 .guide-intro .promise { margin-top: 1rem; }
 .guide-steps { display: grid; gap: .75rem; margin-bottom: .75rem; }
 .guide-steps .guide-step { margin-bottom: 0; }
-.guide-step { display: grid; gap: .6rem; }
+.guide-step { display: grid; gap: .6rem; container-type: inline-size; }
 .guide-head { display: flex; align-items: center; gap: min(.6rem, 2.5vw); }
 .guide-no { width: min(1.75rem, 10vw); height: min(1.75rem, 10vw); border-radius: 50%; display: grid; place-items: center; flex: none;
   background: var(--primary-weak); color: var(--primary-weak-text); font-weight: 800; }
 .guide-title { flex: 1 1 8em; min-width: 0; margin: 0; font-size: 1.05rem; font-weight: 700; }
 .guide-body { color: var(--text-2); }
 .guide-step > .guide-link { justify-self: start; margin-top: .4rem; }   /* 칸 사이(.6rem)와 더해 본문 → 버튼 1rem */
-.guide-link svg { width: 1.1rem; height: 1.1rem; }
+.guide-link svg { width: min(1.1rem, 6vw); height: min(1.1rem, 6vw); }
+/* 가는 곳 버튼: 끝 낱말(가기)이 홀로 다음 줄에 남지 않게 묶음을 지키고(⑬), 아주 큰 글씨(카드가 8글자보다 좁음)는 그림을 빼서 이름 칸을 넓힌다 */
+.guide-link .bind { white-space: nowrap; }
+@container (max-width: 8rem) { .guide-link svg { display: none; } .guide-link .btn-label > svg { display: none; } }
 
 /* ---- AI와 데이터 설명·AI 성능 확인 ---- */
 .about-bullets { margin-top: var(--space-2); color: var(--text-2); }   /* 점·들여쓰기·항목 간격은 공용 .bullets */
@@ -261,5 +272,5 @@
 .ev-more > .table-wrap { margin-bottom: 0; border-top: 1px solid var(--line); border-radius: 0 0 var(--r-m) var(--r-m); }
 
 @media (max-width: 420px) {
-  .pref-seg { gap: .2rem; }
+  .pref-seg { --seg-gap: .2rem; }
 }

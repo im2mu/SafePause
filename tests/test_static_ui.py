@@ -467,15 +467,42 @@ def test_line_height_system_and_measure() -> None:
 
 
 def test_keep_bundles_and_short_text() -> None:
-    # 4: 숫자 + 단위·시각·금액·전화번호는 끊기지 않는 묶음(p의 글은 setText가, 작은 글 조각은 subParts가 keepNodes로)
+    # 4: 숫자 + 단위·시각·금액·전화번호는 끊기지 않는 묶음. p뿐 아니라 dd·li·td·span·버튼 이름 등 모든 요소의 글(setText)과
+    # 작은 글 조각(subParts)이 keepNodes를 쓴다(거래 시트·알림 자세히의 언제 값(dd)이 밤 11시 / 5분으로 갈리던 문제, ①)
     ui = (JS / "ui.js").read_text(encoding="utf-8")
-    assert "export function keepNodes" in ui and "sp.append(...keepNodes(" in ui and "el.replaceChildren(...keepNodes(s))" in ui
+    assert "export function keepNodes" in ui and "sp.append(...keepNodes(" in ui and "el.replaceChildren(...keepNodes(s, { bind: true }))" in ui
+    set_text = ui[ui.index("export function setText"):ui.index("export function append")]
+    assert "const nodes = keepNodes(s, { bind: true });" in set_text and 'el.tagName !== "P"' in set_text
+    assert 'const PLAIN_TAGS = new Set(["OPTION", "TITLE", "TEXTAREA", "SCRIPT", "STYLE"]);' in ui   # 글만 담는 요소는 그대로
     for piece in (r"\d{1,2}분)?", r"월[ \u00a0]\d{1,2}일", r"[ \u00a0]?원", r"-[\d*]{4}"):
         assert piece in ui, piece
     comp = (JS / "components.js").read_text(encoding="utf-8")
     sub = comp[comp.index("export function subParts"):comp.index("export function whenParts")]
-    assert "keepNodes(String(t))" in sub and ".replace(/ /g" not in sub   # 조각 전체를 줄 바꾸지 않는 빈칸으로 만들지 않음
+    assert "keepNodes(String(t), { bind: true })" in sub and ".replace(/ /g" not in sub   # 조각 전체를 줄 바꾸지 않는 빈칸으로 만들지 않음
     assert ".nowrap { white-space: nowrap; }" in CSS and ".tel-text { overflow-wrap: normal; }" in CSS
+    # 낱말 묶기(⑫·⑬): 한 글자 낱말 + 뒤 낱말, 글 끝 한두 글자 꼬리 + 앞 낱말(6글자까지), 금액 + 붙은 말은 한 덩어리(keep-word)
+    assert "const BIND_MAX = 6;" in ui and "function bindGroups" in ui and "function splitUnits" in ui and '"keep-word"' in ui
+    assert ".bind { white-space: nowrap; }" in CSS and ".keep-word { display: inline-block; max-width: 100%; }" in CSS
+    # 앞 낱말에 붙는 한 글자 말(곳·등·달·번…)은 앞 낱말과(처음 가는 곳 / 큰 금액 결제), 6글자까지 낱말 안 문장부호(약속(규칙)으로)는
+    # nowrap, 7~16글자는 keep-word(가운뎃점·물결 뒤·여는 괄호 앞 wbr에서만 줄바꿈)
+    assert "const BACK_WORD = " in ui and "SOFT_MAX" not in ui
+    write_unit = ui[ui.index("const writeUnit"):ui.index("const bindChildren")]
+    assert "letters(ut) <= BIND_MAX" in write_unit and "(?<=·)" in write_unit and "(?=\\()" in write_unit
+    assert 'span("tel-text", p.text.split(/(?<=-)/)' in ui                       # 전화번호는 하이픈 뒤(wbr)에서만 줄바꿈
+    # 이름표 안 덩어리는 줄 위쪽에 맞춘다(두 줄 버튼의 그림이 덩어리 마지막 줄 옆으로 내려가지 않게)
+    assert ":is(.btn, .chip, .badge, .tag, .seg-tab, .soon, .toast) .keep-word { vertical-align: top; }" in CSS
+    assert 'h("span", null, action, h("wbr"), h("span", { class: "nowrap", text: "(준비 중)" }))' in ui   # 준비 중 버튼: 괄호 앞에서 줄바꿈
+    # 아주 큰 글씨의 좁은 넓은 버튼은 덩어리를 풀어 그림이 첫 줄 글 옆에(그림만 홀로 한 줄이 되지 않게)
+    assert ".btn.block { width: 100%; container-type: inline-size; }" in CSS
+    assert "@container (max-width: 8rem) { .btn-label .keep-word { display: inline; } }" in CSS
+    # 큰 글씨 꼬리 막기: 거래 고르기 태그 그림 빼기(휴대폰 / 소액결제 / 급증), 지울 것 태그 묶음 지키기(내가 / 확인한 거래)
+    assert ".np-txn .row-tags .tag > svg { display: none; }" in CSS_FILES["views/notify.css"]
+    assert ".wipe-items .tag .bind { white-space: nowrap; }" in CSS_FILES["views/more.css"]
+    # 줄바꿈은 낱말 사이에서만(②): body는 overflow-wrap: break-word(anywhere는 큰 글씨에서 탭·배지를 낱말 가운데에서 잘랐다)
+    assert "overflow-wrap: break-word" in _rule("body") and "overflow-wrap: anywhere" not in CSS_FILES["app.css"]
+    # 버튼 이름(③): 그림 + 글을 span.btn-label 하나로 묶어 그림을 첫 줄 글 앞에(두 줄이 되어도 그림이 글에서 떨어지지 않게)
+    assert "function wrapButtonLabel" in ui and "wrapButtonLabel(el);" in ui
+    assert ".btn-label { display: block;" in CSS and "text-wrap: balance" in _rule(".btn-label")
     # 2절: 버튼·칩·배지·토스트 안 글은 촘촘하게(한 줄에 들어가면 한 줄)
     assert ":is(.btn, .chip, .badge, .tag, .toast) .sent + .sent" in CSS
 
@@ -503,13 +530,21 @@ def test_reverify_layout_contracts_2026_10_03() -> None:
     assert 'fact("calendar"' not in home and "home-base" in home
     money, notify = _read_view("money.js"), _read_view("notify.js")
     route = money[money.index("function notifyRoute"):money.index("function showResult")]
-    for key in ("chk_to", "chk_amt", "chk_ch", "chk_conflict"):
-        assert f'"{key}"' in route and key in notify, key
-    assert "to_id" not in route                                                    # 계좌번호는 주소에 넣지 않는다
-    assert "function checkedFromUrl" in notify and "fitActions" in notify
+    # 저장하지 않은 확인 거래(⑯·⑰): 주소에는 거래 id만. 받는 사람 이름(칸에 적은 번호일 수 있음)·금액·시각·등급은 이 탭의
+    # sessionStorage(try/catch, 모두 지우기·거래 살펴보기 끄기 때 clearChecked로 지움)에서 되살린다. 시각(ts)도 되살려 추천이 같다
+    assert "chk_" not in route and "to_id" not in route
+    assert 'const CHECKED_KEY = "safepause.checked";' in money and money.count("try {") >= 2 and "sessionStorage" in money
+    remember = money[money.index("function remember"):money.index("export default")]
+    assert "ts: String(p.ts" in remember and "to_id" not in remember and "counterparty_id" not in remember
+    assert "chk_to: null" in notify and "checkedFromUrl" not in notify and 'params.get("chk_' not in notify
+    consent = _read_view("consent.js")
+    assert consent.count("clearChecked()") >= 2                                    # 모두 지우기·거래 살펴보기 끄기
     notify_css = CSS_FILES["views/notify.css"]
     assert ".np-person > .row-main { display: contents; }" in notify_css           # 큰 글씨 받는 사람 줄
-    assert ".np-pick-sheet .np-pick-actions.flow" in notify_css                     # 거래 고르기 고정 버튼 풀기
+    # 거래 고르기(⑮): 고르기 버튼 하나(건수 + 고르기)만 든 낮은 띠가 시트 아래에 늘 붙어 있다(큰 글씨에서 목록 끝까지 내려가지 않게)
+    assert "fitActions" not in notify and 'class: "np-pick-bar"' in notify and "np-pick-done" in notify
+    bar = _rule(".np-pick-bar", notify_css)
+    assert "position: sticky" in bar and "bottom: 0" in bar
     assert "overflow: hidden" not in _rule(".row-title")                           # 추천 배지·이름이 잘리지 않게
 
 
@@ -706,7 +741,7 @@ def test_common_layout_rules_for_large_text() -> None:
     # L3·L4·L9·L10·L11·L14·L8: 큰 글씨·좁은 화면·가로 화면 공용 규칙
     assert ".bottom-nav .nav-item { min-height: 0;" in CSS                       # L3 아래 탭 이름이 잘리지 않게
     assert ".notice > svg { width: min(1.375rem, 6vw)" in CSS                     # L4 안내 상자 아이콘 상한(첫 줄 가운데)
-    assert ".notice > svg + * { flex: 1 1 9em;" in CSS                           # L4 아주 큰 글씨: 아이콘을 글 위 줄로
+    assert ".notice > svg + * { flex: 1 1 6em;" in CSS                           # L4·⑩ 글 칸이 6글자보다 좁을 때만 아이콘을 글 위 줄로
     assert ".table-wrap td.num::before { white-space: normal;" in CSS            # L9 숫자는 끊지 않고 칸 이름만 줄바꿈
     assert ".switch::before {" in CSS and "max(100%, 48px)" in CSS               # L11 스위치 누르는 자리 48px
     assert "@media (max-height: 480px) and (max-width: 899px)" in CSS            # L14 가로 화면

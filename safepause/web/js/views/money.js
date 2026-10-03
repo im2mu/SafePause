@@ -64,30 +64,77 @@ const SOON_STEPS = [
   { title: "보내기 완료" },
 ];
 
-// 확인한 거래(이 창에서만 기억, 저장소에 쓰지 않음): 알림 보내기가 저장된 거래에서 그 거래를 못 찾을 때
-// (안 보낼래요·물어볼래요는 거래 이력에 적지 않음) 쓴다. 모두 지우기·거래 살펴보기 끄기로 세대(epoch)가 바뀌면 버린다(IA-1)
+// 확인한 거래: 알림 보내기가 저장된 거래에서 그 거래를 못 찾을 때(안 보낼래요·물어볼래요는 거래 이력에 적지 않음) 쓴다.
+// 이 창의 기억(메모리) + 이 탭의 sessionStorage(새로 고쳐도 남고, 탭을 닫으면 사라짐). 모두 지우기·거래 살펴보기 끄기 때는
+// clearChecked로 둘 다 지운다(consent.js). 메모리 항목은 세대(epoch)가 바뀌면 버린다(IA-1).
+// 주소에는 거래 id(live-…)만 남긴다: 받는 사람 칸에 적은 계좌번호 같은 글이 주소·방문 기록에 남지 않게(⑰).
+// sessionStorage에는 받는 사람 이름·금액·방법·시각·등급·신호·돈 받는 조력자 id만 둔다(계좌번호 칸 값은 넣지 않음).
+// 시각(ts)을 함께 되살려 새로 고친 뒤에도 받는 사람 추천·미리 체크가 처음과 같다(⑯: 시각이 없으면 서버가 지금 시각으로 다시 판단했다)
 const checked = new Map();
+const CHECKED_KEY = "safepause.checked";
+const CHECKED_MAX = 5;
+function readChecked() {
+  try {
+    const v = JSON.parse(window.sessionStorage.getItem(CHECKED_KEY) || "[]");
+    return Array.isArray(v) ? v.filter((x) => x && typeof x === "object" && typeof x.id === "string") : [];
+  } catch (e) { return []; }
+}
+function writeChecked(list) {
+  try {
+    if (list.length) window.sessionStorage.setItem(CHECKED_KEY, JSON.stringify(list));
+    else window.sessionStorage.removeItem(CHECKED_KEY);
+  } catch (e) { /* 저장 못 하면(사생활 보호 창 등) 이 창의 기억만 쓴다 */ }
+}
+/** sessionStorage에 적어 둔 확인 거래를 항목(_item 모양)으로. */
+function fromStored(s, epoch) {
+  const channel = ["transfer", "card", "micropay"].includes(s.channel) ? s.channel : "transfer";
+  return {
+    txn: { id: s.id, counterparty: String(s.to || "").slice(0, 40), amount: Math.min(10000000000, Math.max(0, Math.round(Number(s.amount) || 0))),
+      channel, ts: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(s.ts || "")) ? String(s.ts) : "", direction: "out" },
+    level: ["none", "caution", "high"].includes(s.level) ? s.level : "none",
+    signals: Array.isArray(s.signals) ? s.signals.map(String).slice(0, 10) : [],
+    reasons: Array.isArray(s.reasons) ? s.reasons.filter((x) => x && typeof x.code === "string").slice(0, 10) : [],
+    practice: true, flagged: false, unsaved: s.unsaved !== false,
+    conflict_ids: Array.isArray(s.conflicts) ? s.conflicts.map(String).slice(0, 10) : [],
+    epoch,
+  };
+}
 /** 돈 보내기에서 확인한 거래의 항목(_item 모양) 또는 null. epoch를 주면 그 세대에 기억한 것만 돌려준다. notify.js가 쓴다. */
 export function checkedItem(id, epoch) {
-  const it = checked.get(String(id || ""));
-  if (!it) return null;
-  if (epoch !== undefined && it.epoch !== epoch) { checked.delete(String(id)); return null; }
-  return it;
+  const key = String(id || "");
+  const it = checked.get(key);
+  if (it) {
+    if (epoch !== undefined && it.epoch !== epoch) { checked.delete(key); return null; }
+    return it;
+  }
+  const s = readChecked().find((x) => x.id === key);   // 새로 고친 뒤: 이 탭에 적어 둔 것
+  if (!s) return null;
+  const item = fromStored(s, epoch);
+  checked.set(key, item);
+  return item;
 }
-/** 기억한 확인 거래를 모두 잊는다(모두 지우기 때 부를 수 있음). */
-export function clearChecked() { checked.clear(); }
+/** 확인 거래 기억을 모두 지운다(이 창 + 이 탭의 sessionStorage). 모두 지우기·거래 살펴보기 끄기 때 부른다. */
+export function clearChecked() { checked.clear(); writeChecked([]); }
 function remember(r, epoch, cands) {
   const p = r && r.pending;
   if (!p || !p.id) return;
   const a = r.assessment || {};
-  checked.set(String(p.id), {
+  const item = {
     txn: { ...p, direction: "out" }, level: a.level || "none",
     signals: (a.rule_hits || []).map((x) => x.code), reasons: a.reasons || [], practice: true, flagged: false,
     unsaved: !r.added_to_history,   // 거래 이력에 적지 않은 거래(알림 보내기는 이것을 pending으로 추천에 넘긴다, RF-1)
     // 이 거래에서 돈을 받는 조력자(추천을 못 받을 때도 체크를 풀고 경고하게)
     conflict_ids: (cands || []).filter((c) => c.conflict).map((c) => String(c.id)),
     epoch,
-  });
+  };
+  checked.set(String(p.id), item);
+  const keep = {
+    id: String(p.id), to: String(p.counterparty || "").slice(0, 40), amount: Number(p.amount) || 0, channel: p.channel || "transfer",
+    ts: String(p.ts || ""), level: item.level, signals: item.signals,
+    reasons: item.reasons.map((x) => ({ code: String(x.code), detail: x.detail && x.detail.newness_unknown ? { newness_unknown: true } : {} })),
+    conflicts: item.conflict_ids, unsaved: item.unsaved,
+  };
+  writeChecked([...readChecked().filter((x) => x.id !== keep.id), keep].slice(-CHECKED_MAX));
 }
 // 서버 글 목록에서 빈 줄을 뺀다(서버 check·decide 글에는 연습이라는 말이 없다: tests/test_api_v03.py가 확인)
 const clean = (lines) => (lines || []).map(String).filter(Boolean);
@@ -343,7 +390,7 @@ export default {
             h("h2", { class: "pause-title focus-target", id: "card-title", tabindex: "-1", text: card.title })),
           h("ul", { class: "pause-lines", id: "card-lines" }, card.lines.map((line) => h("li", null, h("p", { text: line })))),
           h("p", { class: "pause-question", text: card.question }),
-          notes.length ? h("div", { class: "helper-note" }, icon("users"), h("div", null, notes.map((t) => h("p", { text: t })))) : null,
+          notes.length ? h("div", { class: "helper-note" }, icon("users"), h("p", { text: notes.join(" ") })) : null,   // 같은 사람 이야기는 한 문단(⑥)
           errorSlot,
           speakButton(speakText, { cls: "btn block pause-speak", label: "소리로 듣기" }));
         // 선택지는 서버가 준 순서·문구 그대로. 세 선택지를 같은 모양으로 둔다(한쪽으로 이끌지 않음)
@@ -431,23 +478,20 @@ export default {
           body.querySelector("#card-ask-title").focus();
           return;
         }
-        const auto = cands.filter((c) => c.auto && !c.conflict);
-        const why = card.level === "high" ? "꼭 확인할 일이라" : "확인할 일이라";
-        const label = (c) => {
-          if (c.conflict) return `${c.name} (돈을 받는 사람이라 이번에는 물어볼 수 없어요)`;
-          const who = c.relation ? `${c.name} (${c.relation})` : c.name;
-          if (c.auto) return `${who} · ${why} 조력자 설정대로 함께 물어봐요`;
-          return c.active === false ? `${who} · 자동으로 알리기는 꺼 두었어요` : who;
-        };
+        // 이름 줄 + (있으면) 아래 작은 줄 하나: 자동으로 함께 묻는 사람은 체크를 풀 수 없다는 것을 그 줄에서 한 번만 말한다(⑥)
+        const who = (c) => (c.relation ? `${c.name} (${c.relation})` : c.name);
+        const note = (c) => (c.conflict ? "돈을 받는 사람이라 이번에는 물어볼 수 없어요."
+          : c.auto ? "조력자 설정대로 늘 함께 물어봐요." : c.active === false ? "자동으로 알리기는 꺼 두었어요." : "");
+        const label = (c) => [who(c), note(c)].filter(Boolean).join(" · ");
         const boxes = cands.map((c) => h("input", { type: "checkbox", value: c.id, checked: !c.conflict && (c.default || c.auto), disabled: c.conflict || c.auto }));
         const err = h("p", { class: "error-text", role: "alert", hidden: true });
-        const hints = ["체크한 사람에게 물어볼게요.", "다음 화면에서 문자나 메일을 직접 보내요."];
-        if (auto.length) hints.push(`${namesText(auto.map((c) => c.name))}에게는 조력자 설정대로 늘 함께 물어봐요. 그래서 체크를 풀 수 없어요.`);
+        const hints = ["체크한 사람에게 물어봐요.", "다음 화면에서 문자나 메일을 직접 보내요."];
         fill(body,
           h("h2", { class: "sheet-title focus-target", id: "card-ask-title", tabindex: "-1", text: "누구에게 물어볼까요?" }),
           h("p", { class: "sheet-sub", text: hints.join(" ") }),
           h("div", { class: "list mn-ask-list" }, cands.map((c, i) => h("label", { class: `check-row row${c.conflict ? " off" : ""}` }, boxes[i],
-            h("span", { class: "row-icon" }, icon("users")), h("span", { class: "grow", text: label(c) })))),
+            h("span", { class: "row-icon" }, icon("users")),
+            h("span", { class: "grow row-main" }, h("span", { class: "row-title", text: who(c) }), note(c) ? h("span", { class: "row-sub", text: note(c) }) : null)))),
           err,
           errorSlot,
           speakButton(() => ["누구에게 물어볼까요?", ...hints, ...cands.map((c) => label(c))].map(sentence).join(" ")));
@@ -511,23 +555,17 @@ export default {
     }
 
     /**
-     * 알림 보내기 주소(확인한 거래를 미리 고름). opts: {helpers, ask, channel, counselors, check}
-     * check(저장하지 않은 확인 거래)가 있으면 받는 사람 이름·금액·방법과 돈을 받는 조력자 id를 주소에 남긴다
-     * (새로 고치거나 앱이 다시 열려도 알림 보내기가 그 거래와 돈 받은 조력자 경고를 다시 그리게). 계좌번호·시각은 넣지 않는다.
+     * 알림 보내기 주소(확인한 거래를 미리 고름). opts: {helpers, ask, channel, counselors}
+     * 저장하지 않은 확인 거래도 주소에는 거래 id만 넣는다. 받는 사람 이름·금액·시각 등은 이 탭의 sessionStorage(remember)에
+     * 있어 새로 고쳐도 알림 보내기가 그 거래와 돈 받은 조력자 경고를 다시 그린다(받는 사람 칸의 글이 주소에 남지 않게, ⑰).
      */
-    function notifyRoute(txnId, { helpers = [], ask = false, channel = "", counselors = false, check = null } = {}) {
+    function notifyRoute(txnId, { helpers = [], ask = false, channel = "", counselors = false } = {}) {
       const q = new URLSearchParams({ mode: "notify" });
       if (txnId) q.set("txn", txnId);
       if (helpers.length) q.set("helper", helpers.join(","));
       if (counselors) q.set("to", "counselors");
       if (ask) q.set("ask", "1");
       if (channel) q.set("channel", channel);
-      if (txnId && check && check.to && check.amount > 0) {
-        q.set("chk_to", String(check.to).slice(0, 40));
-        q.set("chk_amt", String(Math.round(check.amount)));
-        q.set("chk_ch", check.channel || "transfer");
-        if (check.conflicts.length) q.set("chk_conflict", check.conflicts.join(","));
-      }
       return `send?${q.toString()}`;
     }
 
@@ -543,9 +581,6 @@ export default {
       const txnId = r.pending && r.pending.id;
       const added = Boolean(r.added_to_history);
       const cands = candidatesOf(lastCheck);
-      // 거래 이력에 적지 않은 확인 거래: 알림 보내기 주소에 최소 정보를 남긴다(새로 고침 대비)
-      const chk = added ? null : { to: p.to, amount: Number(p.amount) || 0, channel,
-        conflicts: cands.filter((c) => c.conflict).map((c) => String(c.id)) };
       const askedIds = (helperIds || []).map(String);
       const asked = decision === "ask_helper" ? cands.filter((c) => askedIds.includes(String(c.id)) && !c.conflict) : [];
       const caps = capabilities();
@@ -553,18 +588,19 @@ export default {
         caps.email ? { value: "email", label: "메일로 물어보기", icon: "mail" } : null].filter(Boolean);
       const wayWord = caps.sms && caps.email ? "문자나 메일을" : caps.sms ? "문자를" : "메일을";
 
-      // 결과 글: 물어볼래요는 서버 글 + 아래 버튼으로 직접 묻는다는 안내. 보냈다고 약속하지 않는다(C1·J4)
+      // 결과 글: 물어볼래요는 서버 글 + 아래 버튼으로 직접 묻는다는 안내. 보냈다고 약속하지 않는다(C1·J4).
+      // 제목(조력자에게 물어봐요)을 되풀이하는 첫 줄은 받는 사람·금액만 남겨 다음 줄과 합친다(⑥)
       const lines = [];
       if (decision === "ask_helper") {
-        lines.push(...clean(r.result_lines));
+        lines.push(...askLines(clean(r.result_lines), title));
         if (asked.length && askWays.length) lines.push(`아래 버튼으로 ${namesText(asked.map((c) => c.name))}에게 ${wayWord} 보내 물어봐요.`);
       }
-      // 조력자 설정대로 적어 둔 기록(보낸 것이 아님): 서버 안내 문장 + 장소 + 직접 보내는 길(RF-3·RF-6·C1)
+      // 조력자 설정대로 적어 둔 기록(보낸 것이 아님): 서버 안내 문장과 장소·직접 보내는 길을 한 문단으로(RF-3·RF-6·C1·⑥)
       const showCounseling = Boolean(plan.suggest_counseling && (plan.counseling_orgs || []).length);
       const notes = [];
       if (decision !== "ask_helper") {
-        if (plan.note_to_person && !(showCounseling && plan.note_to_person === COUNSELING_TITLE)) notes.push(...clean([plan.note_to_person]));
-        if (r.notices_recorded > 0) notes.push(`${deviceWord()}에 적어 두기만 했어요. 문자나 메일은 알림 보내기에서 직접 보내요.`);
+        const note = plan.note_to_person && !(showCounseling && plan.note_to_person === COUNSELING_TITLE) ? clean([plan.note_to_person])[0] || "" : "";
+        notes.push(...recordedNote(note, r.notices_recorded > 0));
       }
       const tsNote = added ? clean([r.ts_note || (lastCheck && lastCheck.ts_note) || ""])[0] || "" : "";
       const spoken = [title, ...lines];
@@ -581,14 +617,14 @@ export default {
         if (decision === "ask_helper" && asked.length) {
           notifyBtns = (askWays.length ? askWays : [{ value: "", label: TO_NOTIFY, icon: "chat" }]).map((w, i) => h("button", {
             type: "button", class: `btn ${i === 0 ? "primary" : "weak"} big block result-main`,
-            onclick: () => toNotify(notifyRoute(txnId, { helpers: asked.map((c) => String(c.id)), ask: true, channel: w.value, check: chk })),
+            onclick: () => toNotify(notifyRoute(txnId, { helpers: asked.map((c) => String(c.id)), ask: true, channel: w.value })),
           }, icon(w.icon), keepDot(w.label)));
         } else if (decision === "ask_helper") {
           notifyBtns = h("button", { type: "button", class: "btn primary big block result-main",
-            onclick: () => toNotify(notifyRoute(txnId, { counselors: true, check: chk })) }, icon("chat"), keepDot(TO_NOTIFY));
+            onclick: () => toNotify(notifyRoute(txnId, { counselors: true })) }, icon("chat"), keepDot(TO_NOTIFY));
         } else if (lastCheck && lastCheck.card) {
           notifyBtns = h("button", { type: "button", class: `btn ${decision === "cancel" ? "primary" : "weak"} big block result-main`,
-            onclick: () => toNotify(notifyRoute(txnId, { check: chk })) }, icon("chat"), keepDot(TO_NOTIFY));
+            onclick: () => toNotify(notifyRoute(txnId)) }, icon("chat"), keepDot(TO_NOTIFY));
         }
         return [
           h("div", { class: `result-hero ${kind}` },
@@ -600,10 +636,12 @@ export default {
           decision === "send" && transfer ? mustLine() : null,
           decision === "send" ? null : notifyBtns,
           notes.length || showCounseling || tsNote || (decision === "send" && notifyBtns) ? h("div", { class: "result-notes" },
-            notes.length ? h("div", { class: "mn-notes" }, notes.map((t) => h("p", { class: "muted", text: t }))) : null,
+            notes.length ? h("p", { class: "muted mn-notes", text: notes.join(" ") }) : null,
             decision === "send" ? notifyBtns : null,
             showCounseling ? h("div", { class: "notice blue" }, icon("building"), h("div", null, h("p", { text: COUNSELING_TITLE }), h("ul", null, plan.counseling_orgs.map((o) => h("li", { text: o }))))) : null,
-            tsNote ? h("p", { class: "muted", text: tsNote }) : null) : null,
+            // 내 거래에 적는 날짜 안내는 접어 둔다(결과의 핵심 문장 수를 줄임, ⑥). 소리로 듣기에는 그대로 들어간다
+            tsNote ? h("details", { class: "mn-ts" }, h("summary", null, h("span", { text: "내 거래에 적는 날짜" }), icon("chevron-down", "mn-ts-chev")),
+              h("p", { class: "muted", text: tsNote })) : null) : null,
           h("div", { class: "sheet-actions" },
             speakButton(() => spoken.map(sentence).join(" ")),
             h("button", { type: "button", class: "btn big block", text: decision === "send" ? "닫기" : "확인", onclick: done })),
@@ -678,7 +716,7 @@ function mustLine() {
 /** 라디오 묶음(공용 .segmented). labelId는 묶음 이름 요소의 id. */
 function segmented(name, options, value, labelId, onChange) {
   const inputs = [];
-  const el = h("div", { class: "segmented", role: "radiogroup", "aria-labelledby": labelId },
+  const el = h("div", { class: `segmented seg-${name}`, role: "radiogroup", "aria-labelledby": labelId },
     options.map((o) => {
       const input = h("input", { type: "radio", name, value: o.value, checked: o.value === value, "aria-label": o.label,
         onchange: () => { if (typeof onChange === "function") onChange(o.value); } });
@@ -693,6 +731,30 @@ function segmented(name, options, value, labelId, onChange) {
 }
 
 function candidatesOf(r) { return (r && r.ask_helper_preview && r.ask_helper_preview.candidates) || []; }
+
+/**
+ * 물어볼래요 결과 줄(서버 practice_result)에서 제목을 되풀이하는 첫 줄을 줄인다(⑥):
+ * ["김*호에게 30만 원을 보내기 전에 조력자에게 물어봐요.", "아직 보내지 않았어요."] → ["김*호에게 30만 원을 아직 보내지 않았어요."]
+ * 모양이 다르면 그대로 둔다.
+ */
+function askLines(lines, title) {
+  const t = String(title || "").replace(/[.\s]+$/, "");
+  const m = /^(.+)을 \S+ 전에 (.+?)\.?$/.exec(lines[0] || "");
+  const n = /^아직 (.+?)\.?$/.exec(lines[1] || "");
+  if (!m || !n || !t || m[2] !== t) return lines;
+  return [`${m[1]}을 아직 ${n[1]}.`, ...lines.slice(2)];
+}
+
+/**
+ * 조력자 설정대로 적어 둔 기록 안내(⑥): 서버 문장(이영희에게 알릴 수 있게 적어 두었어요.)과 장소 문장(… 적어 두기만 했어요.)이
+ * 같은 말을 되풀이하지 않게 한 문장으로 합치고, 직접 보내는 길을 붙인다. 돌려주는 값: 문장 목록(한 문단으로 그린다).
+ */
+function recordedNote(note, recorded) {
+  if (!recorded) return note ? [note] : [];
+  const where = `${deviceWord()}에 적어 두기만 했어요.`;
+  const merged = /알릴 수 있게 적어 두었어요\.$/.test(note) ? note.replace(/적어 두었어요\.$/, where) : "";
+  return [...(merged ? [merged] : [note, where].filter(Boolean)), "문자나 메일은 알림 보내기에서 직접 보내요."];
+}
 
 function namesText(names) { return names.length <= 2 ? names.join(", ") : `${names[0]} 외 ${names.length - 1}명`; }
 

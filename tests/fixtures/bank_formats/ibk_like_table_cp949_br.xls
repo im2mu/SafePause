@@ -1,0 +1,21 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=euc-kr">
+<style>td { mso-number-format:"\@"; }</style>
+</head>
+<body>
+<table>
+<tr><td>거래내역조회_입출식</td></tr>
+<tr><td>조회기간</td><td>2026-05-01 ~ 2026-05-31</td></tr>
+<tr><td>계좌번호</td><td>000-000000-00-000</td></tr>
+</table>
+<table border="1">
+<tr><th>No</th><th>거래일시</th><th>출금</th><th>입금</th><th>거래후 잔액</th><th>거래내용</th><th>송금메시지</th><th>상대계좌번호</th><th>상대은행</th><th>거래구분</th><th>수표어음금액</th><th>CMS코드</th><th>상대계좌예금주명</th></tr>
+<tr><td>1</td><td>2026-05-31<br>09:56:17</td><td>0</td><td>38,000</td><td>467,391</td><td>가나다</td><td></td><td></td><td>가상은행</td><td>타행이체</td><td>0</td><td></td><td>가나다</td></tr>
+<tr><td>2</td><td>2026-05-31<br>09:37:18</td><td>14,000</td><td>0</td><td>429,391</td><td>테스트식당</td><td></td><td>0000000000000000</td><td></td><td>체크</td><td>0</td><td></td><td></td></tr>
+<tr><td>3</td><td>2026-05-20<br>18:04:42</td><td>148,070</td><td>0</td><td>443,391</td><td>가상카드05-122</td><td></td><td></td><td></td><td>펌이체</td><td>0</td><td></td><td>가상보험(주)</td></tr>
+<tr><td>4</td><td>2026-05-15<br>02:10:00</td><td>300,000</td><td>0</td><td>591,461</td><td>김*호</td><td>용돈</td><td>900-0101-100001</td><td>가상은행</td><td>타행이체</td><td>0</td><td></td><td>김*호</td></tr>
+<tr><td>5</td><td>잘못된<br>날짜</td><td>0</td><td>0</td><td>0</td><td>잡행</td><td></td><td></td><td></td><td></td><td>0</td><td></td><td></td></tr>
+</table>
+</body>
+</html>

@@ -185,7 +185,9 @@ function flowSection(ctx, data) {
 function deltaText(tm, prev, cmp, prevWord) {
   if (!prev) return { cls: "same", mark: "", text: "지난달 거래가 없어서 비교할 수 없어요." };
   if (!cmp) return { cls: "same", mark: "", text: `${prevWord} 거래가 1일부터 있지 않아서 비교할 수 없어요.` };
-  const base = `${prevWord} 같은 기간(1~${cmp.prev_days || cmp.days}일)`;
+  // 날짜 범위(1~29일)는 바로 뒤 문장(5월 1~29일에는 …이 나갔어요)이 말하므로 여기서는 되풀이하지 않는다
+  // (괄호 낱말 기간(1~29일)보다가 큰 글씨 좁은 칸에서 괄호 앞뒤로 갈리던 것도 없앰)
+  const base = `${prevWord} 같은 기간`;
   const diff = (tm.out_total || 0) - (cmp.prev_same_period_out || 0);
   if (Math.abs(diff) < 1000) return { cls: "same", mark: "", text: `${base}과 비슷하게 썼어요.` };
   return diff > 0
@@ -203,7 +205,7 @@ function summaryCard(tm, prev, cmp, mWord, prevWord) {
   const speak = speakButton(speakText, { cls: "btn sm" });
   return h("section", { class: "card home-card home-summary", "aria-labelledby": "home-sum-title" },
     h("h4", { id: "home-sum-title", class: "kpi-label", text: `${mWord}에 나간 돈` }),
-    h("p", { class: "kpi-value home-big", "data-nosplit": true, text: moneyText(tm.out_total) }),
+    h("div", { class: "kpi-value home-big", text: moneyText(tm.out_total) }),
     h("p", { class: `delta ${d.cls} home-delta`, "data-nosplit": true },
       d.mark ? h("span", { class: "home-mark", "aria-hidden": "true", text: d.mark }) : null,
       h("span", { class: "home-delta-text" },
@@ -229,7 +231,7 @@ function fact(ic, label, value) {
 /** 분석 카드 머리: 작은 회색 이름(h4) + 굵은 결론 한 줄(D6). */
 function cardHead(id, label, insight) {
   return [h("h4", { id, class: "home-card-label", text: label }),
-    insight ? h("p", { class: "home-insight", text: keepUnits(insight) }) : null];
+    insight ? h("div", { class: "home-insight", text: keepUnits(insight) }) : null];   // 결론 줄은 카드 제목처럼(문단 아님)
 }
 
 function monthReadout(m, partial) {
@@ -314,7 +316,9 @@ function bandsCard(ctx, bands, mWord) {
       h("div", { class: "home-ok" }, icon("check-line"), h("p", { text: `${mWord}에는 걱정되는 거래가 없었어요.` })));
   }
   const most = Math.max(...bands.map((b) => b.flagged || 0));
-  const peaks = bands.filter((b) => (b.flagged || 0) === most).map((b) => bandLabel(b.band, { range: true }));
+  // 결론 줄은 시각 범위로(낮 12시 ~ 저녁 6시에 가장 많았어요): 물결 앞뒤를 띄워 큰 글씨에서 범위 가운데(빈칸)에서만 줄을 바꾼다.
+  // 시간대 이름(낮)은 바로 아래 막대그림 이름이 말한다
+  const peaks = bands.filter((b) => (b.flagged || 0) === most).map((b) => bandRange(b).replace("~", " ~ "));
   const items = bands.map((b) => ({
     label: bandName(b), sub: bandRange(b), value: b.flagged || 0, valueText: `${nf.format(b.flagged || 0)}건`,
     aria: `${bandName(b)}, ${bandRange(b)}, 걱정되는 거래 ${nf.format(b.flagged || 0)}건`,

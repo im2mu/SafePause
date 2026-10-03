@@ -304,14 +304,15 @@ function trow(label, values, heads = []) {
     }));
 }
 
-/** 파일 이름·경로(docs/eval/eval_results_holdout.json)는 / 와 _ 뒤에서 줄을 바꿀 수 있게 wbr을 넣는다
+/** 파일 이름·경로(docs/eval/eval_results_holdout.json)는 / 와 _ 뒤, 경로를 여는 괄호 앞·닫는 괄호 뒤(원자료 / (docs/…json) / 에서)에서 줄을 바꿀 수 있게 wbr을 넣는다
  * (좁은 화면·큰 글씨에서 낱말 가운데가 아무 데서나 잘리지 않게, textContent는 그대로). */
 function breakPaths(el) {
+  const AT = /(?<=[/_])|(?<=\.json\))(?=[가-힣])|(?<=[가-힣])(?=\([\w.-]+\/)/;
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   const nodes = [];
-  for (let n = walker.nextNode(); n; n = walker.nextNode()) if (/[/_]/.test(n.nodeValue)) nodes.push(n);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) if (AT.test(n.nodeValue)) nodes.push(n);
   for (const n of nodes) {
-    const parts = n.nodeValue.split(/(?<=[/_])/);
+    const parts = n.nodeValue.split(AT);
     n.replaceWith(...parts.flatMap((t, i) => (i < parts.length - 1 ? [t, document.createElement("wbr")] : [t])));
   }
   return el;

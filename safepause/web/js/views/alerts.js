@@ -12,9 +12,9 @@
  * - 소리로 듣기는 탭을 바꾸거나 목록을 다시 그리면 저절로 멈춘다(components.speakButton).
  */
 import { h, icon, fill, setText, toast, announce, skeleton, segTabs, openSheet, confirmSheet } from "../ui.js";
-import { nf, formatTime, formatWhen, parseTs, deviceWord, moneyText } from "../format.js";
+import { nf, formatTime, parseTs, deviceWord, moneyText } from "../format.js";
 import { alertCard, txnAmount, txnSignals, levelBadge, flagBadge, reviewBadge, notifiedBadge, errorNotice, subParts, whenParts,
-  flagButton, reviewButton, aiExplain } from "../components.js";
+  flagButton, reviewButton, aiExplain, txnDetailHead } from "../components.js";
 import { LEVEL, CHANNEL_KO, CHANNEL_ICON, NOTICE_CHANNEL_KO, NOTICE_CHANNEL_ICON, FLAG_TEXT } from "../labels.js";
 import { STALE } from "../api.js";
 
@@ -79,6 +79,7 @@ export default {
     let bandDone = false;
     let monitoring = true;   // 거래 살펴보기 동의(꺼져 있으면 걱정되는 거래·담은 거래를 부르지 않는다)
     let focusCard = -1;      // 더 보기 뒤 초점을 줄 카드 번호
+    const cardOpts = { question: true };   // 카드 질문 줄(목록 공통이면 목록 위에 한 번만)
 
     const band = h("div", { class: "al-band-slot" });
     const panel = h("div", { class: "al-panel", id: "alerts-panel", role: "tabpanel", tabindex: "-1" });
@@ -151,12 +152,16 @@ export default {
       }
       const total = d.total ?? items.length;
       const stats = { open: d.open ?? total, reviewed: d.reviewed ?? 0 };
+      // 모든 카드의 질문 줄이 같으면(지난 거래: 그때 걱정했던 거래예요.) 카드마다 쓰지 않고 목록 위에 한 번만 쓴다(⑥)
+      const q0 = (items[0].card && items[0].card.question) || "";
+      const common = items.length > 1 && q0 && items.every((it) => it.card && it.card.question === q0) ? q0 : "";
       const summary = h("div", { class: "al-summary", "aria-live": "polite" });
       function paintSummary() {
-        // 건수와 보여 주는 범위는 한 문단, 내가 확인해서 뺀 건수는 표시와 함께 따로
+        // 건수와 보여 주는 범위(+ 카드 공통 문장)는 한 문단, 내가 확인해서 뺀 건수는 표시와 함께 따로
         fill(summary,
           h("p", { text: [stats.open > 0 ? `걱정되는 거래가 ${nf.format(stats.open)}건 있어요.` : "걱정되는 거래를 모두 내가 확인했어요.",
-            total > items.length ? `최근 ${nf.format(items.length)}건을 보여 드려요.` : ""].filter(Boolean).join(" ") }),
+            total > items.length ? `최근 ${nf.format(items.length)}건을 보여 드려요.` : "",
+            common ? common.replace(/^그때 /, "모두 그때 ") : ""].filter(Boolean).join(" ") }),
           stats.reviewed > 0 ? h("p", { class: "al-reviewed-note" }, icon("user-check"), h("span", { text: `내가 확인한 ${nf.format(stats.reviewed)}건은 뺐어요.` })) : null);
         setTabCount(tabs.el, "cards", stats.open);
       }
@@ -169,6 +174,7 @@ export default {
       };
       paintSummary();
       const groups = groupCards(items);
+      cardOpts.question = !common;
       const cardsEl = h("div", { class: "al-cards" }, groups.map((g) => renderGroup(g, onReviewed)));
       const left = total - items.length;
       fill(panel, summary, cardsEl,
@@ -237,7 +243,7 @@ export default {
       const id = `al-group-${String(first.txn.id).replace(/[^\w-]/g, "")}`;
       const restBox = h("div", { class: "al-group-rest", id, hidden: true }, rest.map((it) => cardEl(it, onReviewed)));
       const sum = g.items.reduce((a, it) => a + (Number(it.txn.amount) || 0), 0);
-      const range = dayText(g.oldest) === dayText(g.newest) ? dayText(g.newest) : `${dayText(g.oldest)}~${dayText(g.newest)}`;
+      const range = dayText(g.oldest) === dayText(g.newest) ? dayText(g.newest) : `${dayText(g.oldest)} ~ ${dayText(g.newest)}`;   // 물결 앞뒤 빈칸: 좁은 칸에서 날짜 사이(빈칸)에서만 줄을 바꾼다
       const toggleText = h("span", { text: `같은 일 ${nf.format(rest.length)}건 더 보기` });
       const toggle = h("button", { type: "button", class: "btn weak block al-group-toggle", "aria-expanded": "false", "aria-controls": id },
         icon("chevron-down", "al-group-chev"), toggleText);
@@ -261,7 +267,7 @@ export default {
       item.level = item.level || (item.card && item.card.level);
       const ref = { el: null };
       const who = item.txn.counterparty || "이름 없음";
-      const card = alertCard(item, { actions: [
+      const card = alertCard(item, { question: cardOpts.question, actions: [
         h("a", { class: "btn sm weak al-send", href: `#/send?txn=${encodeURIComponent(item.txn.id)}`, "aria-label": `${who} 거래 알리기` }, icon("send"), h("span", { text: "알리기" })),
         h("button", { type: "button", class: "btn sm weak al-detail-btn", "aria-label": `${who} 거래 자세히`, onclick: () => openDetail(item, ref, onReviewed) },
           icon("info"), h("span", { text: "자세히" })),
@@ -292,19 +298,14 @@ export default {
     /** 카드 → 거래 자세히(J8): 왜 걱정되나요(약속(규칙) + AI가 본 것) + 지금 할 수 있는 일(J6) + 담기·내가 한 거예요·알리기. */
     function openDetail(item, ref, onReviewed) {
       const t = item.txn;
-      const out = t.direction === "out";
       let changed = false;
-      const badges = h("span", { class: "al-d-badges" });
+      const badges = h("span", { class: "tx-badges" });
       const paintHead = () => fill(badges, levelBadge(item.level), flagBadge(item), reviewBadge(item), notifiedBadge(item));
       paintHead();
       const steps = nextSteps(item);
+      // 내 거래 시트와 같은 머리(이름·배지 → 금액 → 사실 상자, ⑭)
       openSheet((close) => [
-        h("div", { class: "al-d-head" },
-          h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: t.counterparty || "이름 없음" }), badges),
-        h("p", { class: `al-d-amount${out ? "" : " in"}`, "data-nosplit": true, text: txnAmount(t) }),
-        h("dl", { class: "al-d-facts" },
-          fact("언제", formatWhen(t.ts)),
-          fact("어떻게", CHANNEL_KO[t.channel] || t.channel)),
+        txnDetailHead(item, badges),
         aiExplain(item, { heading: 3 }),
         h("section", { class: "sheet-section al-next", "aria-labelledby": "al-next-title" },
           h("h3", { class: "al-next-title", id: "al-next-title", text: "지금 할 수 있는 일" }),
@@ -325,6 +326,7 @@ export default {
           h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => close() })),
       ], {
         label: "거래 자세히",
+        className: "tx-sheet",
         onClose: () => {
           if (!changed || !ref.el || !ref.el.isConnected || !ctx.alive()) return;
           // 카드의 담기·내가 한 거예요 버튼도 바뀐 상태로 다시 만든다(초점은 새 카드의 자세히로)
@@ -347,7 +349,8 @@ export default {
         return;
       }
       const head = h("p", { class: "al-summary" });
-      const sendAll = h("a", { class: "btn primary block al-send-all", href: "#/send" }, icon("send"), h("span"));
+      const sendAllText = h("span");   // 버튼 이름(ui.h가 그림과 함께 span.btn-label로 묶으므로 이 span을 직접 고친다)
+      const sendAll = h("a", { class: "btn primary block al-send-all", href: "#/send" }, icon("send"), sendAllText);
       const list = h("ul", { class: "list al-flags", "aria-label": FLAG_TEXT.list });
       function paintHead() {
         const n = list.children.length;
@@ -356,7 +359,7 @@ export default {
         const left = Array.from(list.children).map((li) => ({ id: li.dataset.id, ts: li.dataset.ts || "" }))
           .sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0)).slice(0, MAX_SEND).map((x) => x.id);
         sendAll.setAttribute("href", sendHref(left));
-        sendAll.lastChild.textContent = n > MAX_SEND ? `최근 거래 ${MAX_SEND}건 한 번에 알리기` : `${FLAG_TEXT.list} 한 번에 알리기`;
+        setText(sendAllText, n > MAX_SEND ? `최근 거래 ${MAX_SEND}건 한 번에 알리기` : `${FLAG_TEXT.list} 한 번에 알리기`);
         setTabCount(tabs.el, "flags", n);
         if (!n) showFlags({ items: [] });
       }
@@ -590,10 +593,6 @@ function nextSteps(item) {
   return lines.slice(0, 4);
 }
 
-function fact(label, value) {
-  return h("div", { class: "al-d-fact" }, h("dt", { text: label }), h("dd", { text: value }));
-}
-
 /** 날짜 머리 없이 보이는 거래 줄(담은 거래): 이름과 금액 한 줄 → 날짜·방법 → 표시 이름. notify.js 거래 줄과 같은 모양. */
 function datedTxn(item) {
   const t = item.txn;
@@ -609,7 +608,7 @@ function datedTxn(item) {
       h("span", { class: "np-txn-top" },
         h("span", { class: "row-title", text: t.counterparty || "(이름 없음)" }),
         h("span", { class: `row-amount${out ? "" : " in"}`, text: txnAmount(t) })),
-      subParts([d ? `${d.getMonth() + 1}월 ${d.getDate()}일 ${formatTime(d)}` : "", CHANNEL_KO[t.channel] || t.channel]),
+      subParts([d ? `${d.getMonth() + 1}월 ${d.getDate()}일` : "", d ? formatTime(d) : "", CHANNEL_KO[t.channel] || t.channel]),
       tags.length ? h("span", { class: "row-tags" }, tags) : null));
 }
 

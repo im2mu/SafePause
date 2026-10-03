@@ -14,7 +14,7 @@
 import { h, icon, fill, openSheet, confirmSheet, busy, toast, announce, skeleton, emptyState, soonBadge, SOON_TEXT } from "../ui.js";
 import { nf, formatWhen, dayKey, parseTs, deviceWord, sentence, keepUnits, moneyText } from "../format.js";
 import {
-  txnRow, dateHead, levelBadge, flagBadge, reviewBadge, notifiedBadge, checkedBadge, txnAmount, txnSignals,
+  txnRow, dateHead, levelBadge, flagBadge, reviewBadge, notifiedBadge, checkedBadge, txnSignals, txnDetailHead,
   flagButton, reviewButton, aiExplain, errorNotice, speakButton,
 } from "../components.js";
 import { PERSONAS, CHANNEL_KO, LEVEL, REVIEW_TEXT } from "../labels.js";
@@ -178,7 +178,7 @@ export default {
     const searchInput = h("input", {
       class: "input tx-search-input", id: "txns-q", type: "search", enterkeyhint: "search", autocomplete: "off",
       spellcheck: "false", autocorrect: "off", autocapitalize: "off", maxlength: "40", value: query,
-      placeholder: "받는 사람이나 가게 이름", "aria-controls": "txns-list",
+      placeholder: "이름 검색", "aria-controls": "txns-list",
     });
     const clearBtn = h("button", {
       type: "button", class: "icon-btn tx-search-clear", "aria-label": "찾는 이름 지우기", hidden: !query,
@@ -198,7 +198,7 @@ export default {
     });
     ctx.onCleanup(() => window.clearTimeout(typing));
     const searchBox = h("div", { class: "tx-search", role: "search" },
-      h("label", { class: "field-label", for: "txns-q", text: "이름으로 찾기" }),
+      h("label", { class: "field-label", for: "txns-q", text: "받는 사람·가게 이름으로 찾기" }),
       h("div", { class: "tx-search-row" }, searchInput, clearBtn));
 
     function setQuery(value, speak = false) {
@@ -502,11 +502,7 @@ export default {
       fullCache = null;
     }
 
-    // ---- 거래 시트: 상대·시각·방법·금액(한 번), 왜 걱정되나요, 담기·내가 한 거예요·알리기·확인 기록 지우기 ----
-    function fact(label, value) {
-      return h("div", { class: "tx-fact" }, h("dt", { text: label }), h("dd", { text: value }));
-    }
-
+    // ---- 거래 시트: 상대·시각·방법·금액(한 번, components.txnDetailHead), 왜 걱정되나요, 담기·내가 한 거예요·알리기·확인 기록 지우기 ----
     /** 목록의 그 줄만 다시 그린다(배지). 그 줄에 초점이 있었으면 새 줄로 옮긴다. */
     function repaintRow(item) {
       const old = rowsById.get(item.txn.id);
@@ -604,13 +600,7 @@ export default {
         return lines.filter(Boolean).map(sentence).join(" ");
       };
       openSheet((close) => [
-        h("div", { class: "tx-head" },
-          h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: t.counterparty || "이름 없음" }), badges),
-        h("p", { class: `tx-amount${out ? "" : " in"}`, "data-nosplit": true, text: txnAmount(t) }),
-        h("dl", { class: "tx-facts" },
-          fact("언제", formatWhen(t.ts)),
-          fact("어떻게", CHANNEL_KO[t.channel] || t.channel),
-          t.memo ? fact("메모", t.memo) : null),
+        txnDetailHead(item, badges),
         // 왜 걱정되나요: 약속(규칙)으로 본 것 + AI가 본 것(J2). 괜찮은 거래에는 두지 않는다
         concern ? whyBlock(item) : null,
         concern && item.ai ? h("button", {

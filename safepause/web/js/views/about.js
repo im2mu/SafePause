@@ -38,7 +38,7 @@ export default {
             h("span", { class: "row-sub about-wrap", text: RULES[code] }))))),
       h("div", { class: "card" },
         h("h3", { text: "② 나만의 평소 기준 AI" }),
-        h("p", { text: "내 과거 거래로 IsolationForest(이상탐지 모델)를 배워요. 금액·시간대·처음 보는 상대·7일 건수 등 11가지 특징을 봐요." }),
+        h("p", { text: "내 과거 거래로 Isolation Forest(이상 탐지 모델)를 배워요. 금액·시간대·처음 보는 상대·7일 건수 등 11가지 특징을 봐요." }),
         h("p", { class: "muted", text: "점수는 내 평소 거래 가운데 이 거래보다 덜 특이한 비율(0~1)이에요." })),
       h("div", { class: "card" },
         h("h3", { text: "③ 둘을 합치는 방법" }),

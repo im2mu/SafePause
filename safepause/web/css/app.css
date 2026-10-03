@@ -34,6 +34,7 @@
   --text-4: var(--grey-500);
   --primary: var(--blue-500);
   --primary-press: var(--blue-600);
+  --primary-strong: var(--blue-700);   /* 흰 글 5.4:1(보통 글자 4.5 이상): 두 줄 이름 버튼(받는 사람 + 할 일) 바탕 */
   --primary-weak: var(--blue-50);
   --primary-weak-text: var(--blue-700);
   --danger: var(--red-500);
@@ -123,7 +124,7 @@ html[data-font="xl"] { font-size: 160%; }
 body {
   margin: 0; min-height: 100dvh; background: var(--bg-sub); color: var(--text);
   font-family: var(--font); font-size: 1rem; line-height: var(--lh-body); letter-spacing: -0.01em;
-  word-break: keep-all; overflow-wrap: anywhere; -webkit-font-smoothing: antialiased;
+  word-break: keep-all; overflow-wrap: break-word; -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
 h1, h2, h3, h4, h5, p, ul, ol, dl, dd, figure { margin: 0; }
@@ -148,6 +149,7 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, h3[tabindex="-1"]:focus, .focu
 .sent { display: block; }
 .sent + .sent { margin-top: var(--gap-sent); }
 p + p { margin-top: var(--gap-para); }
+p + p.hint { margin-top: var(--gap-para); }   /* 문단 뒤 보조글(p.hint)도 문단 사이(입력 칸 아래 보조글은 .hint의 .35rem, ⑧) */
 /* 글 폭: 넓은 화면에서도 설명 글 한 줄은 34em까지 */
 p { max-width: var(--measure); }
 /* 줄 높이: 본문 1.6(body) · 보조글 1.55 · 제목 1.3 · 큰 숫자 1.2 · 버튼·칩·배지 1.3 */
@@ -158,8 +160,20 @@ h1, h2, h3, h4, h5, .page-title, .section-title, .sheet-title, .hero-title { lin
 /* 줄 끝 한두 글자 막기(L8·C13): 문장은 마지막 줄을 고르게, 짧은 이름표(제목·배지·칩·버튼·탭)는 줄 길이를 고르게 */
 p, li, .sent, .row-sub, .hint, .list-head { text-wrap: pretty; }
 .tag, .chip, .badge, .btn, .seg-tab, .soon, .page-title, .sheet-title, .section-title, h1, h2, h3, h4, h5, .row-title, b, strong { text-wrap: balance; }
+/* 줄바꿈은 낱말 사이에서만: body는 overflow-wrap: break-word(칸보다 긴 낱말만 마지막 수단으로 자른다. anywhere는 큰 글씨에서
+   탭·배지·짧은 제목을 낱말 가운데에서 잘랐다). 그래서 칸이 모자라면 글을 자르지 않고 칸 배치(그림 빼기·줄바꿈 허용)로 푼다 */
 /* 끊기지 않는 묶음: 숫자 + 단위·날짜·시각·금액(ui.keepNodes·format.keepUnits가 만든다) */
 .nowrap { white-space: nowrap; }
+/* 낱말 묶음(ui.keepNodes): 한 글자 낱말 + 뒤 낱말(열 수 있어요), 글 끝 한두 글자 낱말 + 앞 낱말(불법금융 신고)의 사이 빈칸.
+   문장 6글자·이름 5글자까지만 묶어 큰 글씨 좁은 칸에서도 넘치지 않는다. 버튼·칩·배지 안에서는 줄 고르기(balance)에 맡긴다 */
+.bind { white-space: nowrap; }
+:is(.btn, .chip, .badge, .tag, .seg-tab, .soon, .toast) .bind { white-space: normal; }
+/* 금액 + 붙은 말(63만7천원이었어요)·7~16글자 낱말 안 문장부호(이름·계좌번호·연락처는, ui.keepNodes): 한 줄에 들면 통째로
+   옮기고, 칸보다 길 때만(아주 큰 글씨) 정해 둔 자리(wbr: 금액 뒤·가운뎃점 뒤·여는 괄호 앞)에서 줄을 바꾼다 */
+.keep-word { display: inline-block; max-width: 100%; }
+/* 이름표(버튼·칩·배지·태그·탭) 안에서는 덩어리를 줄 위쪽에 맞춘다: 덩어리가 두 줄이 되어도 기준선이 첫 줄이라
+   두 줄 버튼의 그림이 덩어리의 마지막 줄 옆으로 내려가지 않는다(inline-block의 기준선은 마지막 줄) */
+:is(.btn, .chip, .badge, .tag, .seg-tab, .soon, .toast) .keep-word { vertical-align: top; }
 .tel-text { overflow-wrap: normal; }                           /* 전화번호: 하이픈 뒤에서만 줄을 바꾼다(숫자 가운데에서 끊지 않음) */
 .email-text { overflow-wrap: normal; word-break: keep-all; }   /* format.breakableEmail: @ 앞에서만 줄을 바꾼다 */
 /* 버튼·칩·배지·토스트 안 글은 촘촘하게(한 줄에 들어가면 한 줄) */
@@ -259,6 +273,7 @@ p, li, .sent, .row-sub, .hint, .list-head { text-wrap: pretty; }
 .card.flat { background: var(--surface-2); box-shadow: none; }
 /* 카드 안 위계: 제목 → 본문 .35rem, 본문 → 버튼 1rem. 카드·안내 상자·시트 안 마지막 요소 아래에는 여백을 두지 않는다 */
 .card h2, .card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: var(--gap-list); }
+.card > :is(h2, h3) + :is(p, ul, ol) { margin-top: 0; }   /* 제목 → 본문은 제목 아래 .35rem 하나(목록의 위 여백과 겹쳐 .5rem이 되지 않게, ⑦) */
 .card > :is(.btn, .btn-row, .card-actions) { margin-top: var(--gap-action); }
 :is(.card, .notice, .list, .sheet) > :last-child, .notice > div > :last-child { margin-bottom: 0; }
 .card-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
@@ -271,7 +286,9 @@ p, li, .sent, .row-sub, .hint, .list-head { text-wrap: pretty; }
 .hero-title { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; }
 .hero-note { color: var(--text-3); margin-top: var(--gap-list); }
 
-.list { background: var(--surface); border-radius: var(--r-l); overflow: hidden; margin-bottom: var(--gap-block); box-shadow: var(--shadow-card); }
+.list { background: var(--surface); border-radius: var(--r-l); overflow: hidden; margin-bottom: var(--gap-block); box-shadow: var(--shadow-card); container-type: inline-size; }
+/* 아주 큰 글씨(목록 폭이 9글자보다 좁음, 360폭 글자 2배): 줄 앞 둥근 그림을 빼서 글 칸을 넓힌다(시각 오전 11시 25분이 한 줄에) */
+@container (max-width: 9rem) { .list .row > .row-icon { display: none; } }
 .list-head { padding: var(--space-4) var(--pad-row) var(--space-1); font-weight: 700; color: var(--text-3); }
 /* 목록 줄: 그림 · 글(이름 → 작은 글 → 표시) · 끝(금액·화살표). 여백·그림 크기는 화면 폭 상한(큰 글씨에서 글 칸을 지킨다) */
 .row {
@@ -334,10 +351,10 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-1) 0 var(--space-3); }   /* 옆으로 숨은 칩은 찾기 어려워 줄바꿈으로 모두 보이게 */
 .chip {
   flex: none; max-width: 100%; min-height: 2.4rem; border: 1px solid var(--line); background: var(--surface); color: var(--text-2);
-  border-radius: 999px; padding: var(--space-2) var(--space-4); font-weight: 600; font-size: 1rem;
+  border-radius: 999px; padding: var(--space-2) min(var(--space-4), 5vw); font-weight: 600; font-size: 1rem;
   display: inline-flex; align-items: center; gap: .35rem;
 }
-.chip svg { width: 1rem; height: 1rem; flex: none; }
+.chip svg { width: min(1rem, 6vw); height: min(1rem, 6vw); flex: none; }
 .chip[aria-pressed="true"] { background: var(--grey-800); border-color: var(--grey-800); color: #fff; }
 :root[data-theme="dark"] .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); } }
@@ -359,16 +376,23 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 /* ui.busy·담기 버튼은 disabled 대신 aria-disabled로 막는다(초점이 body로 빠지지 않게, FE-04). 하는 중(aria-busy)은 아래 돌림표 */
 .btn[aria-disabled="true"]:not([aria-busy="true"]) { opacity: .45; cursor: not-allowed; }
-.btn svg { width: 1.25rem; height: 1.25rem; flex: none; }
+.btn svg { width: min(1.25rem, 7vw); height: min(1.25rem, 7vw); flex: none; }   /* 큰 글씨에서 그림이 이름 칸을 줄이지 않게 화면 폭 상한 */
+/* 버튼 이름(ui.h가 그림 + 글을 span.btn-label 하나로 묶음): 그림은 첫 줄 글 바로 앞(글 가운데 높이), 줄은 가운데에서 고르게 */
+.btn-label { display: block; min-width: 0; text-align: center; text-wrap: balance; }
+.btn-label > svg, .btn-label > .btn-ic { display: inline-block; vertical-align: calc(.38em - min(.625rem, 3.5vw)); margin-inline-end: min(.5rem, 2vw); }
+.btn-label > .btn-ic > svg { display: block; }
 .btn.primary { background: var(--primary); color: #fff; }
 .btn.primary:active:not(:disabled) { background: var(--primary-press); }
 .btn.weak { background: var(--primary-weak); color: var(--primary-weak-text); }
 .btn.danger { background: var(--danger); color: #fff; }
 .btn.danger-weak { background: var(--danger-weak); color: var(--danger); }
 .btn.ghost { background: transparent; color: var(--text-2); }
-.btn.block { width: 100%; }
+.btn.block { width: 100%; container-type: inline-size; }   /* 폭은 늘 칸 폭(글에 따라 바뀌지 않음): 아래 컨테이너 쿼리의 기준 */
+/* 아주 큰 글씨의 좁은 넓은 버튼(이름 칸이 8글자보다 좁음, 360폭 2배): 이름 안 덩어리(조력자·상담하는)를 풀어 정해 둔 자리(가운뎃점 뒤)에서
+   줄을 바꾼다. 덩어리가 그림 옆에 다 들지 않아 그림만 첫 줄에 홀로 남지 않게 */
+@container (max-width: 8rem) { .btn-label .keep-word { display: inline; } }
 .btn.big { min-height: 3.75rem; font-size: 1.05rem; border-radius: var(--r-l); }
-.btn.sm { min-height: 2.5rem; padding: .45rem .85rem; font-size: 1rem; border-radius: var(--r-s); }
+.btn.sm { min-height: 2.5rem; padding: .45rem min(.85rem, 3.5vw); font-size: 1rem; border-radius: var(--r-s); }
 .btn[aria-busy="true"] { position: relative; color: transparent; cursor: progress; }
 .btn[aria-busy="true"]::after {
   content: ""; position: absolute; width: 1.25rem; height: 1.25rem; border-radius: 50%;
@@ -401,10 +425,20 @@ select.input { background-image: linear-gradient(45deg, transparent 50%, var(--t
 .hint { color: var(--text-3); margin-top: var(--gap-list); }
 .error-text { color: var(--danger-text); font-weight: 600; margin-top: var(--space-2); }
 
-/* 고르기 묶음(라디오, L10): 카드 밖에서도 묶음 바탕이 보이게(고르지 않은 칸도 버튼으로 보임) */
+/* 고르기 묶음(라디오, L10): 카드 밖에서도 묶음 바탕이 보이게(고르지 않은 칸도 버튼으로 보임).
+   --seg-min = 칸 이름이 한 줄에 드는 칸 폭(rem이라 글자 배율을 따라 커진다). 셋인 묶음은 한 줄에 셋이 다 들어가지 않으면
+   한 칸씩 세로로(2+1로 깨지지 않게), 넷인 묶음은 4 → 2+2 → 1(3+1 없음)(④). 칸 안 이름은 줄을 바꾸지 않는 폭을 받는다 */
 .segmented {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(7.5rem, 100%), 1fr)); gap: var(--space-1);
+  --seg-min: 7.5rem; --seg-gap: var(--space-1);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(var(--seg-min), 100%), 1fr)); gap: var(--seg-gap);
   background: color-mix(in srgb, var(--line) 70%, var(--bg-sub)); border-radius: var(--r-m); padding: var(--space-1);
+}
+.segmented:has(> :nth-child(3):last-child) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(var(--seg-min), (3 * var(--seg-min) + 2 * var(--seg-gap) - 100%) * 999)), 1fr));
+}
+.segmented:has(> :nth-child(4):last-child) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(var(--seg-min),
+    min((4 * var(--seg-min) + 3 * var(--seg-gap) - 100%) * 999, (100% - var(--seg-gap)) / 2))), 1fr));
 }
 .card .segmented { background: var(--surface-2); }
 .sheet .segmented { background: var(--bg-sub); }
@@ -448,14 +482,15 @@ select.input { background-image: linear-gradient(45deg, transparent 50%, var(--t
 
 /* ==== 9. 안내 상자 ========================================================== */
 /* 아이콘은 첫 줄 가운데(1lh = 그 줄 높이). 여백·아이콘·들여쓰기는 화면 폭 상한(L4).
-   글 칸이 9글자보다 좁아지면(아주 큰 글씨) 아이콘이 글 위 줄로 올라간다(줄바꿈, 컨테이너 쿼리는 쓰지 않음:
-   글자 배율을 나중에 바꾸면 옛 배율로 판단하는 브라우저가 있다). 안내 상자 안 첫 글 묶음은 요소 하나(div·p·ul)로 넣는다 */
+   글 칸이 6글자보다 좁아질 때만(320폭 아주 큰 글씨) 아이콘이 글 위 줄로 올라간다(줄바꿈, 컨테이너 쿼리는 쓰지 않음:
+   글자 배율을 나중에 바꾸면 옛 배율로 판단하는 브라우저가 있다). 9글자 기준은 320폭 1.3배의 짧은 글에서도 아이콘을 올려
+   보냈다(⑩). 안내 상자 안 첫 글 묶음은 요소 하나(div·p·ul)로 넣는다 */
 .notice {
   display: flex; flex-wrap: wrap; gap: min(.75rem, 3vw); align-items: flex-start; padding: min(1rem, 4vw) min(1.1rem, 4.5vw);
   border-radius: var(--r-m); background: var(--surface-2); margin-bottom: var(--gap-block); font-size: 1rem; color: var(--text-2);
 }
 .notice > svg { width: min(1.375rem, 6vw); height: min(1.375rem, 6vw); flex: none; margin-top: max(0px, calc((1lh - min(1.375rem, 6vw)) / 2)); }
-.notice > svg + * { flex: 1 1 9em; min-width: 0; }
+.notice > svg + * { flex: 1 1 6em; min-width: 0; }
 .notice.blue { background: var(--primary-weak); color: var(--primary-weak-text); }
 .notice.red { background: var(--danger-weak); color: var(--danger-weak-text); }
 .notice.orange { background: var(--caution-weak); color: var(--caution-text); }
@@ -496,6 +531,18 @@ tbody th { font-weight: 600; color: var(--text-2); }
 .sheet-actions { display: grid; gap: var(--space-2); margin-top: var(--space-5); }
 .sheet-head { display: flex; align-items: center; gap: .6rem; margin-bottom: var(--space-2); }
 .sheet-section { margin-top: var(--space-4); }
+/* 거래 자세히 머리(components.txnDetailHead: 내 거래 시트·알림 카드 자세히 공용, ⑭): 이름·배지 한 줄 → 큰 금액 → 사실 상자.
+   사실 줄은 이름(4글자 칸)과 값, 값(날짜·시각)은 묶음 사이에서만 줄을 바꾼다. 좁으면 값이 이름 아래 줄로 */
+.tx-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); margin-bottom: var(--gap-sheet-title); }
+.tx-head .sheet-title { margin-bottom: 0; min-width: 0; }
+.tx-badges { display: inline-flex; flex-wrap: wrap; gap: .3rem; }
+.tx-amount { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: var(--lh-num); margin: 0 0 var(--space-3); }
+.tx-amount.in { color: var(--primary); }
+.tx-facts { margin: 0; padding: var(--space-1) min(.9rem, 4vw); border-radius: var(--r-m); background: var(--surface-2); }
+.tx-fact { display: flex; flex-wrap: wrap; gap: .1rem var(--space-3); padding: var(--space-2) 0; }
+.tx-fact + .tx-fact { border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+.tx-fact dt { color: var(--text-3); font-weight: 600; flex: 0 0 4.2em; }
+.tx-fact dd { margin: 0; flex: 1 1 9em; min-width: 0; font-weight: 600; }
 
 /* 준비 중 안내 시트(ui.comingSoonSheet) */
 .soon-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
@@ -506,7 +553,7 @@ tbody th { font-weight: 600; color: var(--text-2); }
 .soon-step { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-start; padding: .8rem .9rem; border-radius: var(--r-m); background: var(--surface-2); color: var(--text-3); }
 .soon-step b { color: var(--text-2); font-weight: 700; }
 .soon-step-no { width: 1.75rem; height: 1.75rem; border-radius: 50%; display: grid; place-items: center; background: var(--line); color: var(--text-3); font-weight: 800; flex: none; }
-.soon-step > .soon-step-main { flex: 1 1 8em; min-width: 0; }
+.soon-step > .soon-step-main { flex: 1 1 6em; min-width: 0; }   /* 번호가 제목 위로 올라가는 것은 글 칸이 6글자보다 좁을 때만(⑩) */
 .soon-options { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: var(--space-2); }
 .soon-now { border-top: 1px solid var(--line); padding-top: var(--space-4); margin-top: var(--space-1); }
 .soon-now-title { font-weight: 700; margin-bottom: .6rem; }
@@ -615,7 +662,7 @@ tbody th { font-weight: 600; color: var(--text-2); }
 .txn-row { align-items: flex-start; }
 .txn-row > .row-icon { margin-top: .1rem; }
 .row-main > .txn-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .6rem; }
-.txn-top .row-title { flex: 1 1 5rem; min-width: 0; }
+.txn-top .row-title { flex: 1 1 auto; min-width: 0; }   /* 이름 + 금액이 한 줄에 안 들면 금액이 다음 줄 오른쪽으로(이름이 꺾이지 않게, ⑬) */
 .txn-top .row-amount { margin-left: auto; white-space: nowrap; }
 /* 작은 글 조각(components.subParts): 조각이 칸에 들어가면 한 줄로 두고, 칸보다 긴 조각만 안에서 줄을 바꾼다
    (조각 안 숫자·날짜·시각은 묶음이라 끊기지 않는다). 줄이 바뀐 조각 앞 가운뎃점은 왼쪽 밖으로 밀려 보이지 않는다 */
@@ -633,15 +680,14 @@ html:not([data-voice="none"]) .mn-novoice { display: none !important; }
 .ai-explain { display: grid; gap: .6rem; margin-top: var(--space-4); }
 .ae-head { font-size: 1.05rem; font-weight: 800; }
 .ae-group { background: var(--surface-2); border-radius: var(--r-m); padding: .8rem min(1rem, 4vw); }
-.ae-group p + p { margin-top: var(--gap-list); }
-.ae-title { display: flex; align-items: center; gap: .4rem; font-size: 1rem; font-weight: 700; color: var(--text-2); margin-bottom: .4rem; }
-.ae-title svg, .ae-list svg, .ae-only svg { width: min(1.2rem, 6vw); height: min(1.2rem, 6vw); flex: none; }
+.ae-group > * + * { margin-top: var(--gap-list); }   /* 묶음 안 줄(다른 정도 줄·평소와 다른 점·AI만 찾음)은 목록 간격 */
+.ae-title { display: flex; align-items: flex-start; gap: .4rem; font-size: 1rem; font-weight: 700; color: var(--text-2); margin-bottom: .4rem; }
+.ae-title svg, .ae-list svg, .ae-only svg { width: min(1.2rem, 6vw); height: min(1.2rem, 6vw); flex: none; margin-top: max(0px, calc((1lh - min(1.2rem, 6vw)) / 2)); }   /* 첫 줄 가운데(⑪) */
 .ae-list { display: grid; gap: var(--gap-list); }
-.ae-list li { display: flex; align-items: center; gap: var(--space-2); font-weight: 600; }
+.ae-list li { display: flex; align-items: flex-start; gap: var(--space-2); font-weight: 600; }
 .ae-diff { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .1rem var(--space-3); }
 .ae-diff-value { white-space: nowrap; color: var(--primary-weak-text); font-variant-numeric: tabular-nums; }
 .ae-only { display: flex; gap: .4rem; align-items: flex-start; color: var(--primary-weak-text); font-weight: 600; }
-.ae-only svg { margin-top: max(0px, calc((1lh - min(1.2rem, 6vw)) / 2)); }
 
 /* ==== 14. 화면 크기별 ======================================================= */
 /* 넓은 화면(900px 이상): 왼쪽 메뉴 */
