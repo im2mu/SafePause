@@ -401,14 +401,21 @@ export default {
         fitLayout();
       }
 
-      // 칸이 넉넉할 때만 본문·선택지를 나눈다(선택지가 늘 아래에 보이게). 나눈 뒤 본문 칸이 40%(최소 240px)보다 작아지면
-      // 가로 화면·큰 글씨로 보고 카드 전체를 한 번에 스크롤한다(본문이 0px로 접히지 않게, 2차 검증 C1)
+      // 칸이 넉넉할 때만 본문·선택지를 나눈다(선택지가 늘 아래에 보이게). 나눈 뒤 본문 칸이 40%(최소 240px)·본문 최소 높이·
+      // '머리(제목 띠) + 글 네 줄'보다 작아지면 가로 화면·큰 글씨로 보고 카드 전체를 한 번에 스크롤한다(본문이 0px로 접히거나,
+      // 선택지가 시트 밖으로 잘리거나, 머리만 보이고 이유 글이 한두 줄만 보이지 않게, 2차 검증 C1·2026-10-03 검토).
+      // 아래로 더 있어요(mn-below)는 띠 위에 떠 있어 띠 높이에 들지 않는다(보였다 숨었다 해도 선택지가 밀리지 않게)
       function fitLayout() {
         const el = sheetApi && sheetApi.el;
         if (!el) return;
         el.classList.add("split");
         const room = el.clientHeight;
-        const fits = room >= 420 && room - foot.scrollHeight >= Math.max(room * 0.4, 240);
+        const bs = getComputedStyle(body);
+        const bodyMin = parseFloat(bs.minHeight) || 0;
+        const head = body.querySelector(".pause-head, .sheet-title");
+        const lh = parseFloat(bs.lineHeight) || parseFloat(bs.fontSize) * 1.6;
+        const readable = (head ? head.offsetHeight : 0) + 4 * lh;
+        const fits = room >= 420 && room - foot.scrollHeight >= Math.max(room * 0.4, 240, bodyMin, readable);
         el.classList.toggle("split", fits);
         paintBelow();
       }

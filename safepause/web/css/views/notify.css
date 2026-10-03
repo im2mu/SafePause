@@ -4,7 +4,8 @@
 /* ==== 알림 보내기 ========================================================== */
 /* 번호 단계 카드: 1 무엇을 → 2 누구에게 → 3 어떻게 → 4 보낼 글 */
 .np-step { padding-top: 1.1rem; padding-bottom: 1.25rem; }
-.np-step-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .85rem; }
+.np-step-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-bottom: .85rem; }
+.np-step-head > h3 { flex: 1 1 6em; min-width: 0; }   /* 제목 칸이 6글자보다 좁으면 번호 아래 줄로(넘치지 않게, ⑩과 같은 기준) */
 .card .np-step-head h3 { font-size: var(--title-section); font-weight: 800; margin: 0; outline: none; }
 .np-step-no {
   width: 1.6rem; height: 1.6rem; border-radius: 50%; display: grid; place-items: center; flex: none;
@@ -131,8 +132,8 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 /* 받는 사람 + 할 일 두 줄 이름: 그림은 첫 줄(받는 사람) 가운데에 맞춘다(⑪, 두 줄 가운데가 아니라) */
 .np-send-btn { align-items: flex-start; }
 .np-send-btn > .btn-ic { margin-top: max(0px, calc((1lh - 1.25rem) / 2)); }
-.np-send-btn[aria-disabled="true"] { opacity: .5; }
-.np-send-text { display: grid; text-align: left; line-height: var(--lh-ui); min-width: 0; }
+.np-send-btn[aria-disabled="true"] { background: var(--surface-2); color: var(--text-3); }   /* 흐리게 하지 않고 회색(글 대비 4.5:1 이상) */
+.np-send-text { display: grid; grid-template-columns: minmax(0, 1fr); text-align: left; line-height: var(--lh-ui); min-width: 0; }   /* 한 칸 grid: 칸 폭을 화면 폭에 묶는다(긴 낱말·묶음 때문에 칸이 넓어져 화면 밖으로 넘치지 않게, 들어가면 모양은 같다) */
 /* 받는 사람 줄은 보통 크기 글자라 대비 4.5:1 이상(⑤): 흐리게(opacity) 두지 않고, 파란 버튼 바탕은 진한 파랑(--primary-strong, 흰 글 5.4:1).
    밝게·어둡게 모두 같은 바탕이다(어두운 모드의 밝은 파랑 바탕은 흰 글 3.2:1) */
 .np-send-who { font-weight: 700; }
@@ -151,7 +152,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 .np-pick-sheet { padding-bottom: 0; }
 .np-pick-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--space-2); margin-bottom: var(--gap-sheet-title); }
 .np-pick-head .sheet-title { flex: 1 1 9em; min-width: 0; margin-bottom: 0; }   /* 제목 칸이 9글자보다 좁아지면 닫기를 다음 줄 오른쪽으로 */
-.np-pick-close { flex: none; margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2)) 0 auto; color: var(--text-2); }
+.np-pick-close { flex: none; margin: calc(-1 * var(--space-1)) calc(-1 * min(var(--space-2), 2vw)) 0 auto; color: var(--text-2); }   /* 오른쪽으로 내민 폭은 화면 폭 상한(좁은 화면 큰 글씨에서 시트 밖으로 나가지 않게) */
 .np-pick-bar {
   position: sticky; bottom: 0; z-index: 2; margin: var(--space-3) calc(-1 * var(--gutter)) 0;
   padding: var(--space-2) var(--gutter) max(var(--space-2), env(safe-area-inset-bottom));
@@ -219,7 +220,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 
 /* 걱정되는 거래 카드: 머리(그림·등급·담음·내가 확인함·알렸어요)는 큰 글씨에서 줄바꿈,
    알리기·담기·내가 한 거예요·자세히는 두 칸씩, 소리로 듣기는 아래 한 줄 */
-.al-cards { display: grid; gap: .75rem; }
+.al-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }   /* 한 칸 grid: 칸 폭을 화면 폭에 묶는다(긴 낱말·묶음 때문에 칸이 넓어져 화면 밖으로 넘치지 않게, 들어가면 모양은 같다) */
 .al-cards .alert-card { margin: 0; }
 .al-cards .alert-head { flex-wrap: wrap; }
 /* 좁은 화면: [알리기][자세히] 한 줄, 담기·내가 한 거예요는 글이 길어 한 줄씩(세 줄로 꺾이지 않게), 소리로 듣기는 맨 아래 */
@@ -240,7 +241,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 .alert-card:focus { outline: none; box-shadow: var(--focus); }
 
 /* 같은 일 묶기(J5): 머리 줄 + 첫 카드 + 펼치기 */
-.al-group { display: grid; gap: .5rem; padding: min(.6rem, 2.5vw); border-radius: var(--r-l); background: var(--line); background: color-mix(in srgb, var(--line) 45%, var(--bg-sub)); }
+.al-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; padding: min(.6rem, 2.5vw); border-radius: var(--r-l); background: var(--line); background: color-mix(in srgb, var(--line) 45%, var(--bg-sub)); }
 .al-group-head { display: flex; align-items: flex-start; gap: min(.5rem, 2vw); padding: .25rem min(.4rem, 2vw) 0; color: var(--text-2); }
 .al-group-head > svg { width: min(1.2rem, 6vw); height: min(1.2rem, 6vw); flex: none; margin-top: max(0px, calc((1lh - min(1.2rem, 6vw)) / 2)); }
 .al-group-main { flex: 1 1 auto; min-width: 0; }

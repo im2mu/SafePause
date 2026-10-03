@@ -441,16 +441,33 @@ function blockInner(el) {
   return p.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight);
 }
 
-/** 칸보다 넓은 묶음에 .flow를 붙인다. reset이면 먼저 모두 떼고 다시 잰다(창·글자 크기가 바뀐 뒤). */
+// 묶음이 감싼 상자(조상)의 안쪽 오른쪽 끝을 넘는가: 감싼 칸이 묶음 폭만큼 넓어진 경우(내용 폭 칸)도 잡는다.
+// 가로 스크롤 칸(표·시트 본문)에 닿으면 거기까지만 본다(그 안의 넘침은 그 칸이 스크롤로 보여 준다)
+function sticksOut(el) {
+  const right = el.getBoundingClientRect().right;
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    const s = getComputedStyle(p);
+    if (s.display !== "inline" && s.display !== "contents") {
+      const inner = p.getBoundingClientRect().right - parseFloat(s.paddingRight) - parseFloat(s.borderRightWidth);
+      if (right > inner + 0.5) return true;
+    }
+    if (s.overflowX !== "visible" && s.overflowX !== "clip") return false;
+  }
+  return false;
+}
+
+const BUNDLES = ".nowrap, .bind, .keep-word";
+
+/** 칸보다 넓거나 상자 밖으로 나간 묶음에 .flow를 붙인다. reset이면 먼저 모두 떼고 다시 잰다(창·글자 크기가 바뀐 뒤). */
 export function fitBundles(root = document.body, reset = false) {
   if (!root) return;
   if (reset) for (const el of root.querySelectorAll(".flow")) el.classList.remove("flow");
   const wide = [];
-  const els = root.matches && root.matches(".nowrap, .bind") ? [root, ...root.querySelectorAll(".nowrap, .bind")] : root.querySelectorAll(".nowrap, .bind");
+  const els = root.matches && root.matches(BUNDLES) ? [root, ...root.querySelectorAll(BUNDLES)] : root.querySelectorAll(BUNDLES);
   for (const el of els) {
-    if (el.classList.contains("flow") || el.closest(".sr-only")) continue;   // 화면 읽기 전용 글(1px 칸)은 보이지 않는다
+    if (el.classList.contains("flow") || el.closest(".sr-only, .flow")) continue;   // 화면 읽기 전용 글(1px 칸)·이미 푼 묶음 안
     const w = el.offsetWidth;   // 레이아웃 폭(시트가 올라오는 동안의 transform과 무관)
-    if (w > 0 && w > blockInner(el) + 0.5) wide.push(el);
+    if (w > 0 && (w > blockInner(el) + 0.5 || sticksOut(el))) wide.push(el);
   }
   for (const el of wide) el.classList.add("flow");   // 다 잰 뒤에 바꾼다(재고 바꾸기를 번갈아 하지 않게)
 }

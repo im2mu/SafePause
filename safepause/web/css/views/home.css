@@ -107,7 +107,7 @@ a.home-top-link:active { background: var(--bg-sub); }
   min-width: min(1.75rem, 9vw); min-height: min(1.75rem, 9vw); padding: 0 .3em; border-radius: 999px; display: grid; place-items: center; flex: none; margin-top: .1rem;
   background: var(--primary-weak); color: var(--primary-weak-text); font-weight: 800; font-size: 1rem; line-height: 1;
 }
-.home-top-main { flex: 1; min-width: 0; display: grid; gap: var(--gap-list); }
+.home-top-main { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap-list); }   /* 한 칸 grid: 칸 폭을 화면 폭에 묶는다(긴 낱말·묶음 때문에 칸이 넓어져 화면 밖으로 넘치지 않게, 들어가면 모양은 같다) */
 .home-top-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 .75rem; }
 .home-top-name { min-width: 0; overflow-wrap: break-word; }
 .home-top-money { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -115,6 +115,15 @@ a.home-top-link:active { background: var(--bg-sub); }
 .home-top .hbar-track > i { min-width: 4px; }
 .home-top-sub { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; color: var(--text-3); line-height: var(--lh-sub); }
 .home-top-sub .badge { max-width: 100%; min-width: 0; }
+/* 아주 좁은 줄(8글자보다 좁음: 320·360폭 2배): 순위 동그라미를 위 줄로 올리고 오른쪽 화살표를 빼 금액(1,000,000원)이 한 줄에
+   들 칸을 만든다(글자를 줄이지 않는다). 줄 전체가 눌리는 링크라 화살표가 없어도 같은 뜻 */
+.home-top-item { container-type: inline-size; }
+@container (max-width: 8em) {
+  .home-top-link { flex-wrap: wrap; row-gap: .35rem; }
+  .home-top-main { flex-basis: 100%; }
+  .home-top-chev { display: none; }
+  .home-top-sub .badge svg { display: none; }
+}
 
 /* ---- 빈 상태 ---- */
 .home-empty .empty { padding: 1.5rem .5rem 1.25rem; }

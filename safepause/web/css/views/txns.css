@@ -106,3 +106,5 @@
 .tx-result-main { flex: 1 1 auto; min-width: 0; }
 .tx-result-sum { margin-top: .4rem; font-weight: 700; }
 .tx-result .notice-action { margin-top: .6rem; }
+/* 연습용 거래 인물 고르기: 이름이 길어(가상 복지급여 수급자) 휴대폰에서는 한 칸씩 세로로 */
+.seg-persona { --seg-min: 12rem; }

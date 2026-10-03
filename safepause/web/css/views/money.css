@@ -83,13 +83,16 @@
    나누지 않으면 카드 전체가 한 번에 스크롤되고 선택지는 본문 뒤에 온다(가로 화면·큰 글씨에서 본문이 0px로 접히던 문제) */
 .sheet.split { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
 .sheet.split > .sheet-body { flex: 1 1 auto; min-height: min(40vh, 14rem); min-height: min(40dvh, 14rem); overflow-y: auto; overscroll-behavior: contain; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter); }
-.sheet.split > .sheet-foot { flex: none; display: grid; gap: .5rem; padding: .75rem 0 max(1rem, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
+.sheet.split > .sheet-foot { position: relative; flex: none; display: grid; gap: .5rem; padding: .75rem 0 max(1rem, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
 .sheet.split .pause-head { margin-top: 0; }
 .sheet.pause:not(.split) > .sheet-foot { display: grid; gap: .5rem; padding: .75rem 0 .5rem; }
 /* 나눈 본문이 넘치면 아래쪽을 흐리게 하고 아래로 더 있어요 표시를 둔다(질문·소리로 듣기가 첫 화면 밖이어도 알게, L7) */
 .sheet.split.has-more > .sheet-body { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent); }
-.mn-below { justify-self: center; margin-top: -.25rem; color: var(--text-3); min-height: 2.4rem; }
-.mn-below svg { width: 1.1rem; height: 1.1rem; }
+/* 아래로 더 있어요: 띠 위(본문 아래쪽 흐려지는 자리)에 떠 있는 작은 단추. 띠 높이에 들지 않아 보였다 숨었다 해도 선택지가 밀려 잘리지 않는다 */
+/* 가운데 맞춤은 left·right 0 + 자동 여백(left 50%는 쓸 수 있는 폭을 절반으로 잡아 두 줄로 접혔다). 한 줄 높이, 글자는 작은 버튼 크기 */
+.sheet-foot > .mn-below { position: absolute; left: 0; right: 0; bottom: calc(100% + .35rem); width: max-content; max-width: calc(100% - 1rem); margin: 0 auto;
+  min-height: 0; padding: .3rem .9rem; color: var(--text-2); background: var(--surface); box-shadow: 0 2px 8px rgba(0, 0, 0, .14); border-radius: 999px; white-space: nowrap; }
+.sheet-foot > .mn-below svg { width: 1.1rem; height: 1.1rem; }
 .sheet.pause:not(.split) .mn-below { display: none; }
 @media (min-width: 600px) { .sheet.pause { padding-top: 0; } .sheet.pause .pause-head { border-radius: var(--r-xl) var(--r-xl) 0 0; } }
 
@@ -131,7 +134,7 @@
 
 /* ==== 내 은행 앱 ========================================================== */
 .ba-actions { display: grid; gap: .5rem; margin-top: .25rem; }
-.ba-open-text { display: grid; text-align: left; line-height: var(--lh-ui); min-width: 0; }
+.ba-open-text { display: grid; justify-items: center; text-align: center; line-height: var(--lh-ui); min-width: 0; }   /* 이름이 두 줄로 접혀도 버튼 가운데 */
 .ba-open-name { font-weight: 600; opacity: .9; overflow-wrap: break-word; }
 .ba-why { display: flex; gap: .45rem; align-items: flex-start; color: var(--text-3); font-weight: 600; }
 .ba-why svg { width: 1.15rem; height: 1.15rem; flex: none; margin-top: max(0px, calc((1lh - 1.15rem) / 2)); }
@@ -139,7 +142,9 @@
 .ba-fail .notice { margin-bottom: 0; }
 
 /* 고르기 시트: 검색 칸은 위에 붙어 있다 */
-.ba-sheet .ba-search { position: sticky; top: -.6rem; z-index: 2; background: var(--surface); padding: .5rem 0 .25rem; margin: 0 0 .5rem; }
+.ba-sheet .ba-search { position: sticky; top: -.6rem; z-index: 2; background: var(--surface); padding: .5rem 0 .25rem; margin: 0 0 .5rem; border-bottom: 1px solid var(--line); }   /* 아래로 지나가는 목록과 갈라 보이게 */
+.ba-sheet .ba-search.loose { position: static; border-bottom: 0; }   /* 찾기 칸이 시트의 3할을 넘으면(아주 큰 글씨) 붙박지 않는다: 목록 칸을 지킨다 */
+.ba-sheet .ba-search .input { border-color: var(--line); }
 @media (min-width: 600px) { .ba-sheet .ba-search { top: -1.25rem; } }
 .ba-count { margin-top: .3rem; }
 .ba-group + .ba-group { margin-top: 1rem; }
@@ -152,7 +157,7 @@
 .ba-empty { color: var(--text-3); text-align: center; padding: 1.5rem .5rem; }
 
 /* 앱 설정의 내 은행 앱 줄 */
-.ba-settings { display: grid; gap: .6rem; }
+.ba-settings { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; }   /* 한 칸 grid: 칸 폭을 화면 폭에 묶는다(긴 낱말·묶음 때문에 칸이 넓어져 화면 밖으로 넘치지 않게, 들어가면 모양은 같다) */
 .ba-set-head { display: flex; align-items: center; gap: min(.75rem, 3vw); }
 .ba-set-main { flex: 1 1 auto; min-width: 0; }
 .card .ba-set-main h3 { margin: 0; }

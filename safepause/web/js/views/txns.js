@@ -706,7 +706,10 @@ export default {
 
     // ---- 연습용 거래 불러오기 ----
     function openSample() {
-      const persona = h("select", { class: "input", id: "sample-persona" }, PERSONAS.map((p) => h("option", { value: p.value, text: p.label })));
+      // 고르기 상자(select)는 큰 글씨에서 고른 이름이 잘려(가상 근로) 누구인지 알 수 없었다: 이름이 다 보이는 라디오 묶음으로
+      const persona = h("div", { class: "segmented seg-persona", role: "radiogroup", "aria-labelledby": "sample-persona-label" },
+        PERSONAS.map((p, i) => h("label", null, h("input", { type: "radio", name: "sample-persona", value: p.value, checked: i === 0 }), h("span", { text: p.label }))));
+      const personaValue = () => (persona.querySelector("input:checked") || {}).value || PERSONAS[0].value;
       const seed = h("input", { class: "input", id: "sample-seed", type: "number", inputmode: "numeric", min: "0", max: "1000000", value: String(SAMPLE_SEED),
         "aria-describedby": "sample-seed-hint" });
       const mix = h("input", { type: "checkbox", id: "sample-mix", checked: true });
@@ -714,7 +717,7 @@ export default {
       openSheet((close) => [
         h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: "연습용 거래 불러오기" }),
         h("p", { class: "sheet-sub", text: "진짜 사람의 거래가 아니에요. AI가 어떻게 알려 주는지 미리 볼 수 있어요." }),
-        h("div", { class: "field" }, h("label", { for: "sample-persona", text: "누구의 거래인가요?" }), persona),
+        h("div", { class: "field" }, h("span", { class: "field-label", id: "sample-persona-label", text: "누구의 거래인가요?" }), persona),
         h("div", { class: "field" }, h("label", { for: "sample-seed", text: "번호" }), seed,
           h("p", { class: "hint", id: "sample-seed-hint", text: "같은 번호면 같은 거래가 나와요." })),
         h("label", { class: "check-row" }, mix, h("span", { class: "grow", text: "걱정되는 거래 섞기" })),
@@ -724,7 +727,7 @@ export default {
             type: "button", class: "btn primary big block",
             onclick: (e) => busy(e.currentTarget, async () => {
               const n = parseInt(seed.value || String(SAMPLE_SEED), 10);
-              const body = { persona: persona.value, seed: Number.isFinite(n) && n >= 0 ? Math.min(n, 1000000) : SAMPLE_SEED, scenarios: mix.checked };
+              const body = { persona: personaValue(), seed: Number.isFinite(n) && n >= 0 ? Math.min(n, 1000000) : SAMPLE_SEED, scenarios: mix.checked };
               let count;
               try { count = await storedCount(); } catch (e2) { return; }
               if (!(await confirmReplace(count)) || !ctx.alive()) return;

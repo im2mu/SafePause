@@ -59,9 +59,10 @@ export function pickBankApp() {
     const apps = listApps();
     const current = getBankApp();
     let picked = null;
-    const search = h("input", { class: "input", id: "ba-search", type: "search", maxlength: "40", enterkeyhint: "search", ...NO_CHECK, "aria-describedby": "ba-count" });
+    const search = h("input", { class: "input", id: "ba-search", type: "search", maxlength: "40", enterkeyhint: "search", placeholder: "앱 이름", ...NO_CHECK, "aria-describedby": "ba-count" });
     const count = h("p", { class: "hint ba-count", id: "ba-count", "aria-live": "polite" });
     const listSlot = h("div", { class: "ba-list-slot" });
+    const searchBox = h("div", { class: "field ba-search" }, h("label", { for: "ba-search", text: "앱 이름으로 찾기" }), search, count);
 
     openSheet((close) => {
       function row(app) {
@@ -99,10 +100,15 @@ export function pickBankApp() {
       }
       search.addEventListener("input", paint);
       paint();
+      // 아주 큰 글씨: 찾기 칸이 시트 높이의 3할을 넘으면 위에 붙박지 않는다(목록이 한두 줄만 보이지 않게)
+      window.requestAnimationFrame(() => {
+        const sheet = searchBox.closest(".sheet");
+        if (sheet) searchBox.classList.toggle("loose", searchBox.offsetHeight > sheet.clientHeight * 0.3);
+      });
       return [
         h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: "내 은행 앱 고르기" }),
         h("p", { class: "sheet-sub", text: "내가 쓰는 은행 앱을 골라 주세요. 한 번 고르면 기억해요." }),
-        h("div", { class: "field ba-search" }, h("label", { for: "ba-search", text: "앱 이름으로 찾기" }), search, count),
+        searchBox,
         listSlot,
         h("div", { class: "sheet-actions" }, h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => close() })),
       ];

@@ -101,7 +101,7 @@
 /* ---- 앱 설정 ---- */
 .pref-head { display: inline-flex; align-items: center; gap: .5rem; }
 .pref-head svg { width: 1.3rem; height: 1.3rem; color: var(--text-3); flex: none; }
-.pref-card { display: grid; gap: .9rem; }
+.pref-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: .9rem; }   /* 한 칸 grid: 칸 폭을 화면 폭에 묶는다(긴 낱말·묶음 때문에 칸이 넓어져 화면 밖으로 넘치지 않게, 들어가면 모양은 같다) */
 /* 글자 크기·화면 모드(셋): 칸에 이름(아주 크게)이 한 줄로 들면 세 칸, 아니면 한 칸씩 세로로(그때는 견본·그림과 이름을 한 줄에) */
 .pref-card { container-type: inline-size; }
 .pref-seg { --seg-min: 4.45rem; }   /* 아주 크게(3.9글자) + 좌우 여백 */
@@ -158,9 +158,9 @@
 /* ---- 사용법 안내(J10) ---- */
 .guide-intro .onboard-title { font-size: 1.35rem; font-weight: 800; margin: 0 0 var(--gap-list); letter-spacing: -0.02em; outline: none; }   /* 카드 제목 → 본문 .35rem(⑦) */
 .guide-intro .promise { margin-top: 1rem; }
-.guide-steps { display: grid; gap: .75rem; margin-bottom: .75rem; }
+.guide-steps { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; margin-bottom: .75rem; }   /* 한 칸 grid: 칸 폭을 화면 폭에 묶는다(긴 낱말·묶음 때문에 칸이 넓어져 화면 밖으로 넘치지 않게, 들어가면 모양은 같다) */
 .guide-steps .guide-step { margin-bottom: 0; }
-.guide-step { display: grid; gap: .6rem; container-type: inline-size; }
+.guide-step { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; container-type: inline-size; }
 .guide-head { display: flex; align-items: center; gap: min(.6rem, 2.5vw); }
 .guide-no { width: min(1.75rem, 10vw); height: min(1.75rem, 10vw); border-radius: 50%; display: grid; place-items: center; flex: none;
   background: var(--primary-weak); color: var(--primary-weak-text); font-weight: 800; }
