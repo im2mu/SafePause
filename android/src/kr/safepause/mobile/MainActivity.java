@@ -402,8 +402,9 @@ public class MainActivity extends Activity {
                 headers.put("Cache-Control", "no-cache");
                 headers.put("Access-Control-Allow-Origin", ORIGIN);
                 headers.put("X-Content-Type-Options", "nosniff");
-                if (path.endsWith(".html")) {
-                    headers.put("Content-Security-Policy", PAGE_CSP);
+                String csp = cspFor(path);
+                if (csp != null) {
+                    headers.put("Content-Security-Policy", csp);
                 }
                 String enc = mime.startsWith("text/") || mime.endsWith("json") || mime.endsWith("javascript")
                         ? "utf-8" : null;
@@ -440,6 +441,20 @@ public class MainActivity extends Activity {
     static final String PAGE_CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; "
             + "worker-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self'; "
             + "font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+    // 스크립트 응답(.js·.mjs) CSP. 워커(AI 엔진 engine/worker.mjs)는 페이지 CSP를 물려받지 않고 자기 스크립트 응답의
+    // CSP를 따른다(헤드리스 Chrome 154 실험). 전에는 .html에만 붙여 엔진 워커에 CSP가 전혀 없었다.
+    // 워커가 실제로 하는 일만 연다: 같은 출처 모듈 불러오기(pyodide.mjs·pyodide.asm.mjs), WebAssembly 컴파일
+    // ('wasm-unsafe-eval'), 같은 출처 fetch(wasm·표준 라이브러리·wheel·safepause.zip). 문자열 코드 실행(eval)·다른 출처·
+    // 하위 워커·이미지 등은 default-src 'none'으로 막는다. 페이지가 불러오는 보통 스크립트 응답에 붙은 CSP는 브라우저가
+    // 쓰지 않는다(CSP는 문서·워커를 시작한 응답에만 적용).
+    static final String SCRIPT_CSP = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'";
+
+    /** 응답 경로에 붙일 CSP 머리글 값. 문서(.html)는 페이지 CSP, 스크립트(.js·.mjs)는 워커용 CSP, 그 밖은 null(안 붙임). */
+    static String cspFor(String path) {
+        if (path.endsWith(".html")) return PAGE_CSP;
+        if (path.endsWith(".mjs") || path.endsWith(".js")) return SCRIPT_CSP;
+        return null;
+    }
 
     private static WebResourceResponse blocked() {
         return new WebResourceResponse("text/plain", "utf-8", 403, "Forbidden",

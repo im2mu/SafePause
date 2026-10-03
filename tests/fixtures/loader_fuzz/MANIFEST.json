@@ -1,0 +1,196 @@
+{
+ "설명": "이 폴더의 <이름>.bin.gz는 고친 문제마다의 재현 입력(gzip). 고치기 전 값은 Windows 11·Python 3.12.10에서 2026-10-03에 잰 것(tests/test_loader_fuzz.py의 test_regression_input이 지금 값을 확인).",
+ "inputs": {
+  "csv_date_spaces": {
+   "what": "날짜 정규식의 이어진 \\s*·\\s+: 긴 공백 칸에서 이차 시간",
+   "found": "퍼징(씨앗 1 사례 1205)",
+   "bytes": 30129,
+   "before_fix": "39.11초, 메모리 최고 1MB (tracemalloc 켜면 36.40초)",
+   "after_fix": "0.00초, 메모리 최고 1MB, ok 1건",
+   "expect": "ok"
+  },
+  "csv_header_parens": {
+   "what": "머리글 괄호 지우기 정규식: 짝 없는 '(' 수만 개에서 이차 시간",
+   "found": "퍼징(씨앗 3 사례 1902)",
+   "bytes": 30073,
+   "before_fix": "20.42초, 메모리 최고 1MB (tracemalloc 켜면 23.77초)",
+   "after_fix": "0.00초, 메모리 최고 1MB, LoaderError: 읽을 수 있는 거래가 없어요. 1줄을 모두 건너뛰었어요. 건너뛴 이유:",
+   "expect": "error",
+   "message": "읽을 수 있는 거래가 없어요. 1줄을 모두 건너뛰었어요"
+  },
+  "csv_mapped_tz_before_1970": {
+   "what": "한국어 머리글 CSV의 1970년 전 시간대 시각: 윈도 OSError",
+   "found": "퍼징 씨앗 토큰(1969-12-31 23:59:59+09:00) 검토",
+   "bytes": 143,
+   "before_fix": "처리 안 된 예외(OSError)",
+   "after_fix": "0.00초, 메모리 최고 0MB, ok 1건",
+   "expect": "ok"
+  },
+  "csv_standard_dup_ids": {
+   "what": "표준 CSV 같은 id 수천 줄: 새 id 번호를 매번 2부터 세는 이차 시간",
+   "found": "퍼징(씨앗 2 사례 2042)",
+   "bytes": 612079,
+   "before_fix": "9.03초 (tracemalloc 켜면 120초 넘음)",
+   "after_fix": "0.09초, 메모리 최고 11MB, ok 12000건",
+   "expect": "ok"
+  },
+  "csv_telecom_long_hangul": {
+   "what": "통신요금 정규식 '[가-힣A-Za-z]+…통신': 긴 한글 칸에서 이차 시간",
+   "found": "퍼징(씨앗 1 사례 129 등)",
+   "bytes": 90085,
+   "before_fix": "15.33초, 메모리 최고 1MB (tracemalloc 켜면 16.16초)",
+   "after_fix": "0.01초, 메모리 최고 1MB, ok 1건",
+   "expect": "ok"
+  },
+  "csv_time_spaces": {
+   "what": "시각 정규식의 이어진 \\s*: 긴 공백 칸에서 세제곱 시간",
+   "found": "퍼징(씨앗 2 사례 1209)",
+   "bytes": 1613,
+   "before_fix": "10.69초, 메모리 최고 0MB (tracemalloc 켜면 13.48초)",
+   "after_fix": "0.00초, 메모리 최고 0MB, ok 2건",
+   "expect": "ok"
+  },
+  "csv_tz_before_1970": {
+   "what": "시간대가 붙은 1970년 전 시각: 윈도에서 astimezone()이 OSError(처리 안 된 예외)",
+   "found": "퍼징 씨앗 토큰(1969-12-31 23:59:59+09:00) 검토",
+   "bytes": 187,
+   "before_fix": "처리 안 된 예외(OSError)",
+   "after_fix": "0.00초, 메모리 최고 0MB, ok 1건",
+   "expect": "ok"
+  },
+  "csv_wide_header_distinct": {
+   "what": "상대 열 찾기: 후보마다 머리글 전체를 리스트에서 찾는 이차 시간(서로 다른 열 수만 개)",
+   "found": "최대 크기 점검(5MB 머리글 22초)",
+   "bytes": 144947,
+   "before_fix": "1.57초, 메모리 최고 4MB (tracemalloc 켜면 2.64초)",
+   "after_fix": "0.04초, 메모리 최고 4MB, ok 1건",
+   "expect": "ok"
+  },
+  "html_marked_section": {
+   "what": "깨진 선언 '<![': html.parser AssertionError(처리 안 된 예외)",
+   "found": "html.parser 점검",
+   "bytes": 342,
+   "before_fix": "처리 안 된 예외(AssertionError)",
+   "after_fix": "0.00초, 메모리 최고 0MB, LoaderError: 웹 페이지(HTML) 모양의 파일인데 태그가 깨져 있어 읽지 못했어요.",
+   "expect": "error",
+   "message": "웹 페이지(HTML) 모양의 파일인데 태그가 깨져 있어"
+  },
+  "html_unclosed_comments": {
+   "what": "닫히지 않은 주석 3만 개: 같은 이유(수 초~수십 초)",
+   "found": "html.parser 점검",
+   "bytes": 120042,
+   "before_fix": "6.01초, 메모리 최고 2MB (tracemalloc 켜면 7.39초)",
+   "after_fix": "0.92초, 메모리 최고 0MB, LoaderError: 웹 페이지(HTML) 모양의 파일인데 태그가 깨져 있어 읽지 못했어요.",
+   "expect": "error",
+   "message": "웹 페이지(HTML) 모양의 파일인데 태그가 깨져 있어"
+  },
+  "html_unclosed_start_tags": {
+   "what": "닫히지 않은 시작 태그 2만 개: Python 3.12 html.parser가 끝에서 매번 다시 훑음(90초)",
+   "found": "퍼징(씨앗 3 사례 1682)",
+   "bytes": 60042,
+   "before_fix": "120초 안에 끝나지 않음",
+   "after_fix": "0.72초, 메모리 최고 12MB, LoaderError: 웹 페이지(HTML) 모양의 파일인데 태그가 깨져 있어 읽지 못했어요.",
+   "expect": "error",
+   "message": "웹 페이지(HTML) 모양의 파일인데 태그가 깨져 있어"
+  },
+  "xls_format_brackets_cells": {
+   "what": "짝 없는 '[' 2만 개 서식을 쓰는 숫자 칸마다 서식을 다시 해석(칸 수 × 이차)",
+   "found": "검토",
+   "bytes": 27136,
+   "before_fix": "120초 안에 끝나지 않음",
+   "after_fix": "0.01초, 메모리 최고 0MB, LoaderError: 머리글(열 이름)에서 날짜 열과 금액 열을 찾지 못했어요. 열 이름을 m",
+   "expect": "error",
+   "message": "머리글(열 이름)에서 날짜 열과 금액 열을 찾지 못했어"
+  },
+  "xls_many_sst_records": {
+   "what": "SST 레코드 수만 개: 매번 남은 레코드 목록을 복사하는 이차 시간",
+   "found": "검토(퍼징 SST 변이)",
+   "bytes": 727552,
+   "before_fix": "8.86초, 메모리 최고 9MB (tracemalloc 켜면 8.14초)",
+   "after_fix": "0.22초, 메모리 최고 2MB, LoaderError: 파일이 비어 있어요.",
+   "expect": "error",
+   "message": "파일이 비어 있어요."
+  },
+  "xls_sst_continue_pieces": {
+   "what": "SST 글이 CONTINUE 수만 조각: 조각 끝 확인마다 남은 목록 복사(이차 시간)",
+   "found": "검토(퍼징 CONTINUE 변이)",
+   "bytes": 485376,
+   "before_fix": "4.35초, 메모리 최고 10MB (tracemalloc 켜면 7.73초)",
+   "after_fix": "0.32초, 메모리 최고 4MB, LoaderError: 파일이 비어 있어요.",
+   "expect": "error",
+   "message": "파일이 비어 있어요."
+  },
+  "xlsx_deep_shared_strings": {
+   "what": "5천 단계 중첩 공유 문자열: PC는 RecursionError, 앱 Pyodide는 스택 넘침으로 엔진 전체가 죽음",
+   "found": "퍼징(깊은 중첩 변이) + Chrome Pyodide 확인",
+   "bytes": 1854,
+   "before_fix": "처리 안 된 예외(RecursionError)",
+   "after_fix": "0.01초, 메모리 최고 0MB, LoaderError: 엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐거나 암호가 걸려",
+   "expect": "error",
+   "message": "엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐"
+  },
+  "xlsx_element_bomb": {
+   "what": "30KB가 29MB 빈 요소로 풀림: 메모리 수백 MB·7초 이상",
+   "found": "검토(압축 폭탄)",
+   "bytes": 31299,
+   "before_fix": "19.38초, 메모리 최고 613MB (tracemalloc 켜면 53.03초)",
+   "after_fix": "0.05초, 메모리 최고 58MB, LoaderError: 엑셀 파일 안의 내용이 보통보다 지나치게 많이 압축돼 있어 안전을 위해",
+   "expect": "error",
+   "message": "엑셀 파일 안의 내용이 보통보다 지나치게 많이 압축돼 "
+  },
+  "xlsx_format_brackets": {
+   "what": "서식 글의 짝 없는 '[' 수만 개: xf마다 이차 시간",
+   "found": "퍼징 토큰([ 반복) 검토",
+   "bytes": 2014,
+   "before_fix": "92.14초 (tracemalloc 켜면 120초 넘음)",
+   "after_fix": "0.02초, 메모리 최고 0MB, LoaderError: 읽을 수 있는 거래가 없어요. 4줄을 모두 건너뛰었어요. 건너뛴 이유:",
+   "expect": "error",
+   "message": "읽을 수 있는 거래가 없어요. 4줄을 모두 건너뛰었어요"
+  },
+  "xlsx_shared_strings_bomb": {
+   "what": "빈 공유 문자열 600만 개: 메모리 500MB·27초(추적 중)",
+   "found": "검토(압축 폭탄)",
+   "bytes": 46096,
+   "before_fix": "23.97초, 메모리 최고 543MB (tracemalloc 켜면 106.19초)",
+   "after_fix": "0.06초, 메모리 최고 58MB, LoaderError: 엑셀 파일 안의 내용이 보통보다 지나치게 많이 압축돼 있어 안전을 위해",
+   "expect": "error",
+   "message": "엑셀 파일 안의 내용이 보통보다 지나치게 많이 압축돼 "
+  },
+  "xlsx_xml_multibyte_encoding": {
+   "what": "XML 선언의 여러 바이트 인코딩: ValueError(처리 안 된 예외)",
+   "found": "검토",
+   "bytes": 1925,
+   "before_fix": "처리 안 된 예외(ValueError)",
+   "after_fix": "0.01초, 메모리 최고 0MB, LoaderError: 엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐거나 암호가 걸려",
+   "expect": "error",
+   "message": "엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐"
+  },
+  "xlsx_xml_unknown_encoding": {
+   "what": "XML 선언의 없는 인코딩: LookupError(처리 안 된 예외)",
+   "found": "검토(ElementTree 예외 조사)",
+   "bytes": 1935,
+   "before_fix": "처리 안 된 예외(LookupError)",
+   "after_fix": "0.01초, 메모리 최고 0MB, LoaderError: 엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐거나 암호가 걸려",
+   "expect": "error",
+   "message": "엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐"
+  },
+  "xlsx_zip_version": {
+   "what": "zip 목차의 '필요한 판'이 큼: NotImplementedError(처리 안 된 예외)",
+   "found": "퍼징(씨앗 3 사례 1123)",
+   "bytes": 2043,
+   "before_fix": "처리 안 된 예외(NotImplementedError)",
+   "after_fix": "0.00초, 메모리 최고 0MB, LoaderError: 엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐거나 암호가 걸려",
+   "expect": "error",
+   "message": "엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐"
+  },
+  "xlsx_zlib_error": {
+   "what": "망가진 deflate 자료: zlib.error(처리 안 된 예외)",
+   "found": "퍼징(씨앗 1 사례 584 등)",
+   "bytes": 2043,
+   "before_fix": "처리 안 된 예외(zlib.error)",
+   "after_fix": "0.00초, 메모리 최고 0MB, LoaderError: 엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐거나 암호가 걸려",
+   "expect": "error",
+   "message": "엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐"
+  }
+ }
+}
