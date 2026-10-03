@@ -7,7 +7,10 @@
 - 날짜: 칸 서식이 날짜·시각이면 엑셀 일련번호를 'YYYY-MM-DD HH:MM:SS'로 바꾼다(초 단위 반올림, 1904 날짜 체계).
   서식이 일반이어도 머리글이 날짜·일시면 그 열의 일련번호를, 머리글이 시간·시각이면 0~1 사이 값을 시각으로 바꾼다.
 - 안전: 압축 해제 합계 상한(압축 폭탄), zip 안 파일 수 상한, 줄·칸 수 상한, DTD(<!DOCTYPE·<!ENTITY)가 든 XML 거부.
-  필요한 부분(통합 문서·관계·공유 문자열·서식·첫 시트)만 읽는다. 시트는 줄 단위로 흘려 읽어 메모리를 아낀다.
+  필요한 부분(통합 문서·관계·공유 문자열·서식·첫 시트)만 읽는다. 시트·공유 문자열은 흘려 읽고, 다시 볼 일이 없는
+  요소는 바로 떼어 메모리를 아낀다(작은 zip이 푼 30MB 안의 빈 요소 수백만 개로 메모리가 수백 MB 부풀던 것 방지).
+  XML 깊이(MAX_XML_DEPTH), 통째로 읽는 부분의 요소 수, 줄·공유 문자열 하나에 담아 두는 요소 수에 상한을 둔다.
+  zip·XML이 손상됐거나 이상하면(압축 자료 오류, 모르는 압축 방식, 없는 인코딩 선언 등) 모두 같은 '손상' 안내.
 """
 from __future__ import annotations
 
@@ -27,6 +30,15 @@ MAX_COLS = 256                    # 이보다 오른쪽 칸은 읽지 않는다
 MAX_CELLS = 3_000_000             # 표 전체 칸 수 상한(줄마다 맨 오른쪽 칸까지 센다. 작은 파일이 큰 빈 표로 불어나는 것 방지)
 HEADER_SCAN_ROWS = 30             # 일반 서식 날짜 열을 찾을 때 머리글을 훑어보는 앞쪽 줄 수
 _MAX_SERIAL = 2958466             # 9999-12-31 다음 날(이보다 크면 날짜가 아님)
+MAX_XML_DEPTH = 256               # XML 중첩 깊이 상한. 엑셀이 쓰는 깊이는 10 안팎. 앱의 Pyodide(3.14.2)는 4,000단계로
+                                  # 중첩된 요소를 풀어 줄 때 스택이 넘쳐 엔진 전체가 죽는다(데스크톱 Chrome에서 3,000은 됨,
+                                  # 2KB xlsx로 재현). 안드로이드 WebView의 스택이 더 작을 수 있어 넉넉히 낮춘다.
+MAX_TREE_ELEMENTS = 1_000_000     # 통째로 읽는 부분(통합 문서·관계·서식)의 요소 수 상한(약 90MB)
+MAX_KEPT_ELEMENTS = 1_000_000     # 줄(row)·공유 문자열(si) 하나를 다 읽을 때까지 담아 두는 요소 수 상한
+MAX_RATIO = 100                   # 한 부분의 압축률(푼 크기 ÷ 압축 크기) 상한. Apache POI의 압축 폭탄 기본값과 같은 100배.
+RATIO_GRACE = 4 * 1024 * 1024     # 푼 크기가 이보다 작으면 압축률을 보지 않는다. 은행 거래내역 모양 10만 줄 시트는 약 7배,
+                                  # 서식만 있는 빈 줄 30만 개도 약 29배였다(2026-10-03 잼). 30KB가 30MB로 풀리는
+                                  # 빈 요소 폭탄(약 1,000배)은 푸는 데 0.1초, 읽으면 7~9초가 들어 미리 거절한다.
 
 _EPOCH_1900 = datetime(1899, 12, 30)   # 1900 날짜 체계(1900-02-29 버그 보정이 된 기준, 61 이후 정확)
 _EPOCH_1904 = datetime(1904, 1, 1)
@@ -37,6 +49,7 @@ TOO_BIG = "엑셀 파일이 너무 커요. 압축을 푼 크기가 30MB를 넘�
 TOO_MANY_ROWS = f"엑셀 파일의 줄이 너무 많아요({MAX_ROWS:,}줄까지). 기간을 나눠 내려받아 올려 주세요."
 TOO_MANY_CELLS = f"표의 칸이 너무 많아요({MAX_CELLS:,}칸까지). 기간을 나눠 내려받아 올려 주세요."
 BROKEN = "엑셀 파일(.xlsx)을 읽지 못했어요. 파일이 손상됐거나 암호가 걸려 있을 수 있어요. " + _SAVE_AS_CSV
+TOO_PACKED = "엑셀 파일 안의 내용이 보통보다 지나치게 많이 압축돼 있어 안전을 위해 읽지 않았어요. " + _SAVE_AS_CSV
 NOT_EXCEL = "엑셀(.xlsx)이 아닌 압축 파일은 읽지 못해요. 거래내역 파일(.csv, .xls, .xlsx)을 골라 올려 주세요."
 
 _DTD_RE = re.compile(rb"<!\s*(DOCTYPE|ENTITY)", re.IGNORECASE)
@@ -51,6 +64,11 @@ _TIME_HEADERS = ("시간", "시각", "time")
 
 class XlsxError(ValueError):
     """엑셀 파일을 읽을 수 없을 때(한국어 안내)."""
+
+
+# XML이 잘못됐을 때 ElementTree가 내는 예외: 문법 오류(ParseError), 선언된 인코딩이 없는 이름·글이 아닌 코덱
+# (LookupError), 여러 바이트 인코딩·코덱 오류(ValueError·UnicodeError). 모두 '손상'으로 안내한다(퍼징으로 찾음).
+_XML_ERRORS = (ET.ParseError, ValueError, LookupError)
 
 
 def _local(tag: str) -> str:
@@ -93,23 +111,67 @@ class _Package:
         try:
             with self._zf.open(info) as f:
                 data = f.read(room + 1)   # 적힌 크기를 믿지 않고 실제로 푼 크기를 센다
-        except XlsxError:
+        except (XlsxError, MemoryError):
             raise
-        except (zipfile.BadZipFile, NotImplementedError, RuntimeError, OSError, EOFError, ValueError) as exc:
+        except Exception as exc:   # noqa: BLE001 - 손상된 zip 한 부분: zlib.error·LZMAError·BadZipFile(CRC)·모르는 압축 방식 등
             raise XlsxError(BROKEN) from exc
         self._used += len(data)
         if len(data) > room:
             raise XlsxError(TOO_BIG)
+        if len(data) > RATIO_GRACE and len(data) > MAX_RATIO * max(info.compress_size, 1):
+            raise XlsxError(TOO_PACKED)   # 압축 폭탄: 작은 파일이 상한 가까이 풀려 수 초씩 읽게 하는 것
         if _DTD_RE.search(data):   # 내부 엔터티 확장(억만 웃음) 등을 막는다. 정상 xlsx에는 DTD가 없다
             raise XlsxError(BROKEN)
         return data
 
 
+_FEED_CHUNK = 1024   # expat에 한 번에 넣는 바이트 수(아래 _events)
+
+
+def _events(data: bytes):
+    """ET.iterparse(events=("start", "end"))와 같은 (사건, 요소)를 내되, 글을 작게 나눠 넣는다.
+
+    iterparse는 16KB씩 넣어, 깊이를 검사하기 전에 '<a>'만 5천 단계 넘게 이어진 나무가 먼저 만들어질 수 있다. 앱의
+    Pyodide는 그런 나무를 풀어 줄 때 스택이 넘쳐 엔진이 죽으므로, 1KB씩 넣어 검사 전에 미리 생기는 단계를
+    341(=1024/3) 안으로 묶는다."""
+    parser = ET.XMLPullParser(events=("start", "end"))
+    for k in range(0, len(data), _FEED_CHUNK):
+        parser.feed(data[k:k + _FEED_CHUNK])
+        yield from parser.read_events()
+    parser.close()
+    yield from parser.read_events()
+
+
 def _parse(data: bytes) -> ET.Element:
+    """ET.fromstring과 같은 나무. 깊이(MAX_XML_DEPTH)·요소 수(MAX_TREE_ELEMENTS)를 넘거나 XML이 잘못되면 XlsxError."""
+    root: Optional[ET.Element] = None
+    depth = count = 0
     try:
-        return ET.fromstring(data)
-    except ET.ParseError as exc:
+        for event, el in _events(data):
+            if event == "end":
+                depth -= 1
+                continue
+            depth += 1
+            count += 1
+            if depth > MAX_XML_DEPTH or count > MAX_TREE_ELEMENTS:
+                raise XlsxError(BROKEN)
+            if root is None:
+                root = el
+    except XlsxError:
+        raise
+    except _XML_ERRORS as exc:
         raise XlsxError(BROKEN) from exc
+    if root is None:   # 요소가 없는 글은 ParseError로 끝나므로 오지 않는다(만일을 위해)
+        raise XlsxError(BROKEN)
+    return root
+
+
+def _detach(stack: list[ET.Element], el: ET.Element) -> None:
+    """방금 끝난 요소를 부모에서 뗀다(다시 읽지 않는 요소의 메모리를 바로 돌려준다). 이미 떨어졌으면 그대로."""
+    if stack:
+        parent = stack[-1]
+        if len(parent) and parent[-1] is el:
+            del parent[-1]
 
 
 def _first_sheet_path(pkg: _Package) -> tuple[str, bool]:
@@ -147,20 +209,24 @@ def _first_sheet_path(pkg: _Package) -> tuple[str, bool]:
 
 
 def _text_of(si: ET.Element) -> str:
-    """<si>·<is> 안의 글(서식 있는 글의 여러 조각 포함). 읽는 법 조각(<rPh>)은 뺀다."""
-    parts: list[str] = []
+    """<si>·<is> 안의 글(서식 있는 글의 여러 조각 포함). 읽는 법 조각(<rPh>)은 뺀다.
 
-    def walk(el: ET.Element) -> None:
-        for child in el:
+    문서 순서대로 <t>의 글을 잇는다(<t> 안쪽과 <rPh> 안쪽은 보지 않는다). 재귀 대신 반복자 더미로 걷는다
+    (깊게 중첩된 글에서 RecursionError가 나지 않게)."""
+    parts: list[str] = []
+    stack = [iter(si)]
+    while stack:
+        for child in stack[-1]:
             name = _local(child.tag)
             if name == "rPh":
                 continue
             if name == "t":
                 parts.append(child.text or "")
-            else:
-                walk(child)
-
-    walk(si)
+                continue
+            stack.append(iter(child))
+            break
+        else:
+            stack.pop()
     return "".join(parts)
 
 
@@ -169,12 +235,33 @@ def _shared_strings(pkg: _Package) -> list[str]:
     if data is None:
         return []
     out: list[str] = []
+    stack: list[ET.Element] = []   # 열린 요소(부모 찾기·깊이)
+    open_si = kept = 0             # 열린 <si> 수, 바깥 <si> 하나를 읽는 동안 담아 둔 요소 수
     try:
-        for _event, el in ET.iterparse(io.BytesIO(data), events=("end",)):
+        for event, el in _events(data):
+            if event == "start":
+                stack.append(el)
+                if len(stack) > MAX_XML_DEPTH:
+                    raise XlsxError(BROKEN)
+                if open_si:
+                    kept += 1
+                    if kept > MAX_KEPT_ELEMENTS:
+                        raise XlsxError(BROKEN)
+                if _local(el.tag) == "si":
+                    open_si += 1
+                continue
+            stack.pop()
             if _local(el.tag) == "si":
                 out.append(_text_of(el))
                 el.clear()
-    except ET.ParseError as exc:
+                open_si -= 1
+                if not open_si:
+                    kept = 0
+            if not open_si:   # 열린 <si> 밖에서 끝난 요소는 다시 읽지 않는다
+                _detach(stack, el)
+    except XlsxError:
+        raise
+    except _XML_ERRORS as exc:
         raise XlsxError(BROKEN) from exc
     return out
 
@@ -185,7 +272,10 @@ def format_kind(code: str) -> Optional[str]:
     s = re.sub(r"\\.", "", s)                          # \ 뒤 한 글자
     s = re.sub(r"_.|\*.", "", s)                       # 칸 맞춤용 문자
     s = re.sub(r"\[(h+|m+|s+)\]", r"\1", s, flags=re.IGNORECASE)   # 경과 시간 [h]:mm
-    s = re.sub(r"\[[^\]]*\]", "", s)                   # [Red]·[$-412] 같은 색·지역 표시
+    # [Red]·[$-412] 같은 색·지역 표시. 마지막 ']' 뒤의 '['는 짝이 없어 남으므로 그 앞까지만 정규식에 넘긴다
+    # (짝 없는 '['가 수만 개인 서식에서 생기던 이차 시간을 없앤다. 결과는 같다. 퍼징으로 찾음)
+    end = s.rfind("]") + 1
+    s = re.sub(r"\[[^\]]*\]", "", s[:end]) + s[end:]
     s = s.split(";")[0].lower()
     if s.strip() in ("", "general", "@"):
         return None
@@ -208,6 +298,7 @@ def _style_kinds(pkg: _Package) -> list[Optional[str]]:
     root = _parse(data)
     custom: dict[int, str] = {}
     kinds: list[Optional[str]] = []
+    custom_kind: dict[int, Optional[str]] = {}   # 같은 사용자 서식을 쓰는 xf가 많아도 한 번만 해석
     for el in root.iter():
         if _local(el.tag) == "numFmt":
             try:
@@ -225,7 +316,9 @@ def _style_kinds(pkg: _Package) -> list[Optional[str]]:
             except ValueError:
                 fid = 0
             if fid in custom:
-                kinds.append(format_kind(custom[fid]))
+                if fid not in custom_kind:
+                    custom_kind[fid] = format_kind(custom[fid])
+                kinds.append(custom_kind[fid])
             elif fid in _BUILTIN_DATETIME:
                 kinds.append("datetime")
             elif fid in _BUILTIN_DATE:
@@ -292,48 +385,70 @@ def _read_rows(data: bytes, shared: list[str], kinds: list[Optional[str]],
     sheet_data: Optional[ET.Element] = None
     last_row = 0
     n_cells = 0
+    stack: list[ET.Element] = []   # 열린 요소(부모 찾기·깊이)
+    open_rows = kept = 0           # 열린 <row> 수, 바깥 <row> 하나를 읽는 동안 담아 둔 요소 수
     try:
-        for event, el in ET.iterparse(io.BytesIO(data), events=("start", "end")):
+        for event, el in _events(data):
             name = _local(el.tag)
             if event == "start":
+                stack.append(el)
+                if len(stack) > MAX_XML_DEPTH:
+                    raise XlsxError(BROKEN)
+                if open_rows:
+                    kept += 1
+                    if kept > MAX_KEPT_ELEMENTS:
+                        raise XlsxError(BROKEN)
                 if name == "sheetData":
                     sheet_data = el
+                elif name == "row":
+                    open_rows += 1
                 continue
-            if name != "row":
-                continue
-            try:
-                number = int(el.get("r", "") or 0) or last_row + 1
-            except ValueError:
-                number = last_row + 1
-            cells: dict[int, _Cell] = {}
-            col = -1
-            for c in el:
-                if _local(c.tag) != "c":
-                    continue
-                col = _col_index(c.get("r"), col + 1)
-                if col >= MAX_COLS or col < 0:
-                    continue
-                cell = _cell_value(c, shared, kinds, date1904)
-                if cell[0] != "":
-                    cells[col] = cell
-            el.clear()
-            if sheet_data is not None:
-                sheet_data.clear()   # 읽은 줄을 버려 메모리를 아낀다
-            if not cells:
-                continue
-            if number > MAX_ROWS:
-                raise XlsxError(TOO_MANY_ROWS)
-            number = max(number, last_row + 1)
-            rows.extend([] for _ in range(number - last_row - 1))   # 빈 줄(줄 번호를 엑셀과 맞춘다)
-            width = max(cells) + 1
-            n_cells += width
-            if n_cells > MAX_CELLS:
-                raise XlsxError(TOO_MANY_CELLS)
-            rows.append([cells.get(k, ("", None)) for k in range(width)])
-            last_row = number
-    except ET.ParseError as exc:
+            stack.pop()
+            if name == "row":
+                open_rows -= 1
+                if not open_rows:
+                    kept = 0
+                number = _row_number(el, last_row)
+                cells: dict[int, _Cell] = {}
+                col = -1
+                for c in el:
+                    if _local(c.tag) != "c":
+                        continue
+                    col = _col_index(c.get("r"), col + 1)
+                    if col >= MAX_COLS or col < 0:
+                        continue
+                    cell = _cell_value(c, shared, kinds, date1904)
+                    if cell[0] != "":
+                        cells[col] = cell
+                el.clear()
+                if sheet_data is not None:
+                    sheet_data.clear()   # 읽은 줄을 버려 메모리를 아낀다
+                if cells:
+                    if number > MAX_ROWS:
+                        raise XlsxError(TOO_MANY_ROWS)
+                    number = max(number, last_row + 1)
+                    rows.extend([] for _ in range(number - last_row - 1))   # 빈 줄(줄 번호를 엑셀과 맞춘다)
+                    width = max(cells) + 1
+                    n_cells += width
+                    if n_cells > MAX_CELLS:
+                        raise XlsxError(TOO_MANY_CELLS)
+                    rows.append([cells.get(k, ("", None)) for k in range(width)])
+                    last_row = number
+            if not open_rows:   # 열린 <row> 밖에서 끝난 요소(다 읽은 줄 포함)는 다시 읽지 않는다
+                _detach(stack, el)
+    except XlsxError:
+        raise
+    except _XML_ERRORS as exc:
         raise XlsxError(BROKEN) from exc
     return rows
+
+
+def _row_number(row: ET.Element, last_row: int) -> int:
+    """<row r="..">의 줄 번호. 없거나 0이거나 숫자가 아니면 앞 줄 다음."""
+    try:
+        return int(row.get("r", "") or 0) or last_row + 1
+    except ValueError:
+        return last_row + 1
 
 
 def _cell_value(c: ET.Element, shared: list[str], kinds: list[Optional[str]], date1904: bool) -> _Cell:
@@ -416,7 +531,9 @@ def xlsx_to_csv_text(data: bytes) -> str:
     """xlsx 바이트 → 첫 시트의 CSV 글(쉼표, 줄바꿈 \\n). 엑셀이 아닌 zip·손상·너무 큰 파일은 XlsxError."""
     try:
         zf = zipfile.ZipFile(io.BytesIO(data))
-    except (zipfile.BadZipFile, OSError, ValueError, EOFError) as exc:
+    except MemoryError:
+        raise
+    except Exception as exc:   # noqa: BLE001 - 손상된 zip 목차: BadZipFile·모르는 zip 판(NotImplementedError) 등(퍼징으로 찾음)
         raise XlsxError(BROKEN) from exc
     with zf:
         pkg = _Package(zf)
@@ -441,5 +558,5 @@ def rows_to_csv_text(rows: list[list[_Cell]], date1904: bool = False) -> str:
     return buf.getvalue()
 
 
-__all__ = ["MAX_CELLS", "MAX_COLS", "MAX_ENTRIES", "MAX_ROWS", "MAX_UNZIPPED", "XlsxError", "format_kind", "is_zip",
-           "rows_to_csv_text", "serial_to_text", "xlsx_to_csv_text"]
+__all__ = ["MAX_CELLS", "MAX_COLS", "MAX_ENTRIES", "MAX_RATIO", "MAX_ROWS", "MAX_UNZIPPED", "MAX_XML_DEPTH",
+           "XlsxError", "format_kind", "is_zip", "rows_to_csv_text", "serial_to_text", "xlsx_to_csv_text"]

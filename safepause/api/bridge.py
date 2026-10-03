@@ -2,12 +2,14 @@
 
     init("/spdata/store")                    # 저장 폴더(IndexedDB에 연결된 폴더)
     warm()                                   # AI 패키지를 실은 뒤: 엔진 모듈을 미리 import
+    warm_more()                              # 요청이 없는 동안: 첫 학습이 쓰는 큰 모듈을 하나씩 미리 import
     handle(method, path, body_json, raw)     # → '{"status": 200, "body": {...}}'
 
 PC판과 같은 서비스·라우터를 쓰므로 같은 요청에 같은 응답을 준다. 인터넷을 쓰지 않는다.
 """
 from __future__ import annotations
 
+import importlib
 import json
 from typing import Any, Optional
 
@@ -26,6 +28,26 @@ def warm() -> None:
     """numpy·scikit-learn을 실은 뒤 탐지 엔진 모듈을 미리 불러 둔다(첫 분석 대기 줄이기)."""
     import safepause.data.synth  # noqa: F401
     import safepause.detect.engine  # noqa: F401
+
+
+# 첫 분석(학습)이 처음 부를 때 불러오는 큰 모듈. 앱 안에서는 모두 약 3초 걸려(scipy.stats 약 1.3초) 워커가 요청이 없는
+# 동안 하나씩 미리 불러 둔다(warm_more). 어차피 첫 학습 때 같은 순서로 불러오는 모듈이라 결과는 바뀌지 않는다
+IDLE_MODULES: tuple[str, ...] = (
+    "scipy.sparse", "scipy.special", "scipy.stats", "sklearn", "sklearn.ensemble",
+    "safepause.data.sources", "safepause.data.loader",
+)
+_idle_next = 0
+
+
+def warm_more() -> bool:
+    """IDLE_MODULES에서 다음 모듈 하나를 불러온다. 더 남았으면 True. 불러오지 못하면 예외(워커가 그만둔다)."""
+    global _idle_next
+    if _idle_next >= len(IDLE_MODULES):
+        return False
+    name = IDLE_MODULES[_idle_next]
+    _idle_next += 1
+    importlib.import_module(name)
+    return _idle_next < len(IDLE_MODULES)
 
 
 def _is_nullish(value: Any) -> bool:
@@ -64,4 +86,4 @@ def handle(method: str, path: str, body_json: str = "null", raw: Any = None) -> 
         return json.dumps({"status": 500, "body": {"detail": INTERNAL_ERROR}}, ensure_ascii=False)
 
 
-__all__ = ["handle", "init", "warm"]
+__all__ = ["handle", "init", "warm", "warm_more"]

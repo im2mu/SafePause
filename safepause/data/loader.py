@@ -107,6 +107,8 @@ _AUTO: dict[str, tuple[str, ...]] = {
     # 거래 종류 글(체크카드·타행이체·ATM출금 등). 거래 종류 추정에만 쓴다(구분·메모로 이미 쓴 열은 빼고 하나).
     "type_text": ("적요", "거래구분"),
 }
+# 자동 매핑 후보에 있는 모든 이름(머리글 오류 안내에서 아는 열 이름 수를 셀 때)
+_KNOWN_HEADERS = frozenset(name for names in _AUTO.values() for name in names)
 # 카드 이용내역의 금액 열: 구분 열이 없으면 모두 쓴 돈(출금)으로 본다(음수는 취소로 보고 건너뜀)
 _CARD_AMOUNT_COLUMNS: tuple[str, ...] = ("이용금액", "승인금액", "국내이용금액")
 
@@ -120,13 +122,16 @@ _CHANNEL_KO = {
 _MICROPAY_RE = re.compile(r"소액결제|휴대폰결제")
 # 통신요금: 통신사 이름(알뜰폰 브랜드, 'OO통신'·'OO텔레콤' 회사 이름 포함)이나 통신·휴대폰·인터넷 요금 낱말일 때만.
 # 'KT&G'(케이티앤지), '통신판매', '정보통신'·'전자통신' 회사, 통행요금·택배요금·렌탈요금은 통신요금이 아니다.
+# 마지막 갈래('OO통신'·'OO텔레콤')는 앞 글자 하나만 본다. search()로 있는지만 보므로 '글자 1개 이상'과 같은 뜻이고,
+# '글자+'로 쓰면 긴 한글 칸(통신 없음)에서 시작 위치마다 끝까지 되돌아 이차 시간이 든다(퍼징으로 찾음: 4천 자 0.4초,
+# 13만 자 칸이면 수 분).
 _TELECOM_RE = re.compile(
     r"(?:통신|휴대폰|핸드폰|휴대전화|전화|인터넷)\s*(?:요금|사용료)|통신비|알뜰폰"
     r"|(?<![A-Za-z])(?:SKT|KT(?!\s*&)|LG\s?U\+|LGU\+)(?![A-Za-z])"
     r"|SK\s?텔레콤|SK\s?브로드밴드|SK\s?텔링크|에스케이\s?텔레콤|케이티(?!\s*앤\s*지)"
     r"|LG\s?유플러스|엘지\s?유플러스|유플러스|U\+\s?(?:알뜰)?모바일"
     r"|헬로모바일|세븐모바일|리브\s?모바일|리브엠|토스\s?모바일|이야기\s?모바일"
-    r"|[가-힣A-Za-z]+(?<!정보)(?<!전자)(?:통신|텔레콤)(?![가-힣])",
+    r"|[가-힣A-Za-z](?<!정보)(?<!전자)(?:통신|텔레콤)(?![가-힣])",
     re.IGNORECASE,
 )
 _ATM_RE = re.compile(r"ATM|현금(?!영수증)", re.IGNORECASE)
@@ -423,7 +428,7 @@ def _header_error(heads) -> str:
         for row in head:
             cells = {_clean_header(c) for c in row if c.strip()}
             has_time, has_amount = _header_kinds(cells)
-            known = sum(1 for c in cells if any(c in names for names in _AUTO.values()))
+            known = sum(1 for c in cells if c in _KNOWN_HEADERS)
             best = max(best, (has_time + has_amount, known, has_time, has_amount))
     _, _, has_time, has_amount = best
     if has_amount and not has_time:
@@ -435,11 +440,34 @@ def _header_error(heads) -> str:
     return f"머리글(열 이름)에서 {what}을 찾지 못했어요. " + _MAPPING_HINT
 
 
+_BRACKET_RE = re.compile(r"[\(\[].*?[\)\]]")
+_SPACES_RE = re.compile(r"\s+")
+_CLEAN_NEEDED = re.compile(r"[\s(\[" + _BOM + "]")   # 이 글자가 없으면 _clean_header가 바꿀 것이 없다
+
+
+def _drop_brackets(name: str) -> str:
+    """``_BRACKET_RE.sub("", name)``과 같은 결과를 줄마다 선형 시간에.
+
+    '.'은 줄바꿈을 넘지 않으므로 줄마다 따로 지워도 같다. 줄의 마지막 닫는 괄호 뒤의 여는 괄호는 짝이 없어 지워지지 않으므로
+    그 앞까지만 정규식에 넘긴다(그러면 여는 괄호마다 닫는 괄호가 뒤에 있어, 짝 없는 '('가 수만 개인 칸에서 생기던
+    이차 시간이 없어진다. 퍼징으로 찾음)."""
+    if "(" not in name and "[" not in name:
+        return name
+    lines = name.split("\n")
+    for k, line in enumerate(lines):
+        end = max(line.rfind(")"), line.rfind("]")) + 1
+        if end:
+            lines[k] = _BRACKET_RE.sub("", line[:end]) + line[end:]
+    return "\n".join(lines)
+
+
 def _clean_header(name: str) -> str:
     """'출금액(원)', ' 거래 일시 ' → '출금액', '거래일시'."""
+    if not _CLEAN_NEEDED.search(name):   # 흔한 경우(공백·괄호·BOM 없음)는 그대로(칸 수십만 개 머리글에서 빠르게)
+        return name
     name = name.replace(_BOM, "")
-    name = re.sub(r"[\(\[].*?[\)\]]", "", name)
-    return re.sub(r"\s+", "", name)
+    name = _drop_brackets(name)
+    return _SPACES_RE.sub("", name)
 
 
 def _header_parts(name: str) -> set[str]:
@@ -566,11 +594,14 @@ def _resolve_columns(header: list[str], mapping: dict[str, Any] | None) -> dict[
     cols["type_text"] = next((c for c in _AUTO["type_text"]
                               if c in present and c not in (cols["kind"], cols["memo"])), None)
     # 상대: 후보 순서대로, '/'가 든 머리글은 나눠 비교. 메모 열(적요 등)은 상대로 쓰지 않는다.
-    cps: list[str] = []
-    for alias in _AUTO["counterparty"]:
-        for name in header:
-            if name and name not in cps and name != cols["memo"] and alias in _header_parts(name):
-                cps.append(name)
+    # (후보 순번, 열 위치) 순서로 정렬해 이름이 처음 나온 자리만 남긴다: 후보마다 머리글 전체를 다시 훑으며
+    # 리스트에서 찾던 것(칸이 많은 머리글에서 이차 시간)과 같은 순서·결과
+    rank: dict[str, int] = {}
+    for r, alias in enumerate(_AUTO["counterparty"]):
+        rank.setdefault(alias, r)
+    hits = sorted((rank[part], k) for k, name in enumerate(header) if name and name != cols["memo"]
+                  for part in _header_parts(name) if part in rank)
+    cps = list(dict.fromkeys(header[k] for _, k in hits))
     cols["counterparty"] = cps or None
     return cols
 
@@ -583,7 +614,8 @@ def _load_standard(header: list[str], body: list[tuple[int, list[str]]]):
     txns: list[Transaction] = []
     skipped: list[tuple[int, str]] = []
     seen: set[str] = set()
-    dup = 0
+    next_k: dict[str, int] = {}   # 이름마다 다음에 볼 번호. seen은 줄기만 하므로 앞 번호는 다시 볼 필요가 없다
+    dup = 0                       # (같은 id 수천 줄에서 번호를 2부터 다시 세던 이차 시간을 없앤다. 퍼징으로 찾음)
     for line_no, row in body:
         record = {h: (row[i] if i < len(row) else "") for i, h in enumerate(header)}
         try:
@@ -594,14 +626,16 @@ def _load_standard(header: list[str], body: list[tuple[int, list[str]]]):
         except AmountError:
             skipped.append((line_no, _R_NONPOSITIVE))
             continue
-        except (KeyError, ValueError, OverflowError):
+        except (KeyError, ValueError, OverflowError, OSError):   # OSError: 윈도에서 1970년 전 시각의 시간대 바꾸기
             skipped.append((line_no, _R_FORMAT))
             continue
         if not t.id or t.id in seen:
-            base, k = t.id or "row", 2
+            base = t.id or "row"
+            k = next_k.get(base, 2)
             while f"{base}-{k}" in seen:
                 k += 1
             t.id = f"{base}-{k}"
+            next_k[base] = k + 1
             dup += 1
         seen.add(t.id)
         txns.append(t)
@@ -826,6 +860,16 @@ _DT_RE = re.compile(
     re.IGNORECASE,
 )
 _TIME_RE = re.compile(_TIME_PART, re.IGNORECASE)
+_WS_RUN = re.compile(r"\s+")
+
+
+def _squeeze(text: str) -> str:
+    r"""공백 묶음을 공백 하나로. _DT_RE·_TIME_RE는 공백을 \s*·\s+로만 받고(다른 부분은 공백과 맞지 않음) 이어진
+    공백 자리에 \s+가 둘 이상 오지 않으므로, 줄여도 맞는지·뽑는 값이 같다. 줄이지 않으면 '1:2' 뒤 긴 공백처럼 맞지
+    않는 칸에서 이어진 \s*들이 공백을 나눠 갖는 모든 경우를 되돌아 보느라 세제곱 시간이 든다(퍼징으로 찾음)."""
+    return _WS_RUN.sub(" ", text)
+
+
 _FORMAT_TIME_CODES: tuple[str, ...] = ("%H", "%I", "%M", "%X", "%c")
 
 
@@ -856,7 +900,7 @@ def _parse_datetime(text: str) -> tuple[datetime | None, bool]:
             day, clock = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4).zfill(6))
             fmt = "%Y%m%d%H%M%S" if len(clock) == 6 else "%Y%m%d%H%M"
             return datetime.strptime(day + clock, fmt), True
-        m = _DT_RE.fullmatch(s)
+        m = _DT_RE.fullmatch(_squeeze(s))
         if not m:
             return None, False
         y, mo, d = int(m["y"]), int(m["mo"]), int(m["d"])
@@ -869,7 +913,7 @@ def _parse_datetime(text: str) -> tuple[datetime | None, bool]:
         if m["zone"]:   # 시간대가 있으면 표준 CSV와 같이 이 컴퓨터 시각으로 바꾼 뒤 뗀다
             ts = ts.replace(tzinfo=_zone(m["zone"])).astimezone().replace(tzinfo=None)
         return ts, True
-    except (ValueError, OverflowError):
+    except (ValueError, OverflowError, OSError):   # OSError: 윈도에서 1970년 전 시각의 시간대 바꾸기(퍼징으로 찾음)
         return None, False
 
 
@@ -905,7 +949,7 @@ def _parse_time(text: str, width: int = 6) -> time | None:
     s = text.strip()
     if not s:
         return None
-    m = _TIME_RE.fullmatch(s)
+    m = _TIME_RE.fullmatch(_squeeze(s))
     if m:
         hour = _hour24(int(m["h"]), m["lead"], m["trail"])
         minute, second = m["m"], m["s"]

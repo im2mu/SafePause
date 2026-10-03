@@ -11,9 +11,12 @@
   엑셀이 아닌 복합 문서(한글·워드 등).
 - 안전: 섹터 사슬의 순환·범위 밖 번호·잘린 파일은 손상으로 본다. 스트림은 파일 크기 안에서만 읽는다. 줄 수 상한
   (xlsx와 같은 10만 줄, BIFF8 자체 상한은 65,536줄), 256칸, 표 전체 300만 칸(xlsx와 같음). 파일 크기 상한 30MB.
+  표 전체 칸 수는 칸을 넣을 때마다 세어, 상한을 넘는 순간 멈춘다(다 모은 뒤 세면 30MB 파일에서 메모리가 1GB 가까이 듦).
+  레코드 수에 비례하는 시간만 쓴다(SST 뒤 CONTINUE·조각 끝 확인을 매번 남은 목록 전체로 하던 이차 시간을 없앰).
 """
 from __future__ import annotations
 
+import itertools
 import struct
 import sys
 from array import array
@@ -225,12 +228,12 @@ class _Pieces:
             raise XlsError(BROKEN)
 
     def at_end(self) -> bool:
-        """남은 바이트가 없는지."""
+        """남은 바이트가 없는지. 다음 조각부터 처음 비지 않은 조각까지만 본다(남은 목록을 복사하지 않는다)."""
         if self.i >= len(self.pieces):
             return True
         if self.pos < len(self.pieces[self.i]):
             return False
-        return not any(self.pieces[self.i + 1:])
+        return not any(self.pieces[j] for j in range(self.i + 1, len(self.pieces)))
 
     def take(self, n: int) -> bytes:
         out = bytearray()
@@ -316,18 +319,30 @@ class _Book:
         self.xf_formats: list[int] = []
         self.sheets: list[int] = []   # 워크시트 BOF 위치(통합 문서 순서)
         self.sst: list[str] = []
+        self._kinds: dict[int, Optional[str]] = {}   # 칸 서식 번호 → 날짜 종류(칸마다 서식 글을 다시 해석하지 않게)
         self._read_globals()
 
     def _read_globals(self) -> None:
-        records = list(_globals_records(self.stream))
-        if not records or records[0][0] != _BOF:
+        # 레코드 틀(길이)이 첫 EOF까지 맞는지 먼저 본다(잘린 레코드는 다른 안내보다 먼저 손상). 목록으로 모아 두지 않는다
+        # (빈 레코드 수백만 개짜리 파일에서 메모리가 커지지 않게)
+        for _ in _globals_records(self.stream):
+            pass
+        records = _globals_records(self.stream)
+        first = next(records, None)
+        if first is None or first[0] != _BOF:
             raise XlsError(BROKEN)
-        version, kind = struct.unpack_from("<HH", records[0][1].ljust(4, b"\0"), 0)
+        version, kind = struct.unpack_from("<HH", first[1].ljust(4, b"\0"), 0)
         if version != _BIFF8:
             raise XlsError(TOO_OLD)
         if kind != _DT_GLOBALS:
             raise XlsError(BROKEN)
-        for k, (rid, body, _pos) in enumerate(records):
+        sst: Optional[list[bytes]] = None   # 읽는 중인 SST 조각(SST + 뒤따르는 CONTINUE)
+        for rid, body, _pos in itertools.chain([first], records):
+            if sst is not None:
+                if rid == _CONTINUE:
+                    sst.append(body)
+                    continue
+                self.sst, sst = _read_sst(sst), None   # CONTINUE가 끝난 곳에서 읽는다(앞의 처리 순서 그대로)
             if rid == _FILEPASS:
                 raise XlsError(ENCRYPTED)
             if rid == _DATEMODE and len(body) >= 2:
@@ -341,14 +356,16 @@ class _Book:
                 if sheet_type == 0:   # 0 워크시트(차트·매크로 시트는 뺀다)
                     self.sheets.append(offset)
             elif rid == _SST:
-                pieces = [body]
-                for rid2, body2, _ in records[k + 1:]:
-                    if rid2 != _CONTINUE:
-                        break
-                    pieces.append(body2)
-                self.sst = _read_sst(pieces)
+                sst = [body]
+        if sst is not None:
+            self.sst = _read_sst(sst)
 
     def _kind(self, xf: int) -> Optional[str]:
+        if xf not in self._kinds:
+            self._kinds[xf] = self._kind_of(xf)
+        return self._kinds[xf]
+
+    def _kind_of(self, xf: int) -> Optional[str]:
         if not 0 <= xf < len(self.xf_formats):
             return None
         fid = self.xf_formats[xf]
@@ -379,7 +396,7 @@ class _Book:
         raise XlsError(NO_SHEET)
 
     def _sheet_rows(self, offset: int) -> list[list[_Cell]]:
-        cells: dict[int, dict[int, _Cell]] = {}
+        cells = _Cells()
         depth = 0
         pending_string: Optional[tuple[int, int]] = None   # 글 결과 수식의 자리(다음 STRING 레코드가 글)
         for rid, body, _pos in _records(self.stream, offset):
@@ -404,7 +421,7 @@ class _Book:
             if rid == _STRING and pending_string is not None:
                 row, col = pending_string
                 pending_string = None
-                _put(cells, row, col, (_unicode_string(body, 0), None))
+                cells.put(row, col, (_unicode_string(body, 0), None))
                 continue
             if rid in (_SHRFMLA, _ARRAY, _TABLE, _CONTINUE):
                 continue
@@ -414,40 +431,38 @@ class _Book:
             row, col, xf = struct.unpack_from("<HHH", body, 0)
             if rid == _LABELSST and len(body) >= 10:
                 index = struct.unpack_from("<I", body, 6)[0]
-                _put(cells, row, col, (self.sst[index] if index < len(self.sst) else "", None))
+                cells.put(row, col, (self.sst[index] if index < len(self.sst) else "", None))
             elif rid in (_LABEL, _RSTRING):
-                _put(cells, row, col, (_unicode_string(body, 6), None))
+                cells.put(row, col, (_unicode_string(body, 6), None))
             elif rid == _NUMBER and len(body) >= 14:
-                _put(cells, row, col, self._number(struct.unpack_from("<d", body, 6)[0], xf))
+                cells.put(row, col, self._number(struct.unpack_from("<d", body, 6)[0], xf))
             elif rid == _RK and len(body) >= 10:
-                _put(cells, row, col, self._number(_rk(struct.unpack_from("<I", body, 6)[0]), xf))
+                cells.put(row, col, self._number(_rk(struct.unpack_from("<I", body, 6)[0]), xf))
             elif rid == _MULRK and len(body) >= 12:
                 count = (len(body) - 6) // 6
                 for k in range(count):
                     cxf, value = struct.unpack_from("<HI", body, 4 + 6 * k)
-                    _put(cells, row, col + k, self._number(_rk(value), cxf))
+                    cells.put(row, col + k, self._number(_rk(value), cxf))
             elif rid == _FORMULA and len(body) >= 14:
                 result = body[6:14]
                 if result[6:8] == b"\xff\xff":
                     if result[0] == 0:          # 글 결과: 다음 STRING 레코드
                         pending_string = (row, col)
                     elif result[0] == 1:        # 참거짓
-                        _put(cells, row, col, ("TRUE" if result[2] else "FALSE", None))
+                        cells.put(row, col, ("TRUE" if result[2] else "FALSE", None))
                 else:
-                    _put(cells, row, col, self._number(struct.unpack("<d", result)[0], xf))
+                    cells.put(row, col, self._number(struct.unpack("<d", result)[0], xf))
             elif rid == _BOOLERR and len(body) >= 8:
                 if body[7] == 0:                # 오류 값(#N/A 등)은 빈 칸
-                    _put(cells, row, col, ("TRUE" if body[6] else "FALSE", None))
-        if not cells:
+                    cells.put(row, col, ("TRUE" if body[6] else "FALSE", None))
+        if not cells.rows:
             return []
-        last = max(cells)
+        last = max(cells.rows)
         if last + 1 > MAX_ROWS:
             raise XlsError(TOO_MANY_ROWS)
-        if sum(max(line) + 1 for line in cells.values()) > _xlsx.MAX_CELLS:   # 줄마다 맨 오른쪽 칸까지 채우므로
-            raise XlsError(TOO_MANY_CELLS)
         rows: list[list[_Cell]] = []
         for r in range(last + 1):
-            line = cells.get(r)
+            line = cells.rows.get(r)
             if not line:
                 rows.append([])
                 continue
@@ -456,9 +471,28 @@ class _Book:
         return rows
 
 
-def _put(cells: dict[int, dict[int, _Cell]], row: int, col: int, cell: _Cell) -> None:
-    if col < MAX_COLS and cell[0] != "":
-        cells.setdefault(row, {})[col] = cell
+class _Cells:
+    """줄 → (칸 → 값). 줄마다 맨 오른쪽 칸까지 채운 칸 수(width 합)를 넣을 때마다 세어 상한을 넘으면 바로 멈춘다.
+
+    합은 줄의 맨 오른쪽 칸이 커질 때만 늘고 줄지 않으므로, 다 모은 뒤 세던 때와 상한을 넘는지가 같다(BIFF8 줄 번호는
+    65,535까지라 줄 수 상한(10만)은 먼저 걸리지 않는다)."""
+
+    __slots__ = ("rows", "_width", "_total")
+
+    def __init__(self) -> None:
+        self.rows: dict[int, dict[int, _Cell]] = {}
+        self._width: dict[int, int] = {}
+        self._total = 0
+
+    def put(self, row: int, col: int, cell: _Cell) -> None:
+        if col < MAX_COLS and cell[0] != "":
+            self.rows.setdefault(row, {})[col] = cell
+            old = self._width.get(row, 0)
+            if col + 1 > old:
+                self._width[row] = col + 1
+                self._total += col + 1 - old
+                if self._total > _xlsx.MAX_CELLS:
+                    raise XlsError(TOO_MANY_CELLS)
 
 
 def _globals_records(stream: bytes):

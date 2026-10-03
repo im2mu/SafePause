@@ -1212,8 +1212,13 @@ class Service:
         if duplicates:
             report = {**report, "warnings": [*report.get("warnings", []),
                                              f"이미 저장된 거래와 같은 {duplicates}건은 한 번만 두었어요."]}
-        return {"source": "upload", "mode": mode, "added": added, "duplicates": duplicates,
-                "report": _plain(report), "summary": _summary(saved), **self._level_stats()}
+        out = {"source": "upload", "mode": mode, "added": added, "duplicates": duplicates,
+               "report": _plain(report), "summary": _summary(saved)}
+        # 읽은 거래 목록은 분석 전에 놓는다(분석은 저장 파일에서 다시 읽음). 큰 파일에서 두 벌을 함께 들지 않아
+        # 메모리 최대치가 줄어든다(앱 안 엔진의 WASM 메모리는 한 번 늘면 줄지 않음)
+        del txns, fixed, saved
+        out.update(self._level_stats())
+        return out
 
     def upload(self, raw: Optional[bytes], mapping_text: str = "", mode: Optional[str] = None) -> dict[str, Any]:
         return self.upload_finish(self.upload_begin(), raw, mapping_text, mode)
