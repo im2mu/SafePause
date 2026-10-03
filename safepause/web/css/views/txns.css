@@ -72,7 +72,7 @@
 .tx-sub-title { font-size: 1.05rem; font-weight: 700; margin: 0 0 .5rem; }
 .tx-reasons { padding: .1rem min(.9rem, 4vw); border-radius: var(--r-m); background: var(--surface-2); }
 .tx-reasons li { display: flex; gap: var(--gap-row); align-items: flex-start; padding: .65rem 0; }
-.tx-reasons li + li { border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+.tx-reasons li + li { border-top: 1px solid var(--line); border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
 .tx-reason-main { flex: 1; min-width: 0; }
 .tx-reason-main b { display: block; font-weight: 700; }
 .tx-reason-main .muted { margin-top: .1rem; }

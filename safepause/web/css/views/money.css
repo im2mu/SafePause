@@ -4,7 +4,7 @@
 
 /* ==== 보내기 탭: 돈 보내기 | 알림 보내기 ===================================== */
 .send-tabs { container-type: inline-size; }
-.send-tabs > .seg-tabs { background: color-mix(in srgb, var(--line) 70%, var(--bg-sub)); }
+.send-tabs > .seg-tabs { background: var(--line); background: color-mix(in srgb, var(--line) 70%, var(--bg-sub)); }
 .send-tabs .seg-tab { min-height: 2.8rem; }
 @container (max-width: 15rem) { .send-tabs .seg-tab svg { display: none; } }   /* 아주 큰 글씨: 아이콘을 빼고 글자만 */
 .send-panel { outline: none; }
@@ -82,7 +82,7 @@
 /* 칸이 넉넉할 때만 본문·선택지를 나눈다(money.js fitLayout이 높이를 재서 split을 켜고 끔): 본문만 스크롤, 선택지는 아래 칸에 늘 보임.
    나누지 않으면 카드 전체가 한 번에 스크롤되고 선택지는 본문 뒤에 온다(가로 화면·큰 글씨에서 본문이 0px로 접히던 문제) */
 .sheet.split { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
-.sheet.split > .sheet-body { flex: 1 1 auto; min-height: min(40dvh, 14rem); overflow-y: auto; overscroll-behavior: contain; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter); }
+.sheet.split > .sheet-body { flex: 1 1 auto; min-height: min(40vh, 14rem); min-height: min(40dvh, 14rem); overflow-y: auto; overscroll-behavior: contain; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter); }
 .sheet.split > .sheet-foot { flex: none; display: grid; gap: .5rem; padding: .75rem 0 max(1rem, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
 .sheet.split .pause-head { margin-top: 0; }
 .sheet.pause:not(.split) > .sheet-foot { display: grid; gap: .5rem; padding: .75rem 0 .5rem; }

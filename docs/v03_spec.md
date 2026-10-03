@@ -196,6 +196,7 @@
   - `POST /api/notify/suggest {txn_ids, pending?}`: `pending`(check 응답의 pending 모양)이면 저장하지 않은 확인 거래도 이해충돌·등급을 본다. 이해충돌은 나간 돈의 받는 사람만 본다. 알릴 조력자가 모두 돈 받은 사람이고 상담하는 곳 동의가 있으면 상담하는 곳을 추천한다. 응답에 `counseling_reason: "repeat"|"conflict"|""`를 더했다.
   - `POST /api/data/upload`: 본문 `mode: "replace"(기본)|"append"`(PC는 multipart 칸, 앱 엔진은 본문). append는 같은 거래(시각·금액·방향·방법·상대 정규화)를 한 번만 둔다. 응답에 `mode, added, duplicates, levels, ai_only`. 틀린 mode는 422 "입력한 값을 확인해 주세요: 올리는 방법"
   - `.xlsx`: 표준 라이브러리(zipfile·xml.etree)만으로 첫 시트를 읽는다(`safepause/data/xlsx.py`). 압축 해제 합계 30MB, 파일 5,000개, 10만 줄, 256칸 상한, DTD 거부. 앱 엔진(Pyodide)에서도 같다.
+  - `.xls`(2026-10-03): 엑셀 97~2003(BIFF8)은 첫 워크시트를 읽고(`safepause/data/xls.py`), 확장자만 .xls인 HTML 표는 날짜·금액 머리글이 있는 첫 표를 읽는다(`safepause/data/htmltable.py`). 암호가 걸린 엑셀(.xls·암호로 감싼 .xlsx)·엑셀 95 이전·한글/워드 문서는 안내만 한다. 표 전체 300만 칸 상한(.xlsx에도).
   - `GET /api/insights`: 보내기 전 확인 기록(live)을 모든 수치에서 빼고 `checked_excluded`로 그 수를 알린다. `compare: {month, days, prev_days, prev_same_period_out, prev_same_period_count}`(지난달 같은 날짜 범위, 지난달을 다 모르면 null)를 더했다.
   - `GET /api/transactions?level&limit&offset&q&since&until`: 이름 검색과 기간. 최상위에 `open_summary`(내가 확인한 것을 뺀 등급별 수)·`reviewed_count`. `GET /api/cards`에 `open`·`reviewed`
   - 거래·카드·담은 거래 항목: `reviewed: bool`, `notified_at`(직접 보낸 기록 가운데 그 거래가 든 가장 최근 시각 또는 null), `ai: {fitted, percentile(0~100 또는 null), top_feature(쉬운 말 한 줄 또는 null), only_ai, raised}`. check 응답에도 `ai`
@@ -307,8 +308,8 @@
   - 연습용 거래 불러오기(동작)
 - 파일 올리기 시트
   - '열 이름 직접 알려 주기' 삭제
-  - "지금 올릴 수 있는 파일" 칩: `.csv` `.txt`
-  - "준비 중" 비활성 칩: `.xlsx` `.pdf` `.jpg` `.png`
+  - "지금 올릴 수 있는 파일" 칩: `.csv` `.txt` `.xls` `.xlsx`(엑셀은 2026-10-03까지 차례로 열림)
+  - "준비 중" 비활성 칩: `.pdf` `.jpg` `.png`
   - 파일 고르기 accept에 .txt를 더한다.
   - 필수 문장 "은행 파일 모양은 따로 확인하지 못했어요."는 유지한다.
 - 걸러 보기 칩: 전체 / 걱정되는 것 / 꼭 확인할 것 / 담은 거래

@@ -20,10 +20,29 @@
   <link rel="stylesheet" href="css/views/notify.css">
   <link rel="stylesheet" href="css/views/money.css">
   <link rel="stylesheet" href="css/views/more.css">
+  <!-- 오래된 화면 프로그램 안내(고전 스크립트, ES5): main.js가 못 뜨면 #compat을 보인다 -->
+  <script src="js/legacy.js"></script>
   <script type="module" src="js/main.js"></script>
 </head>
 <!-- spellcheck="false": 브라우저의 온라인 맞춤법 검사가 받는 사람·계좌번호 글을 밖으로 보내지 않게(S35) -->
 <body spellcheck="false">
+  <!-- 오래된 화면 프로그램 안내: legacy.js·compat.js가 hidden을 푼다(옛 엔진에서도 보이게 글은 여기 고정) -->
+  <div id="compat" class="compat" role="alert" hidden>
+    <h1 class="compat-title">SafePause를 열 수 없어요.</h1>
+    <div data-for="app">
+      <p>이 휴대폰의 화면 프로그램이 오래됐어요.</p>
+      <p>Play 스토어에서 Android System WebView를 찾아 업데이트해 주세요.</p>
+      <p>Chrome이 있으면 Chrome도 업데이트해 주세요.</p>
+      <p>다 되면 SafePause를 닫았다가 다시 열어 주세요.</p>
+    </div>
+    <div data-for="pc" hidden>
+      <p>이 브라우저가 오래됐어요.</p>
+      <p>Chrome이나 Edge를 최신으로 업데이트해 주세요.</p>
+      <p>다 되면 SafePause를 다시 열어 주세요.</p>
+    </div>
+    <p>혼자 하기 어려우면 이 화면을 도와주는 분에게 보여 주세요.</p>
+    <p id="compat-version" class="compat-small"></p>
+  </div>
   <a class="skip-link" href="#main" data-skip="1">본문으로 바로 가기</a>
 
   <div id="app" class="app">

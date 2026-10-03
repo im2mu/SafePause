@@ -482,15 +482,15 @@ def test_keep_bundles_and_short_text() -> None:
     assert ".nowrap { white-space: nowrap; }" in CSS and ".tel-text { overflow-wrap: normal; }" in CSS
     # 낱말 묶기(⑫·⑬): 한 글자 낱말 + 뒤 낱말, 글 끝 한두 글자 꼬리 + 앞 낱말(6글자까지), 금액 + 붙은 말은 한 덩어리(keep-word)
     assert "const BIND_MAX = 6;" in ui and "function bindGroups" in ui and "function splitUnits" in ui and '"keep-word"' in ui
-    assert ".bind { white-space: nowrap; }" in CSS and ".keep-word { display: inline-block; max-width: 100%; }" in CSS
+    assert ".bind { white-space: nowrap; }" in CSS and ".keep-word { display: inline-block; max-width: 100%; vertical-align: top; }" in CSS
     # 앞 낱말에 붙는 한 글자 말(곳·등·달·번…)은 앞 낱말과(처음 가는 곳 / 큰 금액 결제), 6글자까지 낱말 안 문장부호(약속(규칙)으로)는
     # nowrap, 7~16글자는 keep-word(가운뎃점·물결 뒤·여는 괄호 앞 wbr에서만 줄바꿈)
     assert "const BACK_WORD = " in ui and "SOFT_MAX" not in ui
     write_unit = ui[ui.index("const writeUnit"):ui.index("const bindChildren")]
     assert "letters(ut) <= BIND_MAX" in write_unit and "(?<=·)" in write_unit and "(?=\\()" in write_unit
     assert 'span("tel-text", p.text.split(/(?<=-)/)' in ui                       # 전화번호는 하이픈 뒤(wbr)에서만 줄바꿈
-    # 이름표 안 덩어리는 줄 위쪽에 맞춘다(두 줄 버튼의 그림이 덩어리 마지막 줄 옆으로 내려가지 않게)
-    assert ":is(.btn, .chip, .badge, .tag, .seg-tab, .soon, .toast) .keep-word { vertical-align: top; }" in CSS
+    # 덩어리는 어디서나 줄 위쪽에 맞춘다(두 줄 버튼의 그림·목록 점이 덩어리 마지막 줄 옆으로 내려가지 않게, 위 .keep-word 규칙)
+    assert re.search(r"\.keep-word \{[^}]*vertical-align: top;", CSS)
     assert 'h("span", null, action, h("wbr"), h("span", { class: "nowrap", text: "(준비 중)" }))' in ui   # 준비 중 버튼: 괄호 앞에서 줄바꿈
     # 아주 큰 글씨의 좁은 넓은 버튼은 덩어리를 풀어 그림이 첫 줄 글 옆에(그림만 홀로 한 줄이 되지 않게)
     assert ".btn.block { width: 100%; container-type: inline-size; }" in CSS
@@ -788,3 +788,56 @@ def test_eval_recompute_contract_2026_10_03() -> None:
     for key in ("standard", "subtle"):
         for mode, vals in ref["sets"][key]["modes"].items():
             assert set(vals) == set(screen) | {"by_scenario"}, (key, mode)     # 기준값 파일의 키를 화면이 모두 견준다
+
+
+def test_old_webview_guidance_2026_10_03() -> None:
+    # 오래된 화면 프로그램(WebView 97 미만)에서 빈 화면 대신 업데이트 안내(docs/mobile.md 지원 범위)
+    legacy = (JS / "legacy.js").read_text(encoding="utf-8")
+    code = re.sub(r"/\*.*?\*/", "", legacy, flags=re.S)
+    code = re.sub(r"(?m)//.*$", "", code)
+    for bad in ("=>", "const ", "let ", "`", "class ", "?.", "??", "..."):
+        assert bad not in code, bad                                             # ES5만(옛 엔진이 읽을 수 있게)
+    assert '<script src="js/legacy.js"></script>' in INDEX and "nomodule" not in INDEX
+    assert INDEX.index('src="js/legacy.js"') < INDEX.index('<script type="module" src="js/main.js"></script>')
+    box = re.search(r'<div id="compat"[^>]*>(.*?)\n  </div>', INDEX, re.S)
+    assert box and ' hidden>' in INDEX[box.start():box.start() + 80]           # 평소에는 숨김
+    assert 'data-for="app"' in box.group(1) and 'data-for="pc" hidden' in box.group(1)
+    assert "이 휴대폰" in box.group(1) and "이 브라우저" in box.group(1)
+    main = (JS / "main.js").read_text(encoding="utf-8")
+    assert main.index("window.__SAFEPAUSE_STARTED__ = true;") < main.index("const startProblem = hardProblem(")
+    assert "if (startProblem) showCompat(startProblem);\nelse boot();" in main
+    compat = (JS / "compat.js").read_text(encoding="utf-8")
+    for probe in ("eh:", "ref:", "simd:"):
+        assert probe in compat
+    assert "replaceChildren" in compat and "WebAssembly.compile" in compat and "color-mix" in compat
+    # 안내 상자는 옛 엔진에서도 보이게: 색은 리터럴, min()·color-mix·dvh 없음(CSS 변수는 WebView 49부터라 줄 높이 토큰만)
+    for sel in (r"\.compat", r"\.compat-title", r"\.compat-small"):
+        rule = re.search(sel + r" \{[^}]*\}", CSS).group(0)
+        assert "min(" not in rule and "color-mix" not in rule and "dvh" not in rule, rule
+        assert not re.search(r"(?<!line-height: )var\(", rule), rule
+
+
+def test_new_css_units_have_old_fallback() -> None:
+    # dvh(108)·color-mix(111) 선언 바로 앞에 옛 값 선언(같은 속성)을 둔다: 97~110에서 시트 높이 상한·구분선·도는 표시가 사라지지 않게.
+    # 꾸밈뿐인 곳(누를 때 옅은 칠, 흐린 막대)은 빼도 된다
+    decorative = ("ch-hit", "ch-item.dim")
+    for name, text in CSS_FILES.items():
+        flat = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+        for m in re.finditer(r"([^{}]*)\{([^{}]*)\}", flat):
+            sel, body = m.group(1), m.group(2)
+            if any(k in sel for k in decorative):
+                continue
+            decls = [d.strip() for d in body.split(";") if d.strip()]
+            for i, d in enumerate(decls):
+                if "dvh" in d or "color-mix(" in d:
+                    prop = d.split(":", 1)[0].strip()
+                    prev = decls[i - 1] if i else ""
+                    assert prev.split(":", 1)[0].strip() == prop and "dvh" not in prev and "color-mix(" not in prev, (name, sel.strip(), d)
+
+
+def test_bundle_spans_do_not_take_label_styles() -> None:
+    # 글 넣기가 이름·설명 안에 만드는 묶음 span(bind·nowrap·keep-word·감싸개)이 넓은 span 선택자에 걸려 색·줄 높이가 바뀌지 않게
+    # (바로가기 이름 돈 보내기 전 확인이 설명 줄 색으로 흐려졌던 일, 2026-10-03)
+    assert ".quick-item span {" not in CSS
+    assert ".quick-item b + span { color: var(--text-3); line-height: var(--lh-sub); }" in CSS
+    assert re.search(r"\.keep-word \{ display: inline-block; max-width: 100%; vertical-align: top; \}", CSS)

@@ -60,11 +60,12 @@ const SIGNAL_EASY = {
 // 이력이 짧아 처음인지 알 수 없을 때(labels.SIGNAL_KO_NEUTRAL과 맞춤)
 const SIGNAL_EASY_NEUTRAL = { new_merchant_high_value: "가게에 큰 돈을 냈어요." };
 
-// 파일 올리기: 지금 읽을 수 있는 파일과 정식 버전에서 열 파일(AUG-02: .xlsx는 첫 시트를 읽는다)
-const EXT_NOW = [".csv", ".txt", ".xlsx"];
+// 파일 올리기: 지금 읽을 수 있는 파일과 정식 버전에서 열 파일(AUG-02: 엑셀은 첫 시트를 읽는다. .xls는 옛 엑셀(BIFF8)과
+// 은행·카드사가 내려주는 확장자만 .xls인 HTML 표를 모두 읽는다: safepause/data/xls.py·htmltable.py, 2026-10-03)
+const EXT_NOW = [".csv", ".txt", ".xls", ".xlsx"];
 const EXT_SOON = [".pdf", ".jpg", ".png"];
-const EXT_OK = new Set(["csv", "txt", "tsv", "xlsx"]);
-const ACCEPT = [".csv", ".txt", ".xlsx", "text/csv", "text/plain", "text/comma-separated-values", "text/tab-separated-values",
+const EXT_OK = new Set(["csv", "txt", "tsv", "xls", "xlsx"]);
+const ACCEPT = [".csv", ".txt", ".xls", ".xlsx", "text/csv", "text/plain", "text/comma-separated-values", "text/tab-separated-values",
   "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"].join(",");
 
 function easyLine(item, code) {
@@ -745,7 +746,7 @@ export default {
       ], { label: "연습용 거래 불러오기" });
     }
 
-    // ---- 파일 올리기: 지금은 .csv .txt .xlsx, .pdf .jpg .png는 준비 중 ----
+    // ---- 파일 올리기: 지금은 .csv .txt .xls .xlsx, .pdf .jpg .png는 준비 중 ----
     function openUpload() {
       const file = h("input", { class: "sr-only", id: "upload-file", type: "file", tabindex: "-1", "aria-hidden": "true", accept: ACCEPT });
       const chosen = h("p", { class: "hint tx-chosen", id: "upload-chosen", "data-nosplit": true, text: "아직 고르지 않았어요." });
@@ -755,8 +756,7 @@ export default {
       const badFile = (f) => {
         const ext = fileExt(f.name);
         if (!ext || EXT_OK.has(ext)) return "";
-        if (ext === "xls") return "옛 엑셀 파일(.xls)은 아직 올릴 수 없어요. 엑셀에서 .xlsx나 CSV로 저장한 뒤 올려 주세요.";
-        return `.${ext} 파일은 아직 올릴 수 없어요. .csv, .txt, .xlsx 파일을 골라 주세요.`;
+        return `.${ext} 파일은 아직 올릴 수 없어요. .csv, .txt, .xls, .xlsx 파일을 골라 주세요.`;
       };
       file.addEventListener("change", () => {
         const f = file.files && file.files[0];
@@ -799,7 +799,7 @@ export default {
           h("ul", { class: "tx-exts" }, EXT_SOON.map((x) => extChip(x, false))),
           h("p", { class: "muted", text: SOON_TEXT })),
         h("div", { class: "notice" }, icon("info"),
-          h("p", { text: "은행 파일 모양은 따로 확인하지 못했어요. 엑셀 파일(.xlsx)은 첫 번째 시트만 읽어요. 옛 엑셀 파일(.xls)은 .xlsx나 CSV로 저장한 뒤 올려 주세요." })),
+          h("p", { text: "은행 파일 모양은 따로 확인하지 못했어요. 엑셀 파일(.xls·.xlsx)은 첫 번째 시트만 읽어요. 암호가 걸린 엑셀 파일은 엑셀에서 암호를 넣어 연 뒤 CSV로 저장해 올려 주세요." })),
         h("div", { class: "field" }, pick, file, chosen),
         report,
         h("div", { class: "sheet-actions" },

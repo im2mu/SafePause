@@ -40,7 +40,7 @@
 .home-delta-text { display: block; min-width: 0; }
 .home-base { color: var(--text-3); font-weight: 600; line-height: var(--lh-sub); }
 .home-facts { margin-top: var(--space-4); border-top: 1px solid var(--line); }
-.home-facts li + li { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.home-facts li + li { border-top: 1px solid var(--line); border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .home-fact {
   display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .65rem; min-height: 3rem; padding: .55rem 0;
   color: inherit; text-decoration: none;
@@ -94,7 +94,7 @@ a.home-fact:active { background: var(--bg-sub); }
 
 /* ---- 많이 보낸 곳 ---- */
 .home-top { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: var(--space-2); }   /* 큰 글씨: 긴 금액이 칸을 밀어내지 않게 */
-.home-top-item + .home-top-item { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.home-top-item + .home-top-item { border-top: 1px solid var(--line); border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 /* 한 줄 전체가 내 거래(그 이름으로 걸러 보기)로 가는 링크(J9) */
 .home-top-link {
   display: flex; gap: min(.75rem, 3vw); align-items: flex-start; min-height: 2.4rem; padding: .75rem min(.5rem, 2vw);

@@ -10,6 +10,10 @@ import { api, ApiError, MODE, isConsentError, STALE } from "./api.js";
 import { engine } from "./engine-client.js";
 import { $, h, fill, icon, toast, announce, closeTopSheet, closeAllSheets, applyPrefs } from "./ui.js";
 import * as speech from "./speech.js";
+import { hardProblem, wasmAllowed, layoutOk, showCompat } from "./compat.js";
+
+// legacy.js에게: 모듈 묶음이 떴다(여기부터는 아래 시작 검사가 맡는다)
+window.__SAFEPAUSE_STARTED__ = true;
 
 applyPrefs();   // 글자 크기·화면 모드는 첫 화면을 그리기 전에 맞춘다
 
@@ -246,6 +250,9 @@ function engineSlot() {
 
 // ---- 시작 ----------------------------------------------------------------------
 async function boot() {
+  // 앱 안 파이썬 엔진은 페이지 CSP 아래 웹어셈블리 컴파일이 돼야 돈다(화면 프로그램 97 이상)
+  if (MODE === "engine" && !(await wasmAllowed())) { showCompat("wasm-csp"); return; }
+  if (!layoutOk()) layoutTip();
   // 안드로이드 뒤로 가기: 열린 창을 먼저 닫는다(MainActivity.onBackPressed가 부름)
   window.__safepauseBack = () => closeTopSheet();
   document.addEventListener("click", (e) => {
@@ -296,5 +303,18 @@ async function boot() {
   window.setTimeout(() => { for (const load of Object.values(ROUTES)) load().catch(() => {}); }, 800);
 }
 
+// 화면 프로그램이 오래돼 배치 일부가 어긋날 수 있을 때(97~110) 업데이트를 권한다. 이 창에서 한 번만
+function layoutTip() {
+  try {
+    if (sessionStorage.getItem("safepause.layoutTip") === "1") return;
+    sessionStorage.setItem("safepause.layoutTip", "1");
+  } catch (e) { /* 저장을 못 해도 안내는 한다 */ }
+  toast(MODE === "engine"
+    ? "화면 일부가 어긋나 보일 수 있어요. Play 스토어에서 Android System WebView를 업데이트하면 바르게 보여요."
+    : "화면 일부가 어긋나 보일 수 있어요. 브라우저를 업데이트하면 바르게 보여요.");
+}
+
 window.addEventListener("error", () => toast("문제가 생겼어요. 다시 해 주세요.", "error"));
-boot();
+const startProblem = hardProblem(MODE === "engine");
+if (startProblem) showCompat(startProblem);
+else boot();

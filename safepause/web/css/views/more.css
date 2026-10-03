@@ -203,7 +203,7 @@
   margin-top: max(0px, calc((1lh - min(1.25rem, 6vw)) / 2)); }
 .ev-step-ic svg { width: 100%; height: 100%; }
 .ev-dot { width: 40%; height: 40%; border-radius: 50%; background: currentColor; }
-.ev-spin { width: 100%; height: 100%; box-sizing: border-box; border-radius: 50%; border: 2.5px solid color-mix(in srgb, var(--primary) 30%, transparent);
+.ev-spin { width: 100%; height: 100%; box-sizing: border-box; border-radius: 50%; border: 2.5px solid var(--primary-weak); border: 2.5px solid color-mix(in srgb, var(--primary) 30%, transparent);
   border-top-color: var(--primary); animation: spin .8s linear infinite; }
 .ev-step-main { flex: 1 1 auto; min-width: 0; display: grid; gap: var(--gap-sent); }   /* 이름 줄 + 상태 줄(상태가 바뀌어도 높이가 그대로) */
 .ev-step-title { font-weight: 700; }

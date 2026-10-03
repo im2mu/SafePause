@@ -89,9 +89,10 @@ export default {
       h("h3", { class: "section-title", text: "오픈소스 고지" }),
       h("div", { class: "card" },
         h("p", { class: "muted", text: "SafePause는 아래 오픈소스를 써요. 각 라이선스 전문은 앱과 함께 담긴 licenses 폴더에 있어요." }),
+        // threadpool·ctl 사이 줄 바꿀 자리(\u00ad, 바뀌면 붙임표): 아주 큰 글씨 좁은 화면에서 threadpoolct / l로 잘리지 않게
         h("ul", { class: "bullets about-bullets" },
           ["Pyodide (MPL-2.0)", "Python 표준 라이브러리 (PSF License)", "NumPy (BSD-3-Clause)", "SciPy (BSD-3-Clause)",
-            "scikit-learn (BSD-3-Clause)", "joblib (BSD-3-Clause)", "threadpoolctl (BSD-3-Clause)", "pydantic · pydantic-core (MIT)",
+            "scikit-learn (BSD-3-Clause)", "joblib (BSD-3-Clause)", "threadpool\u00adctl (BSD-3-Clause)", "pydantic · pydantic-core (MIT)",
             "typing-extensions (PSF License)", "annotated-types · typing-inspection (MIT)"].map((t) => h("li", { text: t })),
           MODE === "engine" ? null : ["FastAPI · Starlette · Uvicorn (BSD/MIT)"].map((t) => h("li", { text: t })))),
       h("p", { class: "muted center more-foot", text: "SafePause 0.3.0" }));

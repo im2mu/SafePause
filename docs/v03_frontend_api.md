@@ -518,7 +518,7 @@ h("ul", { class: "legend" }, rows.map((r) => h("li", { class: `c${CHANNEL_CHART[
 | `GET /api/insights` | 돈 흐름 분석(as_of·months·this_month·prev_month·compare·channels·time_bands·top_payees·flagged_total·checked_excluded). 보내기 전 확인 기록은 모든 수치에서 뺀다 |
 | `GET /api/cards?limit=` | 쉬운 말 카드 `{total, open, reviewed, items, …}`(open은 내가 확인한 것을 뺀 수) |
 | `GET /api/export/summary` | `{filename, mime: "text/plain", text, note}` 조력자·기관용 한 장(이름·계좌 없음) |
-| `POST /api/data/upload` | 파일 + `mode: replace\|append` → `{source, mode, added, duplicates, report, summary, levels, ai_only}`. `.csv .txt .xlsx` |
+| `POST /api/data/upload` | 파일 + `mode: replace\|append` → `{source, mode, added, duplicates, report, summary, levels, ai_only}`. `.csv .txt .xls .xlsx` |
 | `POST /api/data/sample` | `{persona, seed, scenarios}`(기본 worker·10) → `{…, levels, ai_only}` |
 | `GET /api/payees` | 최근 계좌로 보낸 사람 이름 `{items}`(돈 보내기 칩) |
 | `POST /api/safepause/check` | `{to, amount, channel, to_id, time?}` → `{pending, assessment, card, notify_plan_preview, ask_helper_preview, ts_note}` |

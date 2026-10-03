@@ -137,7 +137,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
    밝게·어둡게 모두 같은 바탕이다(어두운 모드의 밝은 파랑 바탕은 흰 글 3.2:1) */
 .np-send-who { font-weight: 700; }
 .np-send-btn.primary { background: var(--primary-strong); }
-.np-send-btn.primary:active:not(:disabled) { background: color-mix(in srgb, var(--primary-strong) 85%, #000); }
+.np-send-btn.primary:active:not(:disabled) { background: var(--primary-strong); background: color-mix(in srgb, var(--primary-strong) 85%, #000); }
 .np-send-btn.done:not(.primary) { background: var(--surface); }
 .np-done { color: var(--ok-text); font-weight: 700; }
 .np-must { text-align: center; color: var(--text-3); font-weight: 600; margin-top: 1rem; }
@@ -175,7 +175,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 /* ==== 알림 ================================================================ */
 /* 알림 탭: 숫자 칸(뱅크샐러드처럼 큰 숫자 + 이름). 글자가 커서 칸이 좁으면 한 줄씩 쌓는다 */
 .al-tabs-wrap { container-type: inline-size; }
-.al-tabs-wrap > .seg-tabs { background: color-mix(in srgb, var(--line) 70%, var(--bg-sub)); }
+.al-tabs-wrap > .seg-tabs { background: var(--line); background: color-mix(in srgb, var(--line) 70%, var(--bg-sub)); }
 .al-tabs .seg-tab { flex-direction: column-reverse; justify-content: center; gap: .1rem; padding: .55rem .35rem; overflow-wrap: normal; }
 .al-tabs .seg-tab > span:first-child { line-height: var(--lh-ui); }
 /* 좁은 화면: 세 칸 이름을 모두 낱말 사이에서 두 줄로(걱정되는 / 거래, 담은 / 거래, 보낸 / 알림) 맞춰 칸 높이가 같게(D8) */
@@ -240,7 +240,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 .alert-card:focus { outline: none; box-shadow: var(--focus); }
 
 /* 같은 일 묶기(J5): 머리 줄 + 첫 카드 + 펼치기 */
-.al-group { display: grid; gap: .5rem; padding: min(.6rem, 2.5vw); border-radius: var(--r-l); background: color-mix(in srgb, var(--line) 45%, var(--bg-sub)); }
+.al-group { display: grid; gap: .5rem; padding: min(.6rem, 2.5vw); border-radius: var(--r-l); background: var(--line); background: color-mix(in srgb, var(--line) 45%, var(--bg-sub)); }
 .al-group-head { display: flex; align-items: flex-start; gap: min(.5rem, 2vw); padding: .25rem min(.4rem, 2vw) 0; color: var(--text-2); }
 .al-group-head > svg { width: min(1.2rem, 6vw); height: min(1.2rem, 6vw); flex: none; margin-top: max(0px, calc((1lh - min(1.2rem, 6vw)) / 2)); }
 .al-group-main { flex: 1 1 auto; min-width: 0; }
@@ -259,7 +259,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 
 /* 담은 거래 */
 .al-send-all { margin-bottom: .75rem; }
-.al-flag + .al-flag { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.al-flag + .al-flag { border-top: 1px solid var(--line); border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .al-txn { padding: .9rem min(1rem, 4vw) .6rem; }
 .al-row-actions {
   display: flex; flex-wrap: wrap; gap: .5rem; padding: 0 var(--pad-row) .9rem calc(var(--pad-row) + var(--ic-row) + var(--gap-row));
@@ -267,7 +267,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 .al-row-actions > .btn { flex: 1 1 6rem; }
 
 /* 보낸 알림 */
-.al-sent-item + .al-sent-item { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.al-sent-item + .al-sent-item { border-top: 1px solid var(--line); border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .al-sent-row { padding-bottom: .4rem; }
 .al-sent-row .row-title { white-space: normal; }
 .al-sent-body { padding: 0 var(--pad-row) .9rem calc(var(--pad-row) + var(--ic-row) + var(--gap-row)); }

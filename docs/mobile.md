@@ -7,7 +7,7 @@
 | 파일 | `SafePause-0.3.0.apk` (약 30MB, 쓰는 동안 인터넷 연결 불필요) |
 | 홈 화면 이름 | `SafePause` (`res/values/strings.xml`의 app_name, 아이콘은 그림만) |
 | 버전 | versionCode 3 / versionName 0.3.0 |
-| 지원 | Android 8.0(API 26) 이상, targetSdk 35(Android 15) |
+| 지원 | Android 8.0(API 26) 이상, targetSdk 35(Android 15). 화면 프로그램 Android System WebView(Android 8·9는 Chrome) **97 이상**, 권장 112 이상(Pyodide 권장). 97 미만이면 앱이 빈 화면 대신 업데이트 안내를 보인다(`js/legacy.js`·`js/compat.js`), 97~110이면 배치 일부가 어긋날 수 있어 한 번 권한다 |
 | 권한 | **없음** (INTERNET·READ_CONTACTS·CALL_PHONE 모두 요청하지 않음). 연락처는 시스템 선택 창이 고른 한 건만 받고, 전화는 다이얼 화면만 연다 |
 | 화면 | PC판과 같은 파일(`safepause/web`) — 토스 계열 모바일 우선 화면 |
 | AI 엔진 | 앱 안 파이썬(Pyodide 314.0.7, Python 3.14) + NumPy·SciPy·scikit-learn. **PC판과 같은 파이썬 코드**(`safepause` 패키지) |
@@ -121,6 +121,7 @@
 | 음성 | 기기 한국어 음성 준비됨(ttsStatus=ready), 읽기 호출 성공(소리 자체는 듣지 않음) |
 
 확인하지 않은 것: 실제 휴대폰(ARM) 기기, Android 8~14 실기기, 저사양 기기의 준비 시간, 화면 낭독(TalkBack) 실사용.
+화면 프로그램 버전: 최소 97은 앱이 쓰는 웹 기능·Pyodide 요구 기능을 정적으로 대조한 값이다. 97~111에서 Pyodide를 실제로 돌려 보지는 않았고(공식 권장 112), 96 이하에서 엔진 워커가 페이지 CSP를 물려받는지도 확인하지 못해 보수적으로 막는다. Play 스토어로 업데이트되는 Android 8·9 휴대폰의 WebView는 최대 138, Android 10 이상은 최신이라 대부분 해당하지 않는다. 순정 에뮬레이터 이미지(android-26 default WebView 58, android-30 default 83)처럼 업데이트가 안 되는 기기에서만 안내가 뜬다.
 
 ## 4. 빌드 (Gradle 없이 안드로이드 SDK 명령만)
 

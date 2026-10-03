@@ -176,7 +176,10 @@ packaging/
   - 카드 이용내역: 금액 열이 `이용금액`·`승인금액`이고 구분 열·default_direction이 없으면 모두 쓴 돈(출금)으로 본다(warnings에 추정 표시).
   - mapping `date_format`: strptime 형식(예: "%m/%d/%Y", "%y.%m.%d %H:%M"). 칸 전체가 맞아야 하고, 형식에 시각이 없으면 시각 열을 쓴다.
     열 이름 없이 설정(`date_format`·`default_direction`)만 준 mapping은 열을 자동으로 찾는다. 잘못된 형식은 한국어 LoaderError.
-  - 파일 종류: 앞 바이트로 xlsx(PK)·xls(D0CF11E0)·PDF·PNG·JPEG·GIF를, 글 앞부분으로 HTML·XML을 알아보고 "엑셀에서 'CSV UTF-8(쉼표로
+  - 엑셀: `.xlsx`는 첫 시트(`data/xlsx.py`), `.xls`(엑셀 97~2003 BIFF8)도 첫 시트를 읽는다(`data/xls.py`). 확장자만 .xls인 HTML 표
+    (은행·카드사 웹 내려받기)는 날짜·금액 머리글이 있는 첫 표를 읽는다(`data/htmltable.py`). 모두 표준 라이브러리라 앱 엔진에서도 같다.
+    암호가 걸린 엑셀·엑셀 95 이전·한글/워드 문서는 쉬운 말로 안내한다.
+  - 파일 종류: 앞 바이트로 PDF·PNG·JPEG·GIF를, 글 앞부분으로 표가 없는 HTML·XML을 알아보고 "엑셀에서 'CSV UTF-8(쉼표로
     분리)'로 저장해 올려 주세요" 같은 안내를 한다(이전에는 '인코딩' 오안내). 빈 줄·쉼표만 있는 파일은 "파일이 비어 있어요".
   - 머리글을 못 찾으면 무엇이 없는지(날짜 열·금액 열·둘 다) 알려 준다.
   - 읽은 거래가 없으면 LoaderError: "읽을 수 있는 거래가 없어요. N줄을 모두 건너뛰었어요. 건너뛴 이유: …"(많은 순서로 최대 3가지,
