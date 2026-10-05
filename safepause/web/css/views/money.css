@@ -78,11 +78,18 @@
 @media (max-width: 420px) { .choice-btn .ci { width: min(1.8rem, 9vw); height: min(1.8rem, 9vw); } }
 @media (max-height: 640px) { .choice-btn { min-height: 3rem; } }
 .mn-ask-list .row.off { color: var(--text-3); }
+/* 어두운 모드는 카드 그림자가 없고 목록 바탕(surface)이 시트 바탕과 같아 사람 카드의 경계가 사라졌다: 내 은행 앱 고르기 목록(.ba-list)처럼 한 단 밝은 바탕 */
+:root[data-theme="dark"] .mn-ask-list { background: var(--surface-2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mn-ask-list { background: var(--surface-2); } }
+/* 체크한 사람에게 물어볼래요: 줄 고르기(balance)는 '체크한 / 사람에게 물어볼래요'로 나눠 꾸미는 말만 첫 줄에 남겼다.
+   앞에서부터 채우면 '체크한 사람에게 / 물어볼래요'(뜻 덩어리)로 나뉜다. 더 좁으면 '체크한 / 사람에게 / 물어볼래요' */
+.mn-ask-go .btn-label { text-wrap: wrap; }
 
 /* 칸이 넉넉할 때만 본문·선택지를 나눈다(money.js fitLayout이 높이를 재서 split을 켜고 끔): 본문만 스크롤, 선택지는 아래 칸에 늘 보임.
-   나누지 않으면 카드 전체가 한 번에 스크롤되고 선택지는 본문 뒤에 온다(가로 화면·큰 글씨에서 본문이 0px로 접히던 문제) */
+   나누지 않으면 카드 전체가 한 번에 스크롤되고 선택지는 본문 뒤에 온다(가로 화면·큰 글씨에서 본문이 0px로 접히던 문제).
+   나눈 본문의 아래 여백은 띠의 위 여백(.75rem)과 같게: 0이면 끝까지 내렸을 때 마지막 버튼(소리로 듣기)이 띠 위 구분선에 붙었다 */
 .sheet.split { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
-.sheet.split > .sheet-body { flex: 1 1 auto; min-height: min(40vh, 14rem); min-height: min(40dvh, 14rem); overflow-y: auto; overscroll-behavior: contain; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter); }
+.sheet.split > .sheet-body { flex: 1 1 auto; min-height: min(40vh, 14rem); min-height: min(40dvh, 14rem); overflow-y: auto; overscroll-behavior: contain; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter) var(--space-3); }
 .sheet.split > .sheet-foot { position: relative; flex: none; display: grid; gap: .5rem; padding: .75rem 0 max(1rem, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
 .sheet.split .pause-head { margin-top: 0; }
 .sheet.pause:not(.split) > .sheet-foot { display: grid; gap: .5rem; padding: .75rem 0 .5rem; }

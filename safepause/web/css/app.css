@@ -476,6 +476,11 @@ input[type="checkbox"]:disabled:not(:checked) { background-color: var(--surface-
 input[type="checkbox"]:focus-visible { outline: none; box-shadow: var(--focus); }
 /* 목록 카드 안 체크 줄은 목록 줄 안쪽 여백을 그대로(체크 칸이 카드 테두리에 붙지 않게) */
 .check-row.row { padding: .8rem var(--pad-row); }
+/* 이름 아래 작은 줄이 있는 체크 줄은 체크 칸·그림을 이름(첫 줄) 높이 가운데에 둔다. 줄 전체의 가운데이면 큰 글씨·좁은 화면에서 글이 서너 줄로 접힐 때
+   체크 칸이 설명 둘째 줄 옆에 와서 어느 사람의 체크인지 흐려졌다. 이름만 있는 한 줄 체크 줄은 그대로 가운데 */
+.check-row.row:has(> .row-main .row-sub) { align-items: flex-start; }
+.check-row.row:has(> .row-main .row-sub) > input { margin-top: calc((1lh - 1.375rem) / 2); }
+.check-row.row:has(> .row-main .row-sub) > .row-icon { margin-top: calc((1lh - var(--ic-row)) / 2); }
 .check-row .grow { flex: 1; min-width: 0; }   /* 긴 신호 이름(휴대폰 소액결제 급증)이 줄을 바꾸게 */
 .check-row > svg { width: min(1.5rem, max(6vw, .8em)); height: min(1.5rem, max(6vw, .8em)); flex: none; color: var(--text-2); }   /* 무엇을 알릴까요의 신호 아이콘 */
 

@@ -478,7 +478,7 @@ export default {
             errorSlot,
             speakButton(() => ["물어볼 조력자가 없어요.", ...lines, ...(orgs.length ? [COUNSELING_TITLE, ...orgs] : [])].map(sentence).join(" ")));
           fill(foot, below,
-            h("button", { type: "button", class: "btn primary big block", onclick: () => choose("ask_helper", []) }, icon("building"), h("span", { text: "상담하는 곳에 알릴래요" })),
+            h("button", { type: "button", class: "btn primary big block mn-ask-go", onclick: () => choose("ask_helper", []) }, icon("building"), h("span", { text: "상담하는 곳에 알릴래요" })),
             back);
           fitLayout();
           body.scrollTop = 0;
@@ -504,7 +504,7 @@ export default {
           speakButton(() => ["누구에게 물어볼까요?", ...hints, ...cands.map((c) => label(c))].map(sentence).join(" ")));
         fill(foot, below,
           h("button", {
-            type: "button", class: "btn primary big block",
+            type: "button", class: "btn primary big block mn-ask-go",
             onclick: () => {
               // 체크를 풀 수 없는 자동 알림 대상도 함께 보낸다(그 사람에게도 물어봄)
               const ids = boxes.filter((b) => b.checked).map((b) => b.value);
