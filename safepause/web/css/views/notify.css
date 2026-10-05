@@ -85,7 +85,8 @@
 
 /* 어떻게 보낼까요: 문자·메일·전화(못 쓰는 방법은 흐리게 + 이유) */
 .segmented.np-channels { --seg-min: 4.5rem; }   /* 문자·메일·전화: 두 글자 이름 + 그림 */
-.np-channels input:disabled + span { color: var(--text-3); background: transparent; outline: 1px dashed var(--text-4); outline-offset: -1px; cursor: not-allowed; }   /* 꺼진 칸: 흐리게(1.77:1) 대신 보조 글 + 점선(꺼진 칩·버튼과 같은 표시) */
+.np-channels input:disabled + span { color: var(--text-4); cursor: not-allowed; }
+.np-channels input:disabled:not(:checked) + span { background: transparent; outline: 1px dashed var(--text-4); outline-offset: -1px; }   /* 꺼진 칸: 흐리게(1.77:1) 대신 보조 글 + 점선(꺼진 칩·버튼과 같은 표시) */
 .np-channels input:disabled { cursor: not-allowed; }
 .np-reasons { display: grid; gap: var(--gap-list); margin-top: .7rem; }
 .np-reasons:empty { display: none; }

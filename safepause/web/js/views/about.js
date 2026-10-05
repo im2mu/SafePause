@@ -52,7 +52,7 @@ export default {
         h("ul", { class: "bullets about-bullets" },
           li("돈 보내기에서 적은 받는 사람과 금액도 위와 같은 방법으로 살펴봐요."),
           li("거래가 30건보다 적으면 AI 없이 약속으로만 살펴봐요."),
-          li("거래 살펴보기 동의가 꺼져 있으면 살펴보지 않아요."))),
+          li("거래 살펴보기 동의가 꺼져 있으면 안 살펴봐요."))),
 
       h("h3", { class: "section-title", text: "무엇으로 배웠나요 (학습 데이터셋 요약)" }),
       h("div", { class: "card" },

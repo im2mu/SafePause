@@ -584,8 +584,6 @@ tbody th { font-weight: 600; color: var(--text-2); }
 .sheet::before { content: ""; display: block; width: 2.75rem; height: .3rem; border-radius: 999px; background: var(--grey-300); margin: 0 auto var(--space-4); }
 .sheet-title { font-size: 1.25rem; font-weight: 800; margin-bottom: var(--gap-sheet-title); outline: none; }
 .sheet-sub { color: var(--text-3); margin-bottom: var(--gap-sheet-sub); }
-/* 시트·화면 부제는 줄 길이를 고르게('거래내역'만 가운데 줄에 홀로 남지 않게, .notice-lead와 같은 방식) */
-.sheet-sub, .sheet-sub .sent, .page-sub, .page-sub .sent { text-wrap: balance; }
 .sheet-actions { display: grid; gap: var(--space-2); margin-top: var(--space-5); }
 .sheet-head { display: flex; align-items: center; gap: .6rem; margin-bottom: var(--space-2); }
 .sheet-section { margin-top: var(--space-4); }
@@ -685,6 +683,9 @@ tbody th { font-weight: 600; color: var(--text-2); }
 }
 .seg-tab svg { width: 1.1rem; height: 1.1rem; flex: none; }
 .seg-tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, .1); }
+/* 어두운 모드: 고른 탭 바탕이 묶음 바탕과 1.12:1이라 테두리로 표시(라디오 묶음과 같은 방식) */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .seg-tab[aria-selected="true"]:not(:focus-visible) { box-shadow: inset 0 0 0 1.5px var(--text-3); } }
+:root[data-theme="dark"] .seg-tab[aria-selected="true"]:not(:focus-visible) { box-shadow: inset 0 0 0 1.5px var(--text-3); }
 .seg-count { font-variant-numeric: tabular-nums; color: var(--primary); }
 
 /* 숫자 요약(뱅크샐러드 톤): 큰 숫자 + 설명 + 늘고 준 표시 */

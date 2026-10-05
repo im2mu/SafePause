@@ -211,9 +211,7 @@ function bindGroups(units) {
     if (!g) { g = [n - 1, n - 1]; groups.push(g); }
     while (g[0] > 0 && size(g[0], g[1]) <= 2 && ok(g[0] - 1, g[1])) {
       const prev = groups.find((q) => q !== g && q[1] === g[0] - 1);
-      // 앞 묶음째 합칠 때는 8글자(BIND_CAN_MAX)까지: 6글자로 막으면 앞 묶음에서 낱말을 떼어 와 '돈 보내기 / 전 확인'처럼
-      // 앞말에 붙는 말(전)이 갈렸다. 넓으면 fitBundles가 푼다
-      if (prev && ok(prev[0], g[1], BIND_CAN_MAX)) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); continue; }
+      if (prev && ok(prev[0], g[1])) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); continue; }
       if (prev) { prev[1] -= 1; if (prev[1] <= prev[0]) groups.splice(groups.indexOf(prev), 1); }
       g[0] -= 1;
     }
@@ -223,9 +221,8 @@ function bindGroups(units) {
       const prev = groups.find((q) => q !== g && q[1] === g[0] - 1);
       const start = prev ? prev[0] : g[0] - 1;
       const strand = start > 0 && size(start - 1, start - 1) <= 2 && !groups.some((q) => q[0] <= start - 1 && start - 1 <= q[1]);
-      // 상한은 '~ㄹ 수 있어요'와 같은 8글자(살펴보지 않아요. 7글자): 넓으면 fitBundles가 푼다
-      if (!strand && prev && ok(prev[0], g[1], BIND_CAN_MAX)) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); }
-      else if (!strand && !prev && ok(g[0] - 1, g[1], BIND_CAN_MAX) && !BACK_LEAD.test(text(units[g[0] - 1]))) g[0] -= 1;
+      if (!strand && prev && ok(prev[0], g[1])) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); }
+      else if (!strand && !prev && ok(g[0] - 1, g[1]) && !BACK_LEAD.test(text(units[g[0] - 1]))) g[0] -= 1;
     }
   }
   return groups.filter(([x0, x1]) => x1 > x0).sort((p, q) => p[0] - q[0]);

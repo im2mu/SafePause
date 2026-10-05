@@ -96,7 +96,7 @@
   background: var(--ok-weak); color: var(--ok-text); border: 1px solid transparent;
 }
 .tx-ext svg { width: 1rem; height: 1rem; flex: none; }
-.tx-ext.off { background: var(--bg-sub); color: var(--text-3); border-color: var(--line); border-style: dashed; }
+.tx-ext.off { background: var(--bg-sub); color: var(--text-3); border-color: var(--text-4); border-style: dashed; }   /* 점선은 꺼진 칩(.chip.off)과 같은 색(--line이면 거의 안 보였다) */
 .tx-exts-box > .muted { margin-top: -.4rem; }
 
 /* ---- 새 파일 넣는 방법 고르기(이어 붙이기·모두 바꾸기, AUG-03) ---- */

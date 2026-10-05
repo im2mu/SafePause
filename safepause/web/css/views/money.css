@@ -21,6 +21,9 @@
 .mn-add { padding-top: .5rem; }
 /* 어떻게 보내요?(셋): 가장 긴 이름(가게에서 결제 + 그림)이 한 줄에 드는 칸 폭. 셋이 다 들어가지 않으면 한 칸씩 세로로(④) */
 .seg-pay-channel { --seg-min: 9rem; }
+/* 칸(label) 폭이 그림 + '가게에서 결제'보다 좁으면 세 칸 모두 그림을 글 위로(한 칸만 올라가 배치가 섞이지 않게) */
+.seg-pay-channel label { container-type: inline-size; }
+@container (max-width: 9em) { .seg-pay-channel label > span { flex-direction: column; } }
 
 /* 자세히(보낼 시각·계좌번호): 접어 둔 칸 */
 .mn-more { margin: 0 0 1rem; border-radius: var(--r-m); background: var(--surface-2); }
