@@ -59,7 +59,7 @@ const SOON_STEPS = [
   { title: "계좌 연결", sub: "오픈뱅킹으로 내 계좌를 연결해요." },
   { title: "출금 동의", sub: "이 앱에서 내 계좌의 돈을 보내도 된다고 동의해요." },
   { title: "받는 사람과 금액 적기" },   // 받는 사람·금액은 가운뎃점 묶음이라 큰 글씨에서 받는 / 사람·금액 적기로 갈렸다
-  { title: "보내기 전 확인 카드", sub: "걱정되는 점이 있으면 다시 물어봐요." },
+  { title: "보내기 전 확인 카드", sub: "걱정되는 점을 다시 물어봐요." },
   { title: "이체 인증", sub: "은행이 정한 본인\u00a0인증과 한도를 거쳐요." },   // 본인 인증(한 말)은 줄을 바꾸지 않는 빈칸으로
   { title: "보내기 완료" },
 ];
@@ -663,7 +663,7 @@ export default {
             decision === "send" ? notifyBtns : null,
             showCounseling ? h("div", { class: "notice blue" }, icon("building"), h("div", null, h("p", { class: "notice-lead", text: COUNSELING_TITLE }), h("ul", null, plan.counseling_orgs.map((o) => h("li", { text: o }))))) : null,
             // 내 거래에 적는 날짜 안내는 접어 둔다(결과의 핵심 문장 수를 줄임, ⑥). 소리로 듣기에는 그대로 들어간다
-            tsNote ? h("details", { class: "mn-ts" }, h("summary", null, trailingIcon(h("span", { class: "mn-ts-label", text: "내 거래에 적는 날짜" }), icon("chevron-down", "mn-ts-chev"))),
+            tsNote ? h("details", { class: "mn-ts" }, h("summary", null, h("span", { class: "mn-ts-label" }, "내 거래에 ", h("span", { class: "nowrap" }, "적는 날짜", icon("chevron-down", "mn-ts-chev")))),
               h("p", { class: "muted", text: tsNote })) : null) : null,
           h("div", { class: "sheet-actions" },
             speakButton(() => spoken.map(sentence).join(" ")),
@@ -762,18 +762,6 @@ function fitSummary(dl) {
   else window.addEventListener("resize", schedule);
   schedule();
   return dl;
-}
-
-/**
- * 글 뒤 그림(접힘 화살표 등)을 마지막 글 묶음(.bind·.nowrap) 안에 넣는다(S107): 글이 두 줄로 접혀도 그림이 마지막 낱말
- * 바로 뒤에 붙고(칸 오른쪽 끝으로 떨어지지 않음) 그림만 다음 줄로 넘어가지 않는다. 묶음이 없으면 글 뒤에 둔다
- */
-function trailingIcon(label, ic) {
-  const marks = label.querySelectorAll(".bind, .nowrap");
-  const last = marks[marks.length - 1];
-  const tail = last && label.textContent.trimEnd().endsWith(last.textContent) ? last : label;
-  tail.append(ic);
-  return label;
 }
 
 /** 결과의 필수 문장 한 줄(은행 앱 버튼 바로 아래). */

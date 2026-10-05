@@ -10,6 +10,8 @@ import { MODE } from "../api.js";
 
 // 목록 한 줄(문장이 둘이면 줄을 나눔)
 const li = (text) => h("li", null, h("p", { text }));
+// 번호 제목(② 나만의 평소 기준 AI): 번호는 왼쪽 칸, 제목은 옆 칸에서 줄을 바꾼다(번호만 첫 줄에 홀로 남지 않게)
+const stepTitle = (t) => { const [no, ...rest] = t.split(" "); return h("h3", { class: "step-title" }, h("span", { class: "step-no", text: no }), h("span", { text: rest.join(" ") })); };
 
 const RULES = {
   night_repeat_transfer: "밤 11시~새벽 6시에 이체가 7일 안에 2건이면 확인, 3건이면 꼭 확인",
@@ -37,18 +39,18 @@ export default {
           h("span", { class: "row-main" }, h("span", { class: "row-title about-wrap", text: SIGNAL_KO[code] }),
             h("span", { class: "row-sub about-wrap", text: RULES[code] }))))),
       h("div", { class: "card" },
-        h("h3", { text: "② 나만의 평소 기준 AI" }),
+        stepTitle("② 나만의 평소 기준 AI"),
         h("p", { text: "내 과거 거래로 Isolation Forest(이상 탐지 모델)를 배워요. 금액·시간대·처음 보는 상대·7일 건수 등 11가지 특징을 봐요." }),
         h("p", { class: "muted", text: "점수는 내 평소 거래 가운데 이 거래보다 덜 특이한 비율(0~1)이에요." })),
       h("div", { class: "card" },
-        h("h3", { text: "③ 둘을 합치는 방법" }),
+        stepTitle("③ 둘을 합치는 방법"),
         h("ul", { class: "bullets about-bullets" },
           li("약속으로 꼭 확인할 거래면 그대로 꼭 확인이에요."),
           li("약속으로 확인할 거래이고 AI 점수가 0.90 이상이면 꼭 확인으로 올려요."),
           li("약속에 걸리지 않은 나가는 돈은 AI 점수가 0.98 이상일 때만 확인이에요. 꼭 확인까지는 안 올려요."),
           li("거래가 30건보다 적으면 AI 없이 약속으로만 봐요."))),
       h("div", { class: "card" },
-        h("h3", { text: "④ 돈 보내기 전 확인" }),
+        stepTitle("④ 돈 보내기 전 확인"),
         h("ul", { class: "bullets about-bullets" },
           li("돈 보내기에서 적은 받는 사람과 금액도 위와 같은 방법으로 살펴봐요."),
           li("거래가 30건보다 적으면 AI 없이 약속으로만 살펴봐요."),

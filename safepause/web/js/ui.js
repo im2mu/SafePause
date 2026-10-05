@@ -65,7 +65,7 @@ export function splitSentences(text) {
 // · 전화번호 · 두 글자 낱말 둘을 가운뎃점으로 이은 말(문자·메일) · 띄어 쓴 화면 이름(알림 보내기·알림 목록: 남지만 알림 / 보내기에는처럼
 // 이름이 갈려 앞말과 한 덩어리로 읽히지 않게, S010·S073. 붙은 말까지 한 묶음, 아래 name). 해(2026년)·요일((토))은 묶지 않는다
 // (묶음이 길면 큰 글씨 좁은 칸에서 넘친다. 칸보다 넓은 묶음은 fitBundles가 푼다)
-const KEEP_RE = /(?:새벽|아침|오전|낮|오후|저녁|밤)[ \u00a0]\d{1,2}시(?:[ \u00a0]\d{1,2}분)?|\d{1,2}월[ \u00a0]\d{1,2}일|\d[\d,.]*(?:억|만|천)?(?:[ \u00a0]?\d[\d,.]*(?:만|천))*[ \u00a0]?원|(?<![\d*])[\d*]{2,4}-[\d*]{3,4}-[\d*]{4}(?![\d*])|(?<![가-힣·])[가-힣]{1,2}·[가-힣]{1,2}(?![가-힣·])|(?<![가-힣])(?:돈[ \u00a0]보내기[ \u00a0]전[ \u00a0]확인|알림[ \u00a0](?:보내기|목록)|돈[ \u00a0]보내기|상담하는[ \u00a0]곳|내[ \u00a0]거래)/g;
+const KEEP_RE = /(?:새벽|아침|오전|낮|오후|저녁|밤)[ \u00a0]\d{1,2}시(?:[ \u00a0]\d{1,2}분)?|\d{1,2}월[ \u00a0]\d{1,2}일|\d[\d,.]*(?:억|만|천)?(?:[ \u00a0]?\d[\d,.]*(?:만|천))*[ \u00a0]?원|(?<![\d*])[\d*]{2,4}-[\d*]{3,4}-[\d*]{4}(?![\d*])|(?<![가-힣·])[가-힣]{1,2}·[가-힣]{1,2}(?![가-힣·])|(?<![가-힣])(?:돈[ \u00a0]보내기[ \u00a0]전[ \u00a0]확인|알림[ \u00a0](?:보내기|목록)|돈[ \u00a0]보내기|상담하는[ \u00a0]곳|내[ \u00a0]거래|쉬운[ \u00a0]말)/g;
 const HANGUL_TAIL = /^[가-힣]{3,}/;
 // 기관 이름처럼 긴 낱말(앞 4글자 이상 + 뒤 기관 말)은 그 사이에서 줄을 바꿀 수 있게 한다(지역발달장애인 / 지원센터).
 // 낱말 끝 한두 글자(센 / 터)만 다음 줄로 밀리지 않게 한다
@@ -142,7 +142,7 @@ function splitUnits(s) {
       last += tail.length + punct.length;
       continue;
     }
-    if (/^(?:알림|돈|상담하는|내)[ \u00a0]/.test(k)) { word("name", k); continue; }   // 화면 이름(아래 KEEP_RE 이름 갈래)
+    if (/^(?:알림|돈|상담하는|내|쉬운)[ \u00a0]/.test(k)) { word("name", k); continue; }   // 화면 이름(아래 KEEP_RE 이름 갈래)
     word("keep", k);
   }
   plain(s.slice(last));
@@ -524,7 +524,10 @@ function sticksOut(el) {
       const pos = cs.position;
       if (pos !== "absolute" && pos !== "fixed" && !(parseFloat(cs.marginRight) < 0)) {
         const inner = p.getBoundingClientRect().right - parseFloat(s.paddingRight) - parseFloat(s.borderRightWidth);
-        if (child.getBoundingClientRect().right > inner + 0.5) return true;
+        // 감싼 상자가 꾸밈 없는 인라인(여러 줄에 걸친 글 상자)이면 그 상자 전체가 아니라 묶음 자신의 오른쪽 끝으로 견준다: 같은 글 상자의
+        // 다른 묶음이 넘쳐도 이 묶음까지 풀려 '한 / 장 요약'처럼 들어갈 묶음이 갈렸다
+        const right = cs.display === "inline" ? Math.max(...[...el.getClientRects()].map((r) => r.right)) : child.getBoundingClientRect().right;
+        if (right > inner + 0.5) return true;
       }
     }
     if (s.overflowX !== "visible" && s.overflowX !== "clip") return false;

@@ -635,7 +635,7 @@ export default {
 
     /** 이 방법을 쓸 수 있는지와 못 쓰는 이유. sel = 이 무리에서 고른 받는 사람. */
     function wayState(g, way, sel) {
-      const whom = `고른 ${g.def.title}${g.def.to}`;
+      const whom = g.kind === "counselor" ? "고른 곳에" : `고른 ${g.def.title}${g.def.to}`;   // 상담처 무리는 이미 '상담하는 곳 N곳에' 머리 아래('고른 / 상담하는 곳에' 4줄 방지)
       if (way === "sms") {
         if (!caps.sms) return { ok: false, why: "문자는 휴대폰 앱에서 보낼 수 있어요." };
         const to = sel.filter((p) => p.phone);

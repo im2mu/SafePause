@@ -170,12 +170,15 @@
 .guide-link svg { width: min(1.1rem, max(6vw, .8em)); height: min(1.1rem, max(6vw, .8em)); }
 /* 가는 곳 버튼: 끝 낱말(가기)이 홀로 다음 줄에 남지 않게 묶음을 지키고(⑬), 아주 큰 글씨(카드가 8글자보다 좁음)는 그림을 빼서 이름 칸을 넓힌다 */
 .guide-link .bind { white-space: nowrap; }
-@container (max-width: 8rem) { .guide-link svg { display: none; } .guide-link .btn-label > svg { display: none; } }
+@container (max-width: 8rem) { .guide-link svg { display: none; } .guide-link .btn-label > svg { display: none; } .guide-head .row-icon { display: none; } }   /* 아주 좁은 단계 카드: 제목 앞 꾸밈 그림도 빼 제목 칸을 넓힌다(번호 동그라미는 남김) */
 
 /* ---- AI와 데이터 설명·AI 성능 확인 ---- */
 .about-bullets { margin-top: var(--space-2); color: var(--text-2); }   /* 점·들여쓰기·항목 간격은 공용 .bullets */
 .lead-strong > .sent:first-child { font-weight: 700; }   /* 문단 첫 문장만 굵게 */
 .about-gap { margin-top: .5rem; }
+.step-title { display: flex; gap: .3em; }   /* 번호 + 제목(about.js stepTitle): 제목이 두 줄이 되어도 번호 옆에서 줄을 바꾼다 */
+.step-title > .step-no { flex: none; }
+.step-title > span + span { flex: 1 1 auto; min-width: 0; }
 .about-wrap { white-space: normal; }
 .eval-note { margin: .4rem .25rem .6rem; }
 /* 성능 표 위 결론(J11) */
