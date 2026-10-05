@@ -801,8 +801,9 @@ export default {
           h("h3", { class: "tx-ext-title" }, h("span", { text: "곧 올릴 수 있는 파일" }), soonBadge()),
           h("ul", { class: "tx-exts" }, EXT_SOON.map((x) => extChip(x, false))),
           h("p", { class: "muted", text: SOON_TEXT })),
+        // 엑셀 확장자(.xls·.xlsx)는 위 칩에 있다: 문장 안 괄호 덩어리(파일(.xls·.xlsx)은)는 끊기지 않아 큰 글씨에서 엑셀만 한 줄에 홀로 남았다
         h("div", { class: "notice" }, icon("info"),
-          h("p", { text: "은행 파일 모양은 따로 확인하지 못했어요. 엑셀 파일(.xls·.xlsx)은 첫 번째 시트만 읽어요. 암호가 걸린 엑셀 파일은 엑셀에서 암호를 넣어 연 뒤 CSV로 저장해 올려 주세요." })),
+          h("p", { text: "은행 파일 모양은 따로 확인하지 못했어요. 엑셀 파일은 첫 번째 시트만 읽어요. 암호가 걸린 엑셀 파일은 엑셀에서 암호를 넣어 연 뒤 CSV로 저장해 올려 주세요." })),
         h("div", { class: "field" }, pick, file, chosen),
         report,
         h("div", { class: "sheet-actions" },

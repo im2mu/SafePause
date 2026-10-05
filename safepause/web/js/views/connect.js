@@ -13,7 +13,8 @@ const PERIODS = ["3개월", "6개월", "12개월"];
 /** 지금 쓸 수 있는 방법. opts.onUpload·onSample이 있으면 그것을, 없으면 내 거래 화면에서 그 시트를 연다. */
 function nowOptions(ctx, opts) {
   return (close) => h("div", { class: "soon-now" },
-    h("p", { class: "soon-now-title", text: "지금은 파일 올리기나 연습용 거래로 해 볼 수 있어요." }),
+    // 끝 말은 짧게(해 보세요): 해 볼 수 있어요는 한 덩어리(6글자)라 큰 글씨에서 앞 낱말(거래로)만 한 줄에 홀로 남았다(360폭 2배)
+    h("p", { class: "soon-now-title", text: "지금은 파일 올리기나 연습용 거래로 해 보세요." }),
     h("div", { class: "btn-row" },
       h("button", { type: "button", class: "btn weak", onclick: () => { close(); run(ctx, opts.onUpload, "upload"); } },
         icon("upload"), h("span", { text: "파일 올리기" })),

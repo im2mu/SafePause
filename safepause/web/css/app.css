@@ -362,7 +362,9 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 .chip[aria-pressed="true"] { background: var(--grey-800); border-color: var(--grey-800); color: #fff; }
 :root[data-theme="dark"] .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); } }
-.chip.off { opacity: .55; cursor: not-allowed; }
+/* 고를 수 없는 칩(준비 중 단계의 기간): 흐리게(opacity .55) 하면 글이 2.5:1로 읽히지 않는다. 보조 글 색(단계 상자 위 5:1 이상) + 테두리만.
+   바탕은 비워 둔다(단계 상자 색): 회색 바탕(--bg-sub)은 닫기 같은 보통 버튼 바탕과 같아 누를 수 있어 보이고, 어두운 모드에서는 검은 구멍처럼 튀었다 */
+.chip.off { background: transparent; color: var(--text-3); cursor: not-allowed; }
 
 /* 준비 중 배지 */
 .soon {
@@ -584,6 +586,9 @@ tbody th { font-weight: 600; color: var(--text-2); }
 .soon-options { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: var(--space-2); }
 .soon-now { border-top: 1px solid var(--line); padding-top: var(--space-4); margin-top: var(--space-1); }
 .soon-now-title { font-weight: 700; margin-bottom: .6rem; }
+/* 지금 쓸 수 있는 방법 두 버튼: 두 이름이 다 한 줄에 드는 폭(13rem, 연습용 거래 불러오기 11.7rem + 넓은 글꼴 여유)일 때만 나란히, 같은 폭으로.
+   그보다 좁으면 위아래로(한쪽만 두 줄로 접혀 짝 버튼의 줄 수·무게가 달라 보이지 않게, 412폭 1배·768폭 1.6배) */
+.soon-now .btn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); }
 
 /* ==== 12. 화면 부품 ========================================================= */
 /* 쉬운 말 카드(알림·돈 보내기): 카드 문장 줄 */
