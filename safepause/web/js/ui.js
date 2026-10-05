@@ -85,6 +85,7 @@ function softBreaks(text, out) {
 // 낱말 묶기(⑫·⑬): 한 덩어리의 글자 수 상한(한글·영문·숫자). 묶은 낱말은 줄을 바꾸지 않으므로 큰 글씨 좁은 칸에서도
 // 넘치지 않게 짧게 둔다(360폭 글자 2배의 가장 좁은 문장 칸이 6.5글자쯤)
 const BIND_MAX = 6;
+const BIND_CAN_MAX = BIND_MAX + 2;   // ~ㄹ 수 있어요 묶음 상한(bindGroups)
 // 낱말 안 문장부호(앞뒤가 빈칸이 아닌 괄호·물결·붙임표·가운뎃점·빗금·밑줄): 브라우저가 그 앞이나 뒤에서 줄을 바꿀 수 있는 자리
 const PUNCT_IN = /[^\s\u00a0][([~/·\-–_)\]][^\s\u00a0]/;
 const PUNCT_WORD_MAX = 16;
@@ -143,6 +144,7 @@ function splitUnits(s) {
  * 함께 둘 unit 묶음을 고른다(낱말 묶기). 돌려주는 값: [[첫 unit, 끝 unit], …]
  *  - 한 글자 낱말(열·수·내·이·더…)은 뒤 낱말과: 앱에서 열 / 수 있어요 → 앱에서 / 열 수 있어요(줄 끝에 한 글자가 홀로 남지 않게).
  *    앞 낱말에 붙는 한 글자 낱말(곳·등·달·번…, BACK_WORD)은 앞 낱말과: 처음 가는 곳 / 큰 금액 결제, 건수 등 / 11가지.
+ *    ~ㄹ 수 있어요·없어요는 뒤 낱말까지 한 덩어리(BIND_CAN_MAX 글자까지): 센터에도 알릴 수 / 있어요. → 센터에도 / 알릴 수 있어요.
  *  - 글 끝 묶음이 두 글자 이하면 앞 낱말을 더한다: 불법금융 / 신고 → 불법금융 신고, 돈을 / 낼 때 → 돈을 낼 때(꼬리 줄).
  *    더할 낱말이 앞 묶음의 끝이면 합치고, 합쳐서 상한을 넘으면 앞 묶음에서 그 낱말을 떼어 온다(꼬리를 먼저 막는다)
  *  - 전화번호·금액 + 붙은 말은 묶지 않는다(그 자체로 줄 바꾸는 규칙이 있다). 묶음은 BIND_MAX 글자까지
@@ -163,8 +165,16 @@ function bindGroups(units) {
     // 앞 낱말에 붙는 말(가는 곳·보낸 적이): 앞 낱말과 묶는다(앞 낱말이 이미 묶음 끝이면 그 묶음을 늘린다)
     if (back(k) && k > 0 && !single(k - 1)) {
       const prev = groups.length && groups[groups.length - 1][1] === k - 1 ? groups[groups.length - 1] : null;
-      if (prev && ok(prev[0], k)) { prev[1] = k; continue; }
-      if (!prev && ok(k - 1, k)) { groups.push([k - 1, k]); continue; }
+      let g = null;
+      if (prev && ok(prev[0], k)) { prev[1] = k; g = prev; }
+      else if (!prev && ok(k - 1, k)) { g = [k - 1, k]; groups.push(g); }
+      if (g) {
+        // ~ㄹ 수(도) 있어요·없어요: 한 덩어리 말이라 뒤 낱말까지 묶는다(알릴 수 / 있어요.처럼 끝말만 다음 줄에 남지 않게).
+        // 상한은 두 글자 넉넉히(확인할 수 있어요 7글자): 칸보다 넓어지면 fitBundles가 푼다
+        if (k + 1 < n && /^수/.test(units[k].parts[0].text) && /^[있없]/.test(text(units[k + 1])) && free(k + 1)
+          && size(g[0], k + 1) <= BIND_CAN_MAX) { g[1] = k + 1; k += 1; }
+        continue;
+      }
     }
     if (!single(k) || k === n - 1) continue;
     let j = k;
@@ -192,7 +202,7 @@ function bindGroups(units) {
  * 글을 묶음 노드로(textContent는 원래 글과 같다, docs/v03_typography.md 4·5). 묶음 span은 늘 글자로 시작하고 끝난다
  * (앞뒤 빈칸을 span 안에 두지 않는다: 줄 고르기(balance)가 span 앞 빈칸에서 줄을 바꾸는 일이 있다).
  *  - span.nowrap: 시각(새벽 4시 41분)·날짜(6월 27일)·띄어 쓴 금액(3만 5천 원)·문자·메일
- *  - span.tel-text: 전화번호(하이픈 뒤에서만 줄을 바꾼다)
+ *  - span.tel-text: 전화번호(하이픈 뒤에서만 줄을 바꾼다, 세 마디면 뒤 두 마디는 span.keep-word 한 덩어리)
  *  - span.keep-word: 금액 바로 뒤에 한글이 세 글자 이상 붙은 낱말(63만7천원이었어요). 한 줄에 들면 통째로 옮기고,
  *    칸보다 길 때만(아주 큰 글씨) 금액 뒤(wbr)에서 줄을 바꾼다. 7~16글자 낱말 안 문장부호(이름·계좌번호·연락처는)도 같다
  *  - 6글자까지 낱말 안 문장부호(약속(규칙)으로·비율(0~1)이에요)는 span.nowrap
@@ -220,8 +230,20 @@ export function keepNodes(text, { bind = false } = {}) {
   const writeParts = (u) => {
     for (const p of u.parts) {
       if (p.kind === "kw") { flush(); out.push(keepWord(p.text)); }
-      // 전화번호: 하이픈 뒤(wbr)에서만 줄을 바꾼다(하이픈 뒤 숫자 앞은 브라우저가 줄을 바꾸지 않아 큰 글씨에서 넘쳤다)
-      else if (p.kind === "tel") span("tel-text", p.text.split(/(?<=-)/).flatMap((t, k) => (k ? [document.createElement("wbr"), t] : [t])));
+      // 전화번호: 하이픈 뒤(wbr)에서만 줄을 바꾼다(하이픈 뒤 숫자 앞은 브라우저가 줄을 바꾸지 않아 큰 글씨에서 넘쳤다).
+      // 세 마디(010-1234-5678)면 뒤 두 마디는 한 덩어리(span.keep-word): 칸이 좁으면 010- / 1234-5678로 나뉜다(앞줄을 끝까지
+      // 채워 010-1234- / 5678처럼 끝 네 숫자만 홀로 내려가지 않게). 덩어리보다 좁을 때만 그 안 하이픈 뒤에서 바꾼다
+      else if (p.kind === "tel") {
+        const g = p.text.split(/(?<=-)/);
+        const wbrs = (arr) => arr.flatMap((t, k) => (k ? [document.createElement("wbr"), t] : [t]));
+        if (g.length < 3) span("tel-text", wbrs(g));
+        else {
+          const rest = document.createElement("span");
+          rest.className = "keep-word";
+          rest.append(...wbrs(g.slice(1)));
+          span("tel-text", [g[0], document.createElement("wbr"), rest]);
+        }
+      }
       else if ((p.kind === "keep" && /[ \u00a0]/.test(p.text)) || p.kind === "dot") span("nowrap", [p.text]);
       else buf += p.text;   // 보통 글·빈칸 없는 금액(50,000원·63만7천원: 줄을 바꿀 자리가 없다)
     }

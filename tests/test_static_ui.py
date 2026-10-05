@@ -486,9 +486,12 @@ def test_keep_bundles_and_short_text() -> None:
     # 앞 낱말에 붙는 한 글자 말(곳·등·달·번…)은 앞 낱말과(처음 가는 곳 / 큰 금액 결제), 6글자까지 낱말 안 문장부호(약속(규칙)으로)는
     # nowrap, 7~16글자는 keep-word(가운뎃점·물결 뒤·여는 괄호 앞 wbr에서만 줄바꿈)
     assert "const BACK_WORD = " in ui and "SOFT_MAX" not in ui
+    assert "const BIND_CAN_MAX = BIND_MAX + 2;" in ui and "/^[있없]/.test(text(units[k + 1]))" in ui   # 알릴 수 있어요 한 덩어리
     write_unit = ui[ui.index("const writeUnit"):ui.index("const bindChildren")]
     assert "letters(ut) <= BIND_MAX" in write_unit and "(?<=·)" in write_unit and "(?=\\()" in write_unit
-    assert 'span("tel-text", p.text.split(/(?<=-)/)' in ui                       # 전화번호는 하이픈 뒤(wbr)에서만 줄바꿈
+    tel = ui[ui.index('p.kind === "tel"'):ui.index('p.kind === "keep" &&')]
+    assert "p.text.split(/(?<=-)/)" in tel and 'span("tel-text"' in tel             # 전화번호는 하이픈 뒤(wbr)에서만 줄바꿈
+    assert 'rest.className = "keep-word"' in tel and "g.slice(1)" in tel            # 세 마디면 뒤 두 마디는 한 덩어리(010- / ****-5678)
     # 덩어리는 어디서나 줄 위쪽에 맞춘다(두 줄 버튼의 그림·목록 점이 덩어리 마지막 줄 옆으로 내려가지 않게, 위 .keep-word 규칙)
     assert re.search(r"\.keep-word \{[^}]*vertical-align: top;", CSS)
     assert 'h("span", null, action, h("wbr"), h("span", { class: "nowrap", text: "(준비 중)" }))' in ui   # 준비 중 버튼: 괄호 앞에서 줄바꿈

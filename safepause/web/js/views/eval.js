@@ -308,16 +308,23 @@ function trow(label, values, heads = []) {
     }));
 }
 
-/** 파일 이름·경로(docs/eval/eval_results_holdout.json)는 / 와 _ 뒤, 경로를 여는 괄호 앞·닫는 괄호 뒤(원자료 / (docs/…json) / 에서)에서 줄을 바꿀 수 있게 wbr을 넣는다
- * (좁은 화면·큰 글씨에서 낱말 가운데가 아무 데서나 잘리지 않게, textContent는 그대로). */
+/** 파일 이름·경로(docs/eval/eval_results_holdout.json)는 / 와 _ 뒤, 경로를 여는 괄호 앞(원자료 / (docs/…)에서 줄을 바꿀 수 있게 wbr을 넣는다
+ * (좁은 화면·큰 글씨에서 낱말 가운데가 아무 데서나 잘리지 않게, textContent는 그대로). 경로 끝 조각 + 닫는 괄호 + 붙은 조사
+ * (holdout.json)에서)는 줄을 바꾸지 않는 묶음(span.nowrap): 조사(에서)가 줄 첫머리에 오지 않게 통째로 다음 줄로 옮긴다.
+ * 묶음이 칸보다 넓으면(360폭 글자 2배) ui.fitBundles가 풀어 닫는 괄호 뒤에서 바꾼다(holdout.json) / 에서 뽑은 값.). */
 function breakPaths(el) {
-  const AT = /(?<=[/_])|(?<=\.json\))(?=[가-힣])|(?<=[가-힣])(?=\([\w.-]+\/)/;
+  const AT = /(?<=[/_])|(?<=[가-힣])(?=\([\w.-]+\/)/;
+  const TAIL = /^[\w-]+\.\w+\)[가-힣]+/;
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   const nodes = [];
   for (let n = walker.nextNode(); n; n = walker.nextNode()) if (AT.test(n.nodeValue)) nodes.push(n);
   for (const n of nodes) {
     const parts = n.nodeValue.split(AT);
-    n.replaceWith(...parts.flatMap((t, i) => (i < parts.length - 1 ? [t, document.createElement("wbr")] : [t])));
+    n.replaceWith(...parts.flatMap((t, i) => {
+      const m = i ? TAIL.exec(t) : null;
+      const piece = m ? [h("span", { class: "nowrap" }, m[0]), t.slice(m[0].length)].filter(Boolean) : [t];
+      return i < parts.length - 1 ? [...piece, document.createElement("wbr")] : piece;
+    }));
   }
   return el;
 }
