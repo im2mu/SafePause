@@ -108,8 +108,9 @@
 .np-group > .hint, .np-group > p + p { margin-top: 0; }   /* 무리 안 줄 사이는 칸 사이(.6rem) 하나(메일 제목 → 안내가 .95rem이 되지 않게, ⑧) */
 .np-group .input { background: var(--surface); }
 .np-group textarea.input { padding-left: min(1rem, 3.5vw); padding-right: min(1rem, 3.5vw); }
-/* 아주 큰 글씨(단계 카드가 13글자보다 좁음): 무리 칸의 바탕·여백·그림을 빼서 글 칸을 넓힌다 */
-@container (max-width: 13rem) {
+/* 아주 큰 글씨(단계 카드가 13글자보다 좁음): 무리 칸의 바탕·여백·그림을 빼서 글 칸을 넓힌다. 기준은 단계 카드(np-card):
+   이름 없는 쿼리는 가장 가까운 컨테이너(넓은 버튼 .btn.block 자신)를 기준으로 삼아 보통 크기에서도 버튼 그림이 사라졌다 */
+@container np-card (max-width: 13rem) {
   .np-group { padding: .9rem 0 0; background: none; border-radius: 0; border-top: 1px solid var(--line); }
   .np-g-head > .row-icon, .np-group .btn > .btn-ic { display: none; }   /* 버튼 그림을 빼서 글 칸을 넓힌다 */
   .np-group .segmented { background: var(--surface-2); }
@@ -194,7 +195,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 .al-tabs .seg-tab[aria-selected="true"] .seg-count { color: var(--primary); }
 @container (max-width: 15rem) {
   .al-tabs { flex-direction: column; }
-  .al-tabs .seg-tab { flex: none; flex-direction: row; justify-content: space-between; text-align: left; padding: .55rem min(.8rem, 3vw); }
+  .al-tabs .seg-tab { flex: none; flex-direction: row; justify-content: space-between; column-gap: min(.75rem, 3vw); text-align: left; padding: .55rem min(.8rem, 3vw); }   /* 이름과 수 사이 간격(걱정되는 거래24 방지) */
   .al-tabs .seg-tab > span:first-child { flex: 1 1 auto; min-width: 0; white-space: normal; }
   .al-tabs .seg-count { font-size: 1.1rem; min-height: 0; flex: none; white-space: nowrap; }
 }
@@ -293,6 +294,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 
 /* ==== 큰 글씨(140~200%)·좁은 칸: 목록의 동그란 그림과 들여쓰기를 빼서 글자 칸을 넓힌다 ==== */
 .np-picked-slot, .np-pick-panel, .al-flags, .al-sent, .al-panel, .np-send, .np-step { container-type: inline-size; }
+.np-send, .np-step { container-name: np-card; }
 @container (max-width: 13rem) {
   .np-txn > .row-icon, .al-sent-row > .row-icon { display: none; }
   .np-txn .row-tags .tag > svg { display: none; }   /* 태그 그림이 글 칸을 줄여 휴대폰 / 소액결제 / 급증처럼 꼬리가 생기지 않게(태그 글이 같은 뜻) */

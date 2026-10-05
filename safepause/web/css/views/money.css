@@ -136,7 +136,7 @@
 .ba-actions { display: grid; gap: .5rem; margin-top: .25rem; }
 /* 열기 버튼 이름: btn-label(그림은 첫 줄 글 앞, 줄은 가운데에서 고르게) + 고른 앱 이름은 아랫줄. 두 줄로 접혀도 그림 + 글 덩어리가 버튼 가운데 */
 .ba-open-text { line-height: var(--lh-ui); }
-.ba-open-name { display: block; font-weight: 600; opacity: .9; overflow-wrap: break-word; }
+.ba-open-name { display: block; font-weight: 600; overflow-wrap: break-word; }   /* 흐리게 하지 않는다(opacity .9는 대비 3.3·2.9:1) */
 .ba-why { display: flex; gap: .45rem; align-items: flex-start; color: var(--text-3); font-weight: 600; }
 .ba-why svg { width: 1.15rem; height: 1.15rem; flex: none; margin-top: max(0px, calc((1lh - 1.15rem) / 2)); }
 .ba-fail:empty { display: none; }

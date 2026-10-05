@@ -317,9 +317,9 @@ function bandsCard(ctx, bands, mWord) {
       h("div", { class: "home-ok" }, icon("check-line"), h("p", { text: `${mWord}에는 걱정되는 거래가 없었어요.` })));
   }
   const most = Math.max(...bands.map((b) => b.flagged || 0));
-  // 결론 줄은 시각 범위로(낮 12시 ~ 저녁 6시에 가장 많았어요): 물결 앞뒤를 띄워 큰 글씨에서 범위 가운데(빈칸)에서만 줄을 바꾼다.
-  // 시간대 이름(낮)은 바로 아래 막대그림 이름이 말한다
-  const peaks = bands.filter((b) => (b.flagged || 0) === most).map((b) => bandRange(b).replace("~", " ~ "));
+  // 결론 줄은 시각 범위로(낮 12시~저녁 6시에 가장 많았어요): 바로 아래 목록과 같은 표기(물결 붙여 씀). 줄은 범위 안 빈칸에서
+  // 바뀌고, 묶음이 칸보다 넓으면 ui.fitBundles가 푼다. 시간대 이름(낮)은 바로 아래 막대그림 이름이 말한다
+  const peaks = bands.filter((b) => (b.flagged || 0) === most).map((b) => bandRange(b));
   const items = bands.map((b) => ({
     label: bandName(b), sub: bandRange(b), value: b.flagged || 0, valueText: `${nf.format(b.flagged || 0)}건`,
     aria: `${bandName(b)}, ${bandRange(b)}, 걱정되는 거래 ${nf.format(b.flagged || 0)}건`,
