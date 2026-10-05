@@ -396,40 +396,9 @@ export function keepNodes(text, { bind = false } = {}) {
   }
   buf += tail;
   flush();
-  return glueGaps(out);
-}
-
-/**
- * 묶음 둘 사이의 빈칸이 빈칸만 든 글 조각이 되지 않게 한다: 앞 묶음의 끝 글자(또는 뒤 묶음의 첫 글자)를 그 빈칸 조각으로 옮긴다
- * (6월 22일 저녁 7시 → [6월 22]일 [저녁 7시]). 줄은 여전히 그 빈칸에서만 바뀌고(글자 사이는 keep-all이라 끊기지 않음),
- * 묶음은 늘 글자로 시작한다(묶음 앞 빈칸은 그 앞에서 줄이 바뀌게 한다). textContent는 그대로다.
- * 빈칸만 든 글 조각은 화면 읽기·측정 도구(TreeWalker의 빈 글 거르기)에서 사라져 줄 바뀐 자리를 낱말 가운데로 보이게 한다.
- */
-function glueGaps(out) {
-  const plainSpan = (n) => n && n.nodeType === 1 && /^(bind|nowrap)$/.test(n.className) && n.childNodes.length === 1 && n.firstChild.nodeType === 3;
-  // 글자를 옮긴 뒤 묶음 끝·처음에 오면 그 곁에서 줄이 바뀔 수 있는 문장부호(가운뎃점·물결·괄호 등): 그런 자리는 만들지 않는다(가게· / 밤)
-  const PUNCT_EDGE = /[^\s\u00a0가-힣A-Za-z0-9]/;
-  for (let i = 1; i < out.length - 1; i += 1) {
-    const gap = out[i];
-    if (gap.nodeType !== 3 || !/^[ \u00a0]+$/.test(gap.nodeValue)) continue;
-    const prev = out[i - 1], next = out[i + 1];
-    const pt = plainSpan(prev) ? prev.firstChild.nodeValue : "";
-    const nt = plainSpan(next) ? next.firstChild.nodeValue : "";
-    // 앞 묶음 끝이 한 글자 낱말이면(한 번) 묶음 끝에 빈칸이 남는다([한 ]번): 줄을 바꾸지 않는 묶음 안 끝 빈칸 뒤에서는 줄이 바뀌지 않는다
-    if (pt.length >= 2 && !/[ \u00a0]/.test(pt.slice(-1)) && !PUNCT_EDGE.test(pt.slice(-2, -1))) {
-      prev.firstChild.nodeValue = pt.slice(0, -1);
-      gap.nodeValue = pt.slice(-1) + gap.nodeValue;
-    } else if (nt.length >= 3 && !/[ \u00a0]/.test(nt.slice(1, 2)) && !PUNCT_EDGE.test(nt.slice(1, 2))) {
-      next.firstChild.nodeValue = nt.slice(1);
-      gap.nodeValue += nt.slice(0, 1);
-    } else if (nt && prev && prev.nodeType === 1 && prev.classList.contains("keep-word")) {
-      // 앞이 한 덩어리(keep-word, inline-block)이고 뒤 묶음이 한 글자 낱말로 시작하면(조력자·기관용 한 장 요약) 빈칸을 뒤 묶음 앞에
-      // 붙인다: 한 덩어리 바로 뒤는 줄을 바꿀 수 있는 자리라 줄은 여전히 그 빈칸에서 바뀐다
-      next.firstChild.nodeValue = gap.nodeValue + nt;
-      gap.nodeValue = "";
-    }
-  }
-  return out.filter((n) => n.nodeType !== 3 || n.nodeValue !== "");
+  // 묶음 사이 빈칸은 빈칸만 든 글 조각으로 둔다. 예전에는 묶음 끝·처음 글자 하나를 그 조각으로 옮겼는데([꼭 확인까지]는), 묶음이 칸에
+  // 꼭 맞으면 옮긴 글자가 다음 줄로 밀려 낱말 가운데에서 줄이 바뀌었고('꼭 확인까지 / 는'), fitBundles는 옮긴 글자를 뺀 폭만 재서 풀지 못했다
+  return out;
 }
 
 // 글을 그대로(묶음 없이) 넣는 요소: 글만 담을 수 있는 요소와 SVG 글
