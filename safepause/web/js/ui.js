@@ -281,7 +281,9 @@ export function keepNodes(text, { bind = false } = {}) {
         // 조사만 다음 줄 첫머리로 떨어졌다(묶음 경계는 keep-all이 막지 못한다). 칸보다 넓으면 fitBundles가 풀어 빈칸에서 바꾼다
         let t = p.text;
         while (pi + 1 < u.parts.length && u.parts[pi + 1].kind === "text") { pi += 1; t += u.parts[pi].text; }
-        span("nowrap", [t]);
+        // 묶음 안 줄 바꾸지 않는 빈칸(서버 글의 U+00A0) 뒤에 wbr: 묶인 동안에는 쓰이지 않고, 칸보다 넓어 풀리면(.flow) 그 자리에서 바뀐다
+        // (없으면 풀려도 바꿀 자리가 없어 '새벽 2시 32 / 분에'처럼 낱말 가운데가 잘렸다)
+        span("nowrap", t.split(/(?<=\u00a0)/).flatMap((x, k) => (k ? [document.createElement("wbr"), x] : [x])));
       }
       else buf += p.text;   // 보통 글·빈칸 없는 금액(50,000원·63만7천원: 줄을 바꿀 자리가 없다)
     }
