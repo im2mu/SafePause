@@ -441,15 +441,20 @@ function blockInner(el) {
   return p.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight);
 }
 
-// 묶음이 감싼 상자(조상)의 안쪽 오른쪽 끝을 넘는가: 감싼 칸이 묶음 폭만큼 넓어진 경우(내용 폭 칸)도 잡는다.
-// 가로 스크롤 칸(표·시트 본문)에 닿으면 거기까지만 본다(그 안의 넘침은 그 칸이 스크롤로 보여 준다)
+// 묶음이나 묶음을 감싼 상자가 그 바깥 상자의 안쪽 오른쪽 끝을 넘는가: 감싼 칸이 묶음 폭만큼 넓어진 경우(내용 폭 칸),
+// 묶음을 품은 이름표(배지·태그)가 통째로 줄 칸을 넘는 경우도 잡는다. 일부러 왼쪽·오른쪽으로 내민 상자(음수 여백)는
+// 넘침으로 보지 않는다. 가로 스크롤 칸(표·시트 본문)에 닿으면 거기까지만 본다(그 안의 넘침은 그 칸이 스크롤로 보여 준다)
 function sticksOut(el) {
-  const right = el.getBoundingClientRect().right;
-  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+  let child = el;
+  for (let p = el.parentElement; p && p !== document.body; child = p, p = p.parentElement) {
     const s = getComputedStyle(p);
     if (s.display !== "inline" && s.display !== "contents") {
-      const inner = p.getBoundingClientRect().right - parseFloat(s.paddingRight) - parseFloat(s.borderRightWidth);
-      if (right > inner + 0.5) return true;
+      const cs = getComputedStyle(child);
+      const pos = cs.position;
+      if (pos !== "absolute" && pos !== "fixed" && !(parseFloat(cs.marginRight) < 0)) {
+        const inner = p.getBoundingClientRect().right - parseFloat(s.paddingRight) - parseFloat(s.borderRightWidth);
+        if (child.getBoundingClientRect().right > inner + 0.5) return true;
+      }
     }
     if (s.overflowX !== "visible" && s.overflowX !== "clip") return false;
   }
