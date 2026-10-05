@@ -565,7 +565,7 @@ tbody th { font-weight: 600; color: var(--text-2); }
 .tx-fact dd { margin: 0; flex: 1 1 9em; min-width: 0; font-weight: 600; }
 
 /* 준비 중 안내 시트(ui.comingSoonSheet) */
-.soon-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+.soon-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }   /* 아주 큰 글씨 좁은 화면: 준비 중 배지가 그림 아래로(시트 밖으로 넘치지 않게) */
 .soon-icon { width: 3rem; height: 3rem; border-radius: var(--r-m); display: grid; place-items: center; background: var(--primary-weak); color: var(--primary); flex: none; }
 .soon-icon svg { width: 1.6rem; height: 1.6rem; }
 .soon-lines { color: var(--text-2); margin-bottom: var(--space-4); }
