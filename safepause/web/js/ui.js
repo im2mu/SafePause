@@ -609,10 +609,22 @@ export function watchBundles() {
     for (const el of roots) if (el && el.isConnected) fitBundles(el);
   }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "open"] });
   let frame = 0;
-  window.addEventListener("resize", () => {
+  const refit = () => {
     window.cancelAnimationFrame(frame);
     frame = window.requestAnimationFrame(() => fitBundles(document.body, true));
-  });
+  };
+  window.addEventListener("resize", refit);
+  // 글자 크기만 바뀔 때(앱을 연 채 기기 글자 크기를 바꾸면 WebView textZoom만 바뀐다): 창 크기는 그대로라 resize가 오지 않아
+  // 1배 때 잰 묶음·이름표 폭이 남았다(배지가 '걱정되 / 는 거래'처럼 낱말 가운데에서 잘린 채). 1em 크기의 보이지 않는 칸이
+  // 커지거나 작아지는 것을 보고 다시 잰다(처음 한 번 알림은 넘긴다)
+  if (typeof ResizeObserver === "function") {
+    const em = document.createElement("span");
+    em.setAttribute("aria-hidden", "true");
+    em.style.cssText = "position: absolute; top: 0; left: 0; width: 1em; height: 1em; visibility: hidden; pointer-events: none;";
+    document.body.append(em);
+    let seen = false;
+    new ResizeObserver(() => { if (seen) refit(); seen = true; }).observe(em);
+  }
   fitBundles(document.body, true);
 }
 

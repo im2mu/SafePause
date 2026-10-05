@@ -487,6 +487,9 @@ def test_keep_bundles_and_short_text() -> None:
     # nowrap, 7~16글자는 keep-word(가운뎃점·물결 뒤·여는 괄호 앞 wbr에서만 줄바꿈)
     assert "const BACK_WORD = " in ui and "SOFT_MAX" not in ui
     assert "const BIND_CAN_MAX = BIND_MAX + 2;" in ui and "/^[있없]/.test(text(units[k + 1]))" in ui   # 알릴 수 있어요 한 덩어리
+    # 글자 크기만 바뀌어도(기기 글자 크기 = WebView textZoom) 묶음·이름표를 다시 잰다: 1em 칸을 ResizeObserver로 본다
+    watch = ui[ui.index("export function watchBundles"):]
+    assert "new ResizeObserver" in watch and "width: 1em; height: 1em;" in watch
     write_unit = ui[ui.index("const writeUnit"):ui.index("const bindChildren")]
     assert "letters(ut) <= BIND_MAX" in write_unit and "(?<=·)" in write_unit and "(?=\\()" in write_unit
     tel = ui[ui.index('p.kind === "tel"'):ui.index('p.kind === "keep" &&')]
