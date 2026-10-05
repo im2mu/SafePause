@@ -446,7 +446,10 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 .input[aria-invalid="true"] { border-color: var(--danger); }
 textarea.input { min-height: 5rem; resize: vertical; word-break: keep-all; overflow-wrap: break-word; line-break: strict; line-height: var(--lh-sub); }
 select.input { background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%), linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
-  background-position: calc(100% - min(1.25rem, 5vw)) 50%, calc(100% - min(.95rem, 3.8vw)) 50%; background-size: .35rem .35rem; background-repeat: no-repeat; padding-right: min(2.5rem, 10vw); }
+  /* 화살표 = 두 반쪽 사각형을 나란히(왼쪽 조각의 오른쪽 끝 = 오른쪽 조각의 왼쪽 끝). 위치와 크기를 같은 값으로 계산한다: 위치만 화면 폭(vw)으로
+     줄고 크기는 글자(rem)로 커지면 큰 글씨에서 두 조각이 겹쳐 화살표가 깨졌다(412폭 2배 상담처 종류 칸) */
+  --sel-a: min(.95rem, 3.8vw); --sel-s: min(.35rem, max(1.4vw, .3em));
+  background-position: calc(100% - var(--sel-a) - var(--sel-s)) 50%, calc(100% - var(--sel-a)) 50%; background-size: var(--sel-s) var(--sel-s); background-repeat: no-repeat; padding-right: min(2.5rem, 10vw); }
 .hint { color: var(--text-3); margin-top: var(--gap-list); }
 .error-text { color: var(--danger-text); font-weight: 600; margin-top: var(--space-2); }
 
