@@ -305,7 +305,7 @@ function channelsCard(ctx, channels, mWord) {
 }
 
 /**
- * 범례 줄 맞추기: 한 줄이라도 금액이 이름 아래로 내려가면(큰 글씨·긴 금액) 모든 줄의 금액을 다음 줄 오른쪽으로 둔다(.stack).
+ * 범례 줄 맞추기: 한 줄이라도 금액이 이름 아래로 내려가면(큰 글씨·긴 금액) 모든 줄의 금액을 다음 줄 오른쪽으로 둔다(.money-below, .stack은 비율 막대 이름이라 쓰지 않는다).
  * 줄마다 따로 내려가면 일곱 자리 금액 줄만 두 줄이 되어 들쭉날쭉했다(1280폭 2배). 칸 폭·글자 크기가 바뀌면 다음 틀에서 다시 잰다
  */
 function evenLegend(ul, onCleanup) {
@@ -314,13 +314,13 @@ function evenLegend(ul, onCleanup) {
   const run = () => {
     frame = 0;
     if (!ul.isConnected || !ul.clientWidth) return;
-    ul.classList.remove("stack");
+    ul.classList.remove("money-below");
     const wrapped = [...ul.children].some((li) => {
       const name = li.querySelector(".home-legend-name");
       const money = li.querySelector(".home-legend-money");
       return name && money && money.offsetTop > name.offsetTop + name.offsetHeight / 2;
     });
-    ul.classList.toggle("stack", wrapped);
+    ul.classList.toggle("money-below", wrapped);
   };
   const ro = new ResizeObserver(() => { if (!frame) frame = window.requestAnimationFrame(run); });
   ro.observe(ul);
