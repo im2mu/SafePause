@@ -82,10 +82,10 @@
 /* 큰 글씨(2배)에서 둥근 아이콘이 글자 칸을 좁히지 않게 화면 폭으로 상한(L4). 누르는 자리는 줄 전체라 크기와 관계없다 */
 .sig-ic { width: var(--ic-row); height: var(--ic-row); border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--primary-weak); color: var(--primary); }
 .sig-ic svg { width: min(1.3rem, 6vw); height: min(1.3rem, 6vw); }
-/* 줄 폭이 9.5글자보다 좁으면(320폭 2배) 꾸밈 그림을 빼 이름 칸을 넓힌다: 이름 칸이 5.6글자뿐이라 '처음 / 가는 곳 큰 / 금액 결제'처럼
+/* 줄 폭이 8.5글자보다 좁으면(320·360폭 2배) 꾸밈 그림을 빼 이름 칸을 넓힌다: 그림이 있으면 이름 칸이 '처음 가는 곳'보다 좁아 '처음 / 가는 곳 큰 / 금액 결제'처럼
    뜻 덩어리가 갈렸다(사용법 단계 카드의 좁은 칸 그림 빼기와 같은 방식). 체크 칸과 이름은 그대로 */
 .sig-row { container-type: inline-size; }
-@container (max-width: 9.5em) { .sig-row > .sig-ic { display: none; } }
+@container (max-width: 8.5em) { .sig-row > .sig-ic { display: none; } }
 
 /* 상담하는 곳: 추천 카드 */
 /* 목록 이름이 길면(기관 이름 등) 줄여 쓰지 않고 줄을 바꾼다 */

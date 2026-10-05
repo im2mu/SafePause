@@ -34,7 +34,7 @@ export default {
 
       h("h3", { class: "section-title", text: "어떻게 판단하나요" }),
       h("div", { class: "list" },
-        h("div", { class: "list-head step-title" }, h("span", { class: "step-no", text: "①" }), h("span", { text: "약속(규칙) 5가지: 착취 때 자주 보이는 다섯\u00a0가지 모습" })),
+        h("div", { class: "list-head step-title" }, h("span", { class: "step-no", text: "①" }), h("span", { text: "약속(규칙) 5가지: 착취 때 자주 보이는 모습" })),
         SIGNALS.map((code) => h("div", { class: "row" }, h("span", { class: "row-icon orange" }, icon(SIGNAL_ICON[code])),
           h("span", { class: "row-main" }, h("span", { class: "row-title about-wrap", text: SIGNAL_KO[code] }),
             h("span", { class: "row-sub about-wrap", text: RULES[code] }))))),
@@ -64,7 +64,7 @@ export default {
         h("ul", { class: "bullets about-bullets" },
           li("가상 인물 3종: 근로자(월급), 복지급여 수급자, 학생(용돈)"),
           li("한 사례는 120일 거래예요. 앞 90일(정상 거래)로 배우고, 뒤 30일을 확인해요."),
-          li("걱정되는 거래 5종을 마지막 30일 안에 1번씩 섞어요(정답 표시가 붙음)."),
+          li("걱정되는 거래 5종을 마지막 30일 안에 1번씩 섞어요. 섞은 거래에는 정답 표시가 붙어요."),
           li("평가는 인물 3명마다 번호(seed) 20개씩, 모두 60사례예요. 약속을 다듬은 1~20과 다른 21~40으로 따로 확인했어요."),
           li("처음 가는 가게·밤 결제·처음 보는 상대 소액 송금 같은 평범한 잡음도 넣어 잘못 알리는 정도를 재요.")),
         h("p", { class: "muted about-gap", text: "인물 값은 공개 통계로 보정하지 않은 가정이에요. 그래서 실제 탐지 성능을 뜻하지 않아요." })),
