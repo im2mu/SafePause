@@ -79,7 +79,7 @@
 .np-expand-main { display: inline-flex; align-items: center; gap: min(.5rem, 2vw); min-width: 0; }
 .np-expand svg { width: min(1.25rem, max(6vw, .8em)); height: min(1.25rem, max(6vw, .8em)); flex: none; }   /* 큰 글씨: 그림이 글 칸을 줄이지 않게 */
 .np-expand-count { display: inline-block; max-width: 100%; color: var(--text-3); font-weight: 600; }
-.np-expand .np-chev { color: var(--text-3); transition: transform .2s ease; }
+.np-expand .np-chev { width: min(1.25rem, 6vw); height: min(1.25rem, 6vw); color: var(--text-3); transition: transform .2s ease; }   /* 펼침 화살표는 화면 폭 상한만(글 칸을 줄이지 않게, 건물 그림만 글자 0.8배 하한) */
 .np-expand[aria-expanded="true"] .np-chev { transform: rotate(180deg); }
 #np-counselors { padding-top: .25rem; }
 
@@ -153,7 +153,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 .np-pick-sheet { padding-bottom: 0; }
 .np-pick-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--space-2); margin-bottom: var(--gap-sheet-title); }
 .np-pick-head .sheet-title { flex: 1 1 9em; min-width: 0; margin-bottom: 0; }   /* 제목 칸이 9글자보다 좁아지면 닫기를 다음 줄 오른쪽으로 */
-.np-pick-close { flex: none; margin: calc(-1 * var(--space-1)) calc(-1 * min(var(--space-2), 2vw)) 0 auto; color: var(--text-2); }   /* 오른쪽으로 내민 폭은 화면 폭 상한(좁은 화면 큰 글씨에서 시트 밖으로 나가지 않게) */
+.np-pick-close { flex: none; margin: calc(-1 * var(--space-1)) calc(-1 * min(var(--space-2), 3.5vw)) 0 auto; color: var(--text-2); }   /* 오른쪽으로 내민 폭은 화면 폭 상한(좁은 화면 큰 글씨에서 시트 밖으로 나가지 않게) */
 .np-pick-bar {
   position: sticky; bottom: 0; z-index: 2; margin: var(--space-3) calc(-1 * var(--gutter)) 0;
   padding: var(--space-2) var(--gutter) max(var(--space-2), env(safe-area-inset-bottom));

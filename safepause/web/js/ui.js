@@ -211,7 +211,9 @@ function bindGroups(units) {
     if (!g) { g = [n - 1, n - 1]; groups.push(g); }
     while (g[0] > 0 && size(g[0], g[1]) <= 2 && ok(g[0] - 1, g[1])) {
       const prev = groups.find((q) => q !== g && q[1] === g[0] - 1);
-      if (prev && ok(prev[0], g[1])) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); continue; }
+      // 앞 묶음째 합칠 때는 8글자(BIND_CAN_MAX)까지: 6글자로 막으면 앞 묶음에서 낱말을 떼어 와 '돈 보내기 / 전 확인'처럼
+      // 앞말에 붙는 말(전)이 갈렸다. 넓으면 fitBundles가 푼다
+      if (prev && ok(prev[0], g[1], BIND_CAN_MAX)) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); continue; }
       if (prev) { prev[1] -= 1; if (prev[1] <= prev[0]) groups.splice(groups.indexOf(prev), 1); }
       g[0] -= 1;
     }
@@ -322,9 +324,19 @@ export function keepNodes(text, { bind = false } = {}) {
       el.className = "nowrap";
       // 여는 괄호 앞에 줄 바꿀 자리(wbr): 묶음 안에서는 쓰이지 않고, 묶음이 칸보다 넓어 풀리면(.flow, 아주 큰 글씨 좁은 칸)
       // 약속 / (규칙)으로처럼 괄호 앞에서 바뀐다(없으면 약속(규칙)으 / 로처럼 아무 글자에서나 잘렸다)
+      // 글자 + 가운뎃점(계정·)은 안쪽 nowrap: 풀렸을 때 가운뎃점이 줄 첫머리에 오지 않게('내 계정 / ·데이터' 방지)
+      const dot = (t) => {
+        let last = 0;
+        for (const m of t.matchAll(/[가-힣A-Za-z0-9]·/g)) {
+          if (m.index > last) el.append(t.slice(last, m.index));
+          el.append(Object.assign(document.createElement("span"), { className: "nowrap", textContent: m[0] }));
+          last = m.index + m[0].length;
+        }
+        if (last < t.length) el.append(t.slice(last));
+      };
       for (const nd of inner) {
-        if (nd.nodeType !== 3 || !/[가-힣A-Za-z0-9]\(/.test(nd.nodeValue)) { el.append(nd); continue; }
-        nd.nodeValue.split(/(?<=[가-힣A-Za-z0-9])(?=\()/).forEach((t, k) => { if (k) el.append(document.createElement("wbr")); el.append(t); });
+        if (nd.nodeType !== 3 || !/[가-힣A-Za-z0-9][(·]/.test(nd.nodeValue)) { el.append(nd); continue; }
+        nd.nodeValue.split(/(?<=[가-힣A-Za-z0-9])(?=\()/).forEach((t, k) => { if (k) el.append(document.createElement("wbr")); dot(t); });
       }
     } else {
       el.className = "keep-word";
@@ -367,6 +379,16 @@ export function keepNodes(text, { bind = false } = {}) {
     out.push(el);
   };
   // 낱말 묶음(span.bind) 안: 시각·날짜·띄어 쓴 금액·문자·메일은 span.nowrap을 그대로 둔다(버튼 안에서 묶음이 풀려도 끊기지 않게)
+  // 묶음 안 글: 글자 + 가운뎃점(계정·)은 안쪽 nowrap(묶음이 풀려도 가운뎃점이 줄 첫머리에 오지 않게)
+  const pushText = (kids, t) => {
+    let last = 0;
+    for (const m of t.matchAll(/[가-힣A-Za-z0-9]·/g)) {
+      if (m.index > last) kids.push(document.createTextNode(t.slice(last, m.index)));
+      kids.push(Object.assign(document.createElement("span"), { className: "nowrap", textContent: m[0] }));
+      last = m.index + m[0].length;
+    }
+    if (last < t.length) kids.push(document.createTextNode(t.slice(last)));
+  };
   const bindChildren = (g) => {
     const kids = [];
     let t = "";
@@ -375,13 +397,13 @@ export function keepNodes(text, { bind = false } = {}) {
       for (const p of units[j].parts) {
         const pt = p.text.replace("\u0000", "");
         if ((p.kind === "keep" && /[ \u00a0]/.test(pt)) || p.kind === "dot") {
-          if (t) kids.push(document.createTextNode(t));
+          if (t) pushText(kids, t);
           t = "";
           kids.push(Object.assign(document.createElement("span"), { className: "nowrap", textContent: pt }));
         } else t += pt;
       }
     }
-    if (t) kids.push(document.createTextNode(t));
+    if (t) pushText(kids, t);
     return kids;
   };
   let gi = 0;

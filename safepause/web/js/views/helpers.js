@@ -171,7 +171,7 @@ export default {
           h("label", { class: "check-row auto-row" }, active, h("span", { class: "grow strong", text: "이 조력자에게 자동으로 알리기" })),
           // 실제 동작(policy.decide·notify_suggest): 켜 두면 걱정되는 거래를 이 사람에게 알릴 수 있게 적어 두고(알림 탭의 적어 둔 기록,
           // 보내지는 않음), 알림 보내기에서 이 사람을 미리 골라 둔다. 끄면 직접 고를 때만. 무엇을 적는지·누가 고르는지 드러나게 쓴다
-          h("p", { class: "hint", id: "hp-active-hint", text: "켜 두면 걱정되는 거래를 이 사람에게 알릴 수 있게 적어 둬요. 알림 보내기에서도 이 사람이 미리 골라져 있어요. 끄면 알림 보내기에서 직접 골라요. 보내기는 늘 내가 눌러요." }),
+          h("p", { class: "hint", id: "hp-active-hint", text: "켜 두면 걱정되는 거래를 이 사람에게 알릴 수 있게 적어 둬요. 알림 보내기에서도 이 사람이 미리 골라져 있어요. 이 칸을 끄면 알림 보내기에서 직접 골라요. 보내기는 늘 내가 눌러요." }),
           err,
           h("div", { class: "sheet-actions" },
             h("button", {
