@@ -310,7 +310,12 @@ export function keepNodes(text, { bind = false } = {}) {
     const el = document.createElement("span");
     if (letters(ut) <= BIND_MAX) {
       el.className = "nowrap";
-      el.append(...inner);
+      // 여는 괄호 앞에 줄 바꿀 자리(wbr): 묶음 안에서는 쓰이지 않고, 묶음이 칸보다 넓어 풀리면(.flow, 아주 큰 글씨 좁은 칸)
+      // 약속 / (규칙)으로처럼 괄호 앞에서 바뀐다(없으면 약속(규칙)으 / 로처럼 아무 글자에서나 잘렸다)
+      for (const nd of inner) {
+        if (nd.nodeType !== 3 || !/[가-힣A-Za-z0-9]\(/.test(nd.nodeValue)) { el.append(nd); continue; }
+        nd.nodeValue.split(/(?<=[가-힣A-Za-z0-9])(?=\()/).forEach((t, k) => { if (k) el.append(document.createElement("wbr")); el.append(t); });
+      }
     } else {
       el.className = "keep-word";
       // 줄 바꿀 자리(wbr): 가운뎃점 뒤, 물결 뒤에 한글이 올 때(밤 11시~새벽 6시에), 여는 괄호 앞(연결 / (마이데이터)은),
