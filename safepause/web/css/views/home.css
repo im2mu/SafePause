@@ -124,8 +124,9 @@ a.home-top-link:active { background: var(--bg-sub); }
   .home-top-link { flex-wrap: wrap; row-gap: .35rem; }
   .home-top-main { flex-basis: 100%; }
   .home-top-chev { display: none; }
-  .home-top-sub .badge svg { display: none; }
 }
+/* 배지 그림은 조금 더 일찍 뺀다(9.5글자보다 좁은 줄: 320폭 1.6배): 그림 + 간격만큼 글 칸이 좁아 '걱정되 / 는 거래'처럼 낱말 가운데가 잘렸다 */
+@container (max-width: 9.5em) { .home-top-sub .badge svg { display: none; } }
 
 /* ---- 빈 상태 ---- */
 .home-empty .empty { padding: 1.5rem .5rem 1.25rem; }
