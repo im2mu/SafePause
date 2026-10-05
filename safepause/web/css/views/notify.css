@@ -170,7 +170,13 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 }
 .np-check.on { border-color: var(--primary); background: var(--primary-weak); }
 .np-check:focus-within { box-shadow: var(--focus); }
-.np-check input { width: 1.375rem; height: 1.375rem; accent-color: var(--primary); flex: none; margin: 1.05rem 0 0; }
+/* 체크 칸은 거래 이름 첫 줄 가운데: 거래 줄 위 여백(.8rem) + (이름 한 줄 높이 - 칸 크기)/2. 큰 글씨 좁은 칸에서 칸이 화면 폭 상한으로
+   작아져도 위 여백이 같이 맞춰진다(고정 여백이면 글자 배율만큼 벌어져 칸이 이름 줄 위로 떴다) */
+.np-check { --np-box: 1.375rem; }
+.np-check input {
+  width: var(--np-box); height: var(--np-box); accent-color: var(--primary); flex: none;
+  margin: calc(.8rem + (1rem * var(--lh-body) - var(--np-box)) / 2) 0 0;
+}
 .np-check.on .row-icon { background: var(--surface); }
 
 /* ==== 알림 ================================================================ */
@@ -292,8 +298,7 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
   .np-txn .row-tags .tag > svg { display: none; }   /* 태그 그림이 글 칸을 줄여 휴대폰 / 소액결제 / 급증처럼 꼬리가 생기지 않게(태그 글이 같은 뜻) */
   .alert-head > .row-icon { display: none; }   /* 카드 머리 그림이 등급 배지와 한 줄에 못 들어 홀로 한 줄을 차지하지 않게(아주 큰 글씨, 카드 제목이 같은 일을 말한다) */
   /* 거래 줄: 체크 칸·여백을 화면 폭 상한으로 줄여 시각(오전 11시 25분)이 한 줄에 들게 */
-  .np-check { padding-left: min(.8rem, 2.5vw); }
-  .np-check input { width: min(1.375rem, 6vw); height: min(1.375rem, 6vw); }
+  .np-check { padding-left: min(.8rem, 2.5vw); --np-box: min(1.375rem, 6vw); }
   .np-txn { padding-left: min(.8rem, 2.5vw); padding-right: min(.8rem, 2.5vw); }
   /* 받는 사람 줄(L4·RF-1 후속): 종류 그림을 빼고, 체크 칸 옆에는 이름만 두고 연락처·번호/메일 표시·경고는 줄 전체 폭으로 내린다
      (이름 칸이 1~3글자 폭으로 줄어 메|일|없|음처럼 끊기거나 추천 배지가 잘리지 않게) */

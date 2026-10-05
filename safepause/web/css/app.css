@@ -377,11 +377,6 @@ button.row:active, a.row:active { background: var(--bg-sub); }
   transition: transform .08s ease, background-color .15s ease; text-decoration: none;
 }
 .btn:active:not(:disabled) { transform: scale(0.98); }
-/* 누를 수 없는 버튼(준비 중 등): 흐리게(opacity) 하면 파란 버튼의 흰 글이 1.7:1로 읽히지 않는다. 회색 바탕 + 보조 글 색(4.5:1 이상) */
-.btn:disabled { background: var(--bg-sub); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
-/* ui.busy·담기 버튼은 disabled 대신 aria-disabled로 막는다(초점이 body로 빠지지 않게, FE-04). 하는 중(aria-busy)은 아래 돌림표 */
-.btn[aria-disabled="true"]:not([aria-busy="true"]) { background: var(--bg-sub); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
-:is(.card, .sheet) :is(.btn:disabled, .btn[aria-disabled="true"]:not([aria-busy="true"])) { background: var(--surface-2); }
 .btn svg { width: min(1.25rem, max(7vw, .8em)); height: min(1.25rem, max(7vw, .8em)); flex: none; }   /* 큰 글씨에서 그림이 이름 칸을 줄이지 않게 화면 폭 상한 */
 /* 버튼 이름(ui.h가 그림 + 글을 span.btn-label 하나로 묶음): 그림은 첫 줄 글 바로 앞(글 가운데 높이), 줄은 가운데에서 고르게 */
 .btn-label { display: block; min-width: 0; text-align: center; text-wrap: balance; }
@@ -393,6 +388,12 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 .btn.danger { background: var(--danger); color: #fff; }
 .btn.danger-weak { background: var(--danger-weak); color: var(--danger); }
 .btn.ghost { background: transparent; color: var(--text-2); }
+/* 누를 수 없는 버튼(준비 중 등): 흐리게(opacity) 하면 파란 버튼의 흰 글이 1.7:1로 읽히지 않는다. 회색 바탕 + 보조 글 색(4.5:1 이상).
+   색 갈래(.primary·.weak·.danger…) 뒤에 둔다: 우선순위가 같아 앞에 두면 파란 버튼이 흰 글 그대로 회색 바탕에 남아 1.04:1로 사라졌다 */
+.btn:disabled { background: var(--bg-sub); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
+/* ui.busy·담기 버튼은 disabled 대신 aria-disabled로 막는다(초점이 body로 빠지지 않게, FE-04). 하는 중(aria-busy)은 아래 돌림표 */
+.btn[aria-disabled="true"]:not([aria-busy="true"]) { background: var(--bg-sub); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
+:is(.card, .sheet) :is(.btn:disabled, .btn[aria-disabled="true"]:not([aria-busy="true"])) { background: var(--surface-2); }
 .btn.block { width: 100%; container-type: inline-size; }   /* 폭은 늘 칸 폭(글에 따라 바뀌지 않음): 아래 컨테이너 쿼리의 기준 */
 /* 아주 큰 글씨의 좁은 넓은 버튼(이름 칸이 8글자보다 좁음, 360폭 2배): 이름 안 덩어리(조력자·상담하는)를 풀어 정해 둔 자리(가운뎃점 뒤)에서
    줄을 바꾼다. 덩어리가 그림 옆에 다 들지 않아 그림만 첫 줄에 홀로 남지 않게 */
@@ -465,7 +466,7 @@ select.input { background-image: linear-gradient(45deg, transparent 50%, var(--t
    테두리는 보조 글 색(밝게 5.3:1·어둡게 6.5:1), 고른 칸은 파란 바탕 + 흰 체크, 바꿀 수 없는 칸은 회색 바탕 + 흰 체크(3.9:1 이상) */
 input[type="checkbox"] {
   appearance: none; -webkit-appearance: none; width: 1.375rem; height: 1.375rem; flex: none; margin: 0; cursor: pointer;
-  border: 2px solid var(--text-3); border-radius: .35rem; background: var(--surface) center / 85% no-repeat;
+  border: 2px solid var(--text-3); border-radius: 25%; background: var(--surface) center / 85% no-repeat;   /* 모서리는 칸 크기 비율: 큰 글씨에서 칸만 화면 폭 상한으로 작아져도 동그라미(라디오처럼)가 되지 않게 */
 }
 input[type="checkbox"]:checked { background-color: var(--primary); border-color: var(--primary); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 input[type="checkbox"]:disabled { cursor: not-allowed; }
@@ -730,6 +731,12 @@ html:not([data-voice="none"]) .mn-novoice { display: none !important; }
   .overlay { align-items: center; padding: var(--space-4); }
   .sheet { border-radius: var(--r-xl); max-height: calc(100vh - 4rem); max-height: calc(100dvh - 4rem); padding-top: 1.25rem; }
   .sheet::before { display: none; }
+}
+/* 태블릿 폭(600~899px)의 가운데 창은 아래 탭 위에서 끝난다: 창 아래 끝이 탭 그림 줄에 걸리면 그림만 잘린 조각으로 남아
+   화면이 깨진 것처럼 보였다(아래 탭이 보일 때만. :has가 없는 옛 엔진은 지금처럼 화면 가운데) */
+@media (min-width: 600px) and (max-width: 899px) and (min-height: 481px) {
+  :where(body:not(.typing):has(#nav:not([hidden]))) .overlay { padding-bottom: calc(var(--nav-h) + var(--space-4)); }
+  :where(body:not(.typing):has(#nav:not([hidden]))) .sheet { max-height: calc(100vh - 4rem - var(--nav-h)); max-height: calc(100dvh - 4rem - var(--nav-h)); }
 }
 /* 아래 탭(L3): 큰 글씨(200%)에서도 탭 높이(최대 84px) 안에 그림과 이름이 들어가게 칸 높이·여백에 px 상한. 자판이 열린 동안 숨김 */
 @media (max-width: 899px) {

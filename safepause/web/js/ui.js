@@ -470,6 +470,48 @@ export function fitBundles(root = document.body, reset = false) {
     if (w > 0 && (w > blockInner(el) + 0.5 || sticksOut(el))) wide.push(el);
   }
   for (const el of wide) el.classList.add("flow");   // 다 잰 뒤에 바꾼다(재고 바꾸기를 번갈아 하지 않게)
+  fitLabels(root);
+}
+
+// ---- 두 줄 이름표 폭 맞추기 --------------------------------------------------------------
+// 태그·배지(inline-flex: 그림 + 글) 안 글이 두 줄로 접히면 브라우저는 상자를 실제 줄 폭이 아니라 칸 끝까지 늘린다.
+// 그래서 '휴대폰 / 소액결제 급증' 오른쪽에 글 폭만큼 빈 칸이 생기고, 바로 위 한 줄 태그와 폭이 들쭉날쭉해진다.
+// 두 줄 이상인 이름표만 글 칸 폭을 가장 긴 줄 폭으로 줄인다(한 줄 이름표는 그대로라 평소 모양은 같다).
+// 맞춘 표시(data-fit-w)는 다시 잴 때마다 먼저 떼고 잰다(글자 크기·창 크기가 바뀌면 줄 수도 바뀐다)
+const LABELS = ".tag, .badge";
+function fitLabels(root) {
+  const host = root.closest ? root.closest(LABELS) : null;   // 이름표 안 글만 바뀐 경우: 그 이름표부터 다시
+  const scope = host || root;
+  const boxes = scope.matches && scope.matches(LABELS) ? [scope, ...scope.querySelectorAll(LABELS)] : [...scope.querySelectorAll(LABELS)];
+  if (!boxes.length) return;
+  const old = [...scope.querySelectorAll("[data-fit-w]")];
+  if (scope.hasAttribute && scope.hasAttribute("data-fit-w")) old.push(scope);
+  for (const el of old) { el.style.maxWidth = ""; el.removeAttribute("data-fit-w"); }
+  const todo = [];
+  for (const box of boxes) {
+    // 줄일 칸: [그림, 글 span]·[글 span]이면 글 span, 글 마디가 이름표 바로 안에 있으면 이름표 자신
+    const last = box.lastElementChild;
+    const own = !last || last.namespaceURI === SVG_NS || box.lastChild !== last;
+    const target = own ? box : last;
+    const height = target.offsetHeight;
+    if (!height) continue;   // 숨겨진 칸
+    const s = getComputedStyle(target);
+    const lh = parseFloat(s.lineHeight) || parseFloat(s.fontSize) * 1.3;
+    const inner = height - (own ? parseFloat(s.paddingTop) + parseFloat(s.paddingBottom) + parseFloat(s.borderTopWidth) + parseFloat(s.borderBottomWidth) : 0);
+    if (inner < lh * 1.5) continue;   // 한 줄
+    let right = -Infinity;
+    for (const n of own ? [...box.childNodes].filter((x) => x.namespaceURI !== SVG_NS) : [target]) {
+      const range = document.createRange();
+      if (n.nodeType === 1) range.selectNodeContents(n); else range.selectNode(n);
+      for (const r of range.getClientRects()) if (r.width > 0) right = Math.max(right, r.right);
+    }
+    const rect = target.getBoundingClientRect();
+    if (!(right > rect.left)) continue;
+    // 가장 긴 줄의 오른쪽 끝까지 + (이름표 자신이면) 오른쪽 안쪽 여백·테두리. 1px은 소수점 폭 때문에 줄이 하나 더 생기지 않게
+    const w = Math.ceil(right - rect.left + (own ? parseFloat(s.paddingRight) + parseFloat(s.borderRightWidth) : 0)) + 1;
+    if (w < rect.width - 1) todo.push([target, w]);
+  }
+  for (const [el, w] of todo) { el.style.maxWidth = `${w}px`; el.setAttribute("data-fit-w", ""); }   // 다 잰 뒤에 바꾼다
 }
 
 /** 화면 글이 바뀌거나(hidden·open 포함) 창·글자 크기가 바뀌면 fitBundles를 다시 부른다. main.js가 한 번 켠다. */

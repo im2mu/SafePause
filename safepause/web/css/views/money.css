@@ -134,8 +134,9 @@
 
 /* ==== 내 은행 앱 ========================================================== */
 .ba-actions { display: grid; gap: .5rem; margin-top: .25rem; }
-.ba-open-text { display: grid; justify-items: center; text-align: center; line-height: var(--lh-ui); min-width: 0; }   /* 이름이 두 줄로 접혀도 버튼 가운데 */
-.ba-open-name { font-weight: 600; opacity: .9; overflow-wrap: break-word; }
+/* 열기 버튼 이름: btn-label(그림은 첫 줄 글 앞, 줄은 가운데에서 고르게) + 고른 앱 이름은 아랫줄. 두 줄로 접혀도 그림 + 글 덩어리가 버튼 가운데 */
+.ba-open-text { line-height: var(--lh-ui); }
+.ba-open-name { display: block; font-weight: 600; opacity: .9; overflow-wrap: break-word; }
 .ba-why { display: flex; gap: .45rem; align-items: flex-start; color: var(--text-3); font-weight: 600; }
 .ba-why svg { width: 1.15rem; height: 1.15rem; flex: none; margin-top: max(0px, calc((1lh - 1.15rem) / 2)); }
 .ba-fail:empty { display: none; }
@@ -145,12 +146,17 @@
 .ba-sheet .ba-search { position: sticky; top: -.6rem; z-index: 2; background: var(--surface); padding: .5rem 0 .25rem; margin: 0 0 .5rem; border-bottom: 1px solid var(--line); }   /* 아래로 지나가는 목록과 갈라 보이게 */
 .ba-sheet .ba-search.loose { position: static; border-bottom: 0; }   /* 찾기 칸이 시트의 3할을 넘으면(아주 큰 글씨) 붙박지 않는다: 목록 칸을 지킨다 */
 .ba-sheet .ba-search .input { border-color: var(--line); }
+/* 붙박인 동안(stuck, bankapp.js가 스크롤을 보고 붙인다): 경계선 바로 아래를 바탕색에서 투명으로 흐리게 한다.
+   목록 글이 경계선에 반쯤 잘린 채 붙어 다른 글자처럼 읽히거나(돈 → 논) 글 조각만 남지 않게. 누르기는 그대로 아래 줄로 간다 */
+.ba-sheet .ba-search.stuck::after { content: ""; position: absolute; left: 0; right: 0; top: calc(100% + 1px); height: .9rem; background: linear-gradient(var(--surface), transparent); pointer-events: none; }
 @media (min-width: 600px) { .ba-sheet .ba-search { top: -1.25rem; } }
 .ba-count { margin-top: .3rem; }
 .ba-group + .ba-group { margin-top: 1rem; }
-.ba-group-title { font-size: 1rem; font-weight: 700; color: var(--text-3); margin: 0 .25rem .4rem; }
+.ba-group-title { font-size: 1rem; font-weight: 700; color: var(--text-3); margin: 0 0 .4rem; }   /* 왼쪽 끝은 찾기 칸·앱 수·목록 카드와 같은 선 */
 .ba-list { box-shadow: none; background: var(--surface-2); }
 .ba-app { flex-wrap: wrap; }
+/* 앱 줄은 이름 한 줄뿐: 줄 높이(4rem)·위아래 여백에 px 상한을 둬 아주 큰 글씨에서 한 줄이 160px로 커져 앱이 한두 개만 보이지 않게(누르는 칸은 48px보다 높다) */
+.ba-list .ba-app { min-height: min(4rem, 88px); padding-top: min(.8rem, 18px); padding-bottom: min(.8rem, 18px); }
 .ba-app .row-title { white-space: normal; }
 .ba-app.on { background: var(--primary-weak); }
 .ba-app .badge { margin-left: auto; }

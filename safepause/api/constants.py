@@ -53,11 +53,12 @@ MAX_COUNSELORS = 20
 COUNSELOR_KINDS: tuple[str, ...] = ("disability_center", "rights_agency", "police", "finance", "other")
 # 추천 상담하는 곳(확인된 번호만). 출처
 # - 장애인권익옹호기관 1644-8295: 중앙장애인권익옹호기관 naapd.or.kr/abuse/report(전국 공통, 전화·문자·카카오톡)
+#   괄호 안은 학대 신고(기관 이름에 장애인이 있다): 장애인학대 신고는 큰 글씨 좁은 칸에서 (장애인학대 / 신고)로 꼬리 줄이 생겼다
 # - 금융감독원 1332: 금융감독원 fss.or.kr 서민금융1332
 # - 경찰 112: 국번 없이
 # - 지역발달장애인지원센터: 지역마다 번호가 달라 비워 둔다(사용자가 적음)
 COUNSELOR_PRESETS: tuple[dict[str, str], ...] = (
-    {"kind": "rights_agency", "name": "장애인권익옹호기관 (장애인학대 신고)", "phone": "1644-8295", "email": "",
+    {"kind": "rights_agency", "name": "장애인권익옹호기관 (학대 신고)", "phone": "1644-8295", "email": "",
      "memo": "전국 같은 번호예요. 전화·문자·카카오톡으로 알릴 수 있어요."},
     {"kind": "finance", "name": "금융감독원 불법금융 신고", "phone": "1332", "email": "",
      "memo": "돈 문제로 속은 것 같으면 상담할 수 있어요."},

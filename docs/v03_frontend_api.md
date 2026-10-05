@@ -549,7 +549,7 @@ AI 부분(numpy·scikit-learn)만 못 켜면 `engine.status`가 `{stage: "error"
   - 계좌 연결해서 바로 보내기는 `comingSoonSheet`(단계 5개)만
 - bankapp.js
   - `getBankApp()`·`saveBankApp(app)`·`clearBankApp()`: localStorage `safepause.bankApp = {package, label}`(try/catch)
-  - `pickBankApp()` → `Promise<app | null>`: 검색 칸 + 돈 관련 앱(이름에 은행·뱅크·bank·페이·pay·증권·카드) 먼저 + 다른 앱. 회사 이름은 넣지 않는다
+  - `pickBankApp()` → `Promise<app | null>`: 검색 칸 + 은행·결제 앱(이름에 은행·뱅크·bank·페이·pay·증권·카드) 먼저 + 다른 앱. 회사 이름은 넣지 않는다
   - `openBankApp(app)`, `bankAppUnavailable()`(PC면 `은행 앱은 휴대폰 앱에서 열 수 있어요.`)
   - `bankAppActions()`: [내 은행 앱 열기](고른 앱 이름) / [다른 은행 앱 고르기], 못 열면 `은행 앱을 열지 못했어요. 다시 골라 주세요.`
   - `bankAppSettings()`: 앱 설정의 내 은행 앱(고르기·바꾸기·지우기). 동의 화면의 모두 지우기는 `clearBankApp()`도 부른다

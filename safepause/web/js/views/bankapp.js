@@ -49,7 +49,7 @@ export function isMoneyApp(app) { return MONEY_WORDS.test(app.label || ""); }
 const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, "");
 
 /**
- * 내 은행 앱 고르기 시트. 검색 칸 + 돈 관련 앱 먼저 + 다른 앱.
+ * 내 은행 앱 고르기 시트. 검색 칸 + 은행·결제 앱 먼저 + 다른 앱.
  * 고르면 기억하고 Promise<{package, label}>, 닫으면 null.
  */
 export function pickBankApp() {
@@ -96,14 +96,21 @@ export function pickBankApp() {
           fill(listSlot, h("p", { class: "ba-empty", text: apps.length ? "찾는 앱이 없어요. 다른 이름으로 찾아보세요." : "고를 수 있는 앱이 없어요." }));
           return;
         }
-        fill(listSlot, group("돈 관련 앱", money), group(money.length ? "다른 앱" : "앱", others));
+        // 위로 올리는 기준(이름에 은행·뱅크·페이·카드·증권)을 그대로 쓴 이름: 돈 관련 앱이라 하면 가계부(내 돈 관리)가 아래 다른 앱에 있어 헷갈린다
+        fill(listSlot, group("은행·결제 앱", money), group(money.length ? "다른 앱" : "앱", others));
       }
       search.addEventListener("input", paint);
       paint();
       // 아주 큰 글씨: 찾기 칸이 시트 높이의 3할을 넘으면 위에 붙박지 않는다(목록이 한두 줄만 보이지 않게)
+      // 붙박인 동안(목록이 밑으로 지나감)은 stuck: 경계선 아래를 흐리게 해 반쯤 잘린 글 조각이 깨진 글처럼 보이지 않게 한다
       window.requestAnimationFrame(() => {
         const sheet = searchBox.closest(".sheet");
-        if (sheet) searchBox.classList.toggle("loose", searchBox.offsetHeight > sheet.clientHeight * 0.3);
+        if (!sheet) return;
+        searchBox.classList.toggle("loose", searchBox.offsetHeight > sheet.clientHeight * 0.3);
+        const mark = () => searchBox.classList.toggle("stuck", !searchBox.classList.contains("loose") && sheet.scrollTop > 0
+          && searchBox.getBoundingClientRect().top <= sheet.getBoundingClientRect().top + 1);
+        sheet.addEventListener("scroll", mark, { passive: true });
+        mark();
       });
       return [
         h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: "내 은행 앱 고르기" }),
@@ -129,6 +136,8 @@ export function bankAppActions() {
   const box = h("div", { class: "ba-actions" });
   const fail = h("div", { class: "ba-fail", role: "alert" });
 
+  // 그림은 이름 첫 줄 글 바로 앞에(btn-label): 이름이 두 줄로 접혀도 그림 + 글 덩어리가 버튼 가운데에 온다.
+  // 그림을 따로 flex 칸에 두면 접힌 글 칸이 남은 폭을 다 차지해 그림이 왼쪽 끝으로 밀렸다(320폭 글자 2배). 고른 앱 이름은 아랫줄
   function openBtn(app, disabled) {
     return h("button", { type: "button", class: "btn primary big block ba-open", disabled, onclick: () => {
       fail.replaceChildren();
@@ -136,8 +145,8 @@ export function bankAppActions() {
       fill(fail, h("div", { class: "notice red" }, icon("warning"), h("p", { text: "은행 앱을 열지 못했어요. 다시 골라 주세요." })));
       const again = box.querySelector(".ba-pick");
       if (again) again.focus();
-    } }, icon("bank"), h("span", { class: "ba-open-text" },
-      h("span", { text: "내 은행 앱 열기" }),
+    } }, h("span", { class: "btn-label ba-open-text" },
+      icon("bank"), h("span", { text: "내 은행 앱 열기" }),
       app ? h("span", { class: "ba-open-name", text: app.label }) : null));
   }
 
