@@ -31,8 +31,8 @@ const SOON = {
     lines: ["정식 버전에서는 내 계정으로 로그인해요.", `지금은 계정 없이 ${deviceWord()} 안에서만 써요.`],
     list: [
       { icon: "user-check", title: "로그인", sub: "휴대폰으로 내가 맞는지 확인하고 들어가요." },
-      { icon: "back", title: "로그아웃", sub: `${deviceWord()}에서 내 계정을 빼요.` },
-      { icon: "trash", title: "회원 탈퇴", sub: "계정과 계정에 저장한 것을 지워요." },
+      { icon: "logout", title: "로그아웃", sub: `${deviceWord()}에서 내 계정을 빼요.` },
+      { icon: "trash", title: "회원 탈퇴", sub: "내 계정과 저장한 내용을 모두 지워요." },
     ], action: "로그인" }),
   transfer: () => ({ icon: "refresh", title: "백업·되살리기",
     // 할 일과 지금 상태는 다른 문단(ui.paragraphs)

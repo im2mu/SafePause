@@ -159,6 +159,7 @@ import { h, fill, append, setText, splitSentences, $, $$, icon, picto, toast, an
 
 - `openSheet(build(close) => nodes, {label, dismissible, className, onClose(reason), initialFocus, onEscape})` → `{close, el}`. 배경은 inert, 안드로이드 뒤로 가기로 닫힘.
   - 바텀시트 손잡이는 `.sheet::before`로 자동으로 그려진다(600px 이상은 가운데 창).
+  - 아래 탭이 있는 태블릿 폭(600~899px)의 가운데 창은 아래 탭 위에서 끝난다(창이 탭 그림을 덮지 않게).
   - 제목은 `h("h2", {class: "sheet-title focus-target", tabindex: "-1", text})`, 버튼 묶음은 `.sheet-actions`.
 - 시트를 닫으면 초점은 **연 버튼**으로 돌아간다. 그 버튼이 없어졌거나(다시 그림) 꺼져 있거나 inert 안이면 아직 열린 위 시트의 `.focus-target`, 시트가 없으면 `#main`으로 간다. 초점이 body로 빠지지 않는다(FE-04·FN-07).
 - 시트가 열려 있는 동안 Tab은 시트 안에서만 돈다. 초점이 시트 밖(body 등)에 있으면 Tab 한 번에 시트 첫 항목으로 끌어온다.
@@ -383,7 +384,7 @@ openCardConnect(ctx, { onUpload: openUpload, onSample: openSample });
 - 신호: `sig-night`(밤) `sig-person`(한 사람에게) `sig-phone-pay`(휴대폰 소액결제) `sig-store`(처음 가는 곳) `sig-sim`(여러 회선)
 - 거래 연결·돈: `bank` `card` `cash` `upload` `download` `file` `doc` `database` `chart` `calendar`
 - 연락·알림: `contacts` `mail` `chat` `call` `phone-msg` `speaker` `stop-circle`(소리 멈추기) `bookmark` `bookmark-fill`(담기)
-- 사람·곳: `users` `user-check`(본인 확인) `building`(상담하는 곳) `headset`(고객센터) `shield`
+- 사람·곳: `users` `user-check`(본인 확인) `logout`(로그아웃: 문 밖으로 나가는 화살표, 뒤로 가기 `back`과 다른 모양) `building`(상담하는 곳) `headset`(고객센터) `shield`
 - 설정·도움: `settings` `text-size` `moon-sun` `lock` `toggle` `help` `info` `link` `code` `refresh`
 - 편집: `plus` `minus` `edit` `copy` `trash` `check-line` `sparkle`
 - 로고: `logo`(팔각형 + 멈춤 막대). 막대는 `.brand-mark` 안에서만 보인다(`.logo-bars`). 브라우저 탭 아이콘은 같은 모양의 `icons/logo.svg`(파란 둥근 사각, 흰 팔각형, 파란 두 막대, D9).
