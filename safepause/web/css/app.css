@@ -362,9 +362,10 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 .chip[aria-pressed="true"] { background: var(--grey-800); border-color: var(--grey-800); color: #fff; }
 :root[data-theme="dark"] .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); } }
-/* 고를 수 없는 칩(준비 중 단계의 기간): 흐리게(opacity .55) 하면 글이 2.5:1로 읽히지 않는다. 보조 글 색(단계 상자 위 5:1 이상) + 테두리만.
-   바탕은 비워 둔다(단계 상자 색): 회색 바탕(--bg-sub)은 닫기 같은 보통 버튼 바탕과 같아 누를 수 있어 보이고, 어두운 모드에서는 검은 구멍처럼 튀었다 */
-.chip.off { background: transparent; color: var(--text-3); cursor: not-allowed; }
+/* 고를 수 없는 칩(준비 중 시트의 가져올 기간): 흐리게(opacity .55) 하면 글이 2.5:1로 읽히지 않는다. 보조 글 색(5:1 이상) +
+   점선 테두리(곧 열릴 파일 .tx-ext.off와 같은 모양). 바탕은 비워 둔다: 회색 바탕은 보통 버튼 바탕과 같아 누를 수 있어 보이고
+   어두운 모드에서 검은 구멍처럼 튀었다 */
+.chip.off { background: transparent; color: var(--text-3); border-style: dashed; cursor: not-allowed; }
 
 /* 준비 중 배지 */
 .soon {
@@ -582,7 +583,9 @@ tbody th { font-weight: 600; color: var(--text-2); }
 .soon-step { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); align-items: flex-start; padding: .8rem .9rem; border-radius: var(--r-m); background: var(--surface-2); color: var(--text-3); }
 .soon-step b { color: var(--text-2); font-weight: 700; }
 .soon-step-no { width: 1.75rem; height: 1.75rem; border-radius: 50%; display: grid; place-items: center; background: var(--line); color: var(--text-3); font-weight: 800; flex: none; }
-.soon-step > .soon-step-main { flex: 1 1 6em; min-width: 0; }   /* 번호가 제목 위로 올라가는 것은 글 칸이 6글자보다 좁을 때만(⑩) */
+/* 번호가 제목 위로 올라가는 것은 글 칸이 8글자보다 좁을 때(⑩): 가장 긴 제목(정보 보내기 동의)이 번호 옆 한 줄에 들고,
+   번호 옆 좁은 칸(320폭 1.3배 7글자)에서 설명이 한두 낱말씩(맞는지 / 확인해요) 잘게 쪼개지지 않게 */
+.soon-step > .soon-step-main { flex: 1 1 8em; min-width: 0; }
 .soon-options { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: var(--space-2); }
 .soon-now { border-top: 1px solid var(--line); padding-top: var(--space-4); margin-top: var(--space-1); }
 .soon-now-title { font-weight: 700; margin-bottom: .6rem; }

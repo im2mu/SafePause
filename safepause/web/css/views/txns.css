@@ -80,7 +80,10 @@
 .tx-ae-main { display: grid; gap: .1rem; flex: 1 1 auto; min-width: 0; }
 .tx-ae-easy { font-weight: 400; }
 .tx-ae-main > .tx-ae-easy { margin-top: 0; }
-.tx-ai-link { margin-top: .5rem; }
+/* AI는 어떻게 살펴보나요?(글 링크 같은 버튼): 위 카드 글처럼 왼쪽 정렬. 두 줄이 되어도 가운데로 옮겨 가지 않고,
+   첫 줄을 채워(그림 AI는 어떻게 / 살펴보나요?) 그림 옆에 한 낱말만 남지 않게 한다(줄 고르기 balance는 320폭 1.3배에서 AI는 / …를 골랐다) */
+.tx-ai-link { margin-top: .5rem; justify-content: flex-start; }
+.tx-ai-link .btn-label { text-align: start; text-wrap: wrap; }
 .tx-review-note { margin: -.15rem .25rem .1rem; }
 .tx-reviewed { margin-top: .5rem; color: var(--text-2); }
 

@@ -857,3 +857,21 @@ def test_icons_keep_size_with_large_text_2026_10_03() -> None:
         rule = _rule(sel, CSS)   # 공용 + 화면별 CSS
         assert re.search(r"max\(\d*\.?\d+vw, \.8em\)", rule), (sel, rule)
     assert ":is(.btn, .chip, .badge, .tag, .seg-tab, .soon, .toast) .bind { white-space: normal; }" not in CSS
+
+
+def test_disabled_and_soon_controls_stay_readable() -> None:
+    # 누를 수 없는 버튼·고를 수 없는 칩(준비 중 시트, 2026-10-03 재검토): 흐리게(opacity) 두지 않고 회색 바탕 + 보조 글 색.
+    # .btn:disabled는 색 이름(.btn.primary 등)과 선택자 세기가 같아 그 뒤에 와야 한다(앞에 있으면 흰 글이 남아 회색 바탕 위 1.05:1)
+    app = re.sub(r"/\*.*?\*/", "", CSS_FILES["app.css"], flags=re.S)
+    disabled = app.index(".btn:disabled:not([aria-busy=\"true\"]) {")
+    for variant in (".btn.primary {", ".btn.weak {", ".btn.danger {", ".btn.danger-weak {", ".btn.ghost {"):
+        assert app.index(variant) < disabled, variant
+    assert "color: var(--text-3)" in _rule('.btn:disabled:not([aria-busy="true"])')
+    chip_off = _rule(".chip.off")
+    assert "opacity" not in chip_off and "color: var(--text-3)" in chip_off and "border-style: dashed" in chip_off
+    # 준비 중 단계: 번호 옆 글 칸이 8글자보다 좁으면 번호를 위로(가장 긴 제목이 한 줄에), 지금 쓸 수 있는 방법 버튼 둘은 이름이 한 줄에 드는 폭에서만 나란히
+    assert ".soon-step > .soon-step-main { flex: 1 1 8em; min-width: 0; }" in CSS
+    assert ".soon-now .btn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); }" in CSS
+    # 파일 올리기 시트 안내: 첫 번째 시트만 읽어요.는 한 덩어리(span.keep-word)라 읽어요.만 홀로 남지 않는다
+    assert 'h("span", { class: "keep-word", text: "첫 번째\\u00a0시트만 읽어요." })' in (JS / "views" / "txns.js").read_text(encoding="utf-8")
+

@@ -716,10 +716,13 @@ export default {
       const err = h("p", { class: "error-text", role: "alert", hidden: true });
       openSheet((close) => [
         h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: "연습용 거래 불러오기" }),
-        h("p", { class: "sheet-sub", text: "진짜 사람의 거래가 아니에요. AI가 어떻게 알려 주는지 미리 볼 수 있어요." }),
+        // 뜻 단위가 갈리지 않게 줄을 바꾸지 않는 빈칸(\u00a0, 6글자까지)으로 잇는다: 알려 주는지·미리 살펴봐요, 같은 거래가(같은 번호면 같은 / 거래가).
+        // 미리 볼 수 있어요는 미리 살펴봐요로 줄였다: 볼 수 있어요가 낱말 묶음(span.bind)이라 그 앞 빈칸을 \u00a0로 두어도 크롬은 묶음 앞에서
+        // 줄을 바꿔 미리 / 볼 수 있어요로 갈렸다
+        h("p", { class: "sheet-sub", text: "진짜 사람의 거래가 아니에요. AI가 어떻게 알려\u00a0주는지 미리\u00a0살펴봐요." }),
         h("div", { class: "field" }, h("span", { class: "field-label", id: "sample-persona-label", text: "누구의 거래인가요?" }), persona),
         h("div", { class: "field" }, h("label", { for: "sample-seed", text: "번호" }), seed,
-          h("p", { class: "hint", id: "sample-seed-hint", text: "같은 번호면 같은 거래가 나와요." })),
+          h("p", { class: "hint", id: "sample-seed-hint", text: "같은 번호면 같은\u00a0거래가 나와요." })),
         h("label", { class: "check-row" }, mix, h("span", { class: "grow", text: "걱정되는 거래 섞기" })),
         err,
         h("div", { class: "sheet-actions" },
@@ -801,9 +804,15 @@ export default {
           h("h3", { class: "tx-ext-title" }, h("span", { text: "곧 올릴 수 있는 파일" }), soonBadge()),
           h("ul", { class: "tx-exts" }, EXT_SOON.map((x) => extChip(x, false))),
           h("p", { class: "muted", text: SOON_TEXT })),
-        // 엑셀 확장자(.xls·.xlsx)는 위 칩에 있다: 문장 안 괄호 덩어리(파일(.xls·.xlsx)은)는 끊기지 않아 큰 글씨에서 엑셀만 한 줄에 홀로 남았다
+        // 올릴 수 있는 확장자(.xls .xlsx)는 바로 위 목록에 있으므로 안내 글에서는 엑셀 파일이라고만 쓴다(긴 덩어리 파일(.xls·.xlsx)은이
+        // 큰 글씨에서 통째로 다음 줄로 넘어가 엑셀 / 파일(.xls· / .xlsx)은처럼 갈렸다). 엑셀 파일·첫 번째 시트만·올려 주세요는 줄을 바꾸지 않는 빈칸으로 잇고,
+        // 첫 번째 시트만 읽어요.는 한 덩어리(span.keep-word: 한 줄에 들면 통째로 옮기고, 칸보다 길 때만 안에서 줄을 바꾼다)로 둔다
+        // (읽어요.만 다음 줄에 홀로 남거나 첫 번째 / 시트만으로 갈리지 않게). 문장마다 한 줄(span.sent), 문장 사이 빈칸은 span 끝에
         h("div", { class: "notice" }, icon("info"),
-          h("p", { text: "은행 파일 모양은 따로 확인하지 못했어요. 엑셀 파일은 첫 번째 시트만 읽어요. 암호가 걸린 엑셀 파일은 엑셀에서 암호를 넣어 연 뒤 CSV로 저장해 올려 주세요." })),
+          h("p", null,
+            h("span", { class: "sent", text: "은행 파일 모양은 따로 확인하지 못했어요. " }),
+            h("span", { class: "sent" }, "엑셀\u00a0파일은 ", h("span", { class: "keep-word", text: "첫 번째\u00a0시트만 읽어요." }), " "),
+            h("span", { class: "sent", text: "암호가 걸린 엑셀\u00a0파일은 엑셀에서 암호를 넣어 연 뒤 CSV로 저장해 올려\u00a0주세요." }))),
         h("div", { class: "field" }, pick, file, chosen),
         report,
         h("div", { class: "sheet-actions" },
