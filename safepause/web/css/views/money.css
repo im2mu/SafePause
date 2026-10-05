@@ -54,7 +54,7 @@
 .mn-novoice { margin: .5rem .25rem; }
 
 /* ==== 안전 정지 카드(보내기 전 확인) ======================================== */
-.pause { padding-top: 0; }
+/* 휴대폰 시트는 다른 시트처럼 위 여백(.6rem) 아래에 손잡이를 둔다(여백 0이면 손잡이가 시트 윗변에 붙어 잘린 듯 보였다). 넓은 화면은 아래 600px 규칙 */
 .pause-head { margin: 0 calc(-1 * var(--gutter)) 1.1rem; padding: 1.25rem var(--gutter) 1.1rem; display: flex; flex-direction: column; align-items: center; text-align: center; gap: .6rem; }
 .pause.level-high .pause-head { background: var(--danger-weak); }
 .pause.level-caution .pause-head { background: var(--caution-weak); }
@@ -66,8 +66,14 @@
 .pause-title { font-size: 1.35rem; font-weight: 800; outline: none; }
 .pause .pause-lines { margin: 0 0 1rem; }
 .pause-question { font-size: 1.15rem; font-weight: 800; text-align: center; margin: 1.1rem 0 .25rem; }
-.helper-note { display: flex; gap: .6rem; align-items: flex-start; font-size: 1rem; color: var(--text-2); background: var(--surface-2); border-radius: var(--r-m); padding: .85rem 1rem; margin-top: .5rem; }
-.helper-note svg { width: 1.25rem; height: 1.25rem; flex: none; margin-top: max(0px, calc((1lh - 1.25rem) / 2)); }
+/* 카드의 이유 줄·질문·조력자 안내 문장은 줄 길이를 고르게: 보낸 적이 / 있어요., 보내는 것이 / 맞나요?, 알릴 수 / 있어요.처럼
+   끝말만 다음 줄에 홀로 남지 않게(pretty는 큰 글씨에서 이 끝말을 못 막았다). 묶음(보낸 적이)은 그대로 한 덩어리 */
+.pause .pause-lines li > p, .pause-question, .helper-note :is(p, .sent) { text-wrap: balance; }
+/* 조력자 안내: 안내 상자(.notice)와 같이 여백·사이는 화면 폭 상한, 그림은 화면 폭 상한이되 글자의 0.8배 이상, 글 칸이 6글자보다
+   좁아지면 그림이 글 위 줄로(좁은 칸에서 그림 칸이 상자의 3분의 1을 차지하고 글이 한 줄에 한 낱말씩 세로로 늘어지지 않게) */
+.helper-note { display: flex; flex-wrap: wrap; gap: min(.6rem, 3vw); align-items: flex-start; font-size: 1rem; color: var(--text-2); background: var(--surface-2); border-radius: var(--r-m); padding: min(.85rem, 4vw) min(1rem, 4.5vw); margin-top: .5rem; }
+.helper-note svg { width: min(1.25rem, max(6vw, .8em)); height: min(1.25rem, max(6vw, .8em)); flex: none; margin-top: max(0px, calc((1lh - min(1.25rem, max(6vw, .8em))) / 2)); }
+.helper-note > svg + * { flex: 1 1 6em; min-width: 0; }
 .pause-error:not(:empty) { margin-top: .75rem; }
 .pause-lines li > p { margin: 0; }
 .pause-speak { margin-top: .75rem; }
@@ -89,6 +95,7 @@
    나누지 않으면 카드 전체가 한 번에 스크롤되고 선택지는 본문 뒤에 온다(가로 화면·큰 글씨에서 본문이 0px로 접히던 문제).
    나눈 본문의 아래 여백은 띠의 위 여백(.75rem)과 같게: 0이면 끝까지 내렸을 때 마지막 버튼(소리로 듣기)이 띠 위 구분선에 붙었다 */
 .sheet.split { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+.sheet.split::before { flex: none; }   /* 손잡이는 줄지 않는다(칸이 빠듯하면 6px 막대가 3px 선으로 눌렸다) */
 .sheet.split > .sheet-body { flex: 1 1 auto; min-height: min(40vh, 14rem); min-height: min(40dvh, 14rem); overflow-y: auto; overscroll-behavior: contain; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter) var(--space-3); }
 .sheet.split > .sheet-foot { position: relative; flex: none; display: grid; gap: .5rem; padding: .75rem 0 max(1rem, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
 .sheet.split .pause-head { margin-top: 0; }

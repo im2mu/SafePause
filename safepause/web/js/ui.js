@@ -92,6 +92,9 @@ const SINGLE_WORD = /^[가-힣]$/;
 // 앞 낱말에 붙는 한 글자 낱말(의존 명사·단위): 가는 곳·건수 등·이번 달·한 장·알릴 수·확인한 뒤·본 후·보내기 전. 뒤 낱말이 아니라
 // 앞 낱말과 묶는다(뒤 낱말과 묶으면 알릴 / 수 있어요·확인한 / 뒤 이 앱을처럼 뜻 단위가 갈리고 짧은 가운데 줄이 생겼다)
 const BACK_WORD = /^(?:곳|것|때|등|달|번|장|개|명|건|쯤|뿐|데|줄|중|수|뒤|후|전)$/;   // 전: 보내기 전·알림 전
+// 앞 낱말 없이는 쓰지 않는 한 글자 의존 명사 + 조사 한 글자(보낸 적이·할 수도·본 것은·할 줄을): 이것도 앞 낱말과 묶는다
+// (요즘 밤늦게 돈을 보낸 / 적이 있어요처럼 꾸미는 말과 의존 명사가 다른 줄로 갈리지 않게)
+const BACK_PAIR = /^(?:적|것|수|줄|데)(?:이|은|도|을|가|만|는|에)$/;
 const letters = (w) => (w.match(/[가-힣A-Za-z0-9]/g) || []).length;
 
 /**
@@ -152,17 +155,18 @@ function bindGroups(units) {
   const single = (i) => units[i].parts.length === 1 && units[i].parts[0].kind === "text" && SINGLE_WORD.test(units[i].parts[0].text);
   const size = (i0, i1) => { let c = 0; for (let i = i0; i <= i1; i += 1) c += letters(text(units[i])); return c; };
   const ok = (i0, i1) => { for (let i = i0; i <= i1; i += 1) if (!free(i)) return false; return size(i0, i1) <= BIND_MAX; };
-  const back = (i) => single(i) && BACK_WORD.test(units[i].parts[0].text);
+  const pair = (i) => units[i].parts.length === 1 && units[i].parts[0].kind === "text" && BACK_PAIR.test(units[i].parts[0].text);
+  const back = (i) => (single(i) && BACK_WORD.test(units[i].parts[0].text)) || pair(i);
   const groups = [];
   for (let k = 0; k < n; k += 1) {
-    if (!single(k)) continue;
-    // 앞 낱말에 붙는 말(가는 곳): 앞 낱말과 묶는다(앞 낱말이 이미 묶음 끝이면 그 묶음을 늘린다)
+    if (!single(k) && !pair(k)) continue;
+    // 앞 낱말에 붙는 말(가는 곳·보낸 적이): 앞 낱말과 묶는다(앞 낱말이 이미 묶음 끝이면 그 묶음을 늘린다)
     if (back(k) && k > 0 && !single(k - 1)) {
       const prev = groups.length && groups[groups.length - 1][1] === k - 1 ? groups[groups.length - 1] : null;
       if (prev && ok(prev[0], k)) { prev[1] = k; continue; }
       if (!prev && ok(k - 1, k)) { groups.push([k - 1, k]); continue; }
     }
-    if (k === n - 1) continue;
+    if (!single(k) || k === n - 1) continue;
     let j = k;
     while (j < n - 1 && single(j)) j += 1;
     // 한 글자 낱말이 이어진 끝까지(열 수 있어요) → 6글자를 넘으면 바로 뒤 낱말까지(한 번 / 더 살펴봐요.)

@@ -401,22 +401,36 @@ export default {
         fitLayout();
       }
 
-      // 칸이 넉넉할 때만 본문·선택지를 나눈다(선택지가 늘 아래에 보이게). 나눈 뒤 본문 칸이 40%(최소 240px)·본문 최소 높이·
-      // '머리(제목 띠) + 글 네 줄'보다 작아지면 가로 화면·큰 글씨로 보고 카드 전체를 한 번에 스크롤한다(본문이 0px로 접히거나,
-      // 선택지가 시트 밖으로 잘리거나, 머리만 보이고 이유 글이 한두 줄만 보이지 않게, 2차 검증 C1·2026-10-03 검토).
+      // 칸이 넉넉할 때만 본문·선택지를 나눈다(선택지가 늘 아래에 보이게). 나눈 뒤 본문 칸(시트 높이 − 손잡이·위 여백 − 선택지 띠)이
+      // 40%(최소 240px)·본문 최소 높이·'머리(제목 띠) + 글 네 줄'보다 작아지면 가로 화면·큰 글씨로 보고 카드 전체를 한 번에 스크롤한다
+      // (본문이 0px로 접히거나, 선택지·손잡이가 시트 밖으로 잘리거나, 머리만 보이고 이유 글이 한두 줄만 보이지 않게, 2차 검증 C1·2026-10-03 검토).
+      // 손잡이(::before)와 위 여백도 뺀다: 빼지 않으면 '손잡이 + 본문 최소 높이 + 띠'가 시트보다 길어져 셋째 선택지 아래와 손잡이가 잘렸다.
+      // 재려고 split을 잠깐 붙이면 시트의 스크롤 범위가 줄어 읽던 자리가 깎이므로(창 크기가 바뀔 때마다 위로 튐) 읽던 자리를 되돌린다.
       // 아래로 더 있어요(mn-below)는 띠 위에 떠 있어 띠 높이에 들지 않는다(보였다 숨었다 해도 선택지가 밀리지 않게)
       function fitLayout() {
         const el = sheetApi && sheetApi.el;
         if (!el) return;
+        const wasSplit = el.classList.contains("split");
+        const sheetTop = el.scrollTop;
+        const bodyTop = body.scrollTop;
         el.classList.add("split");
         const room = el.clientHeight;
+        // 본문 위 자리(위 여백·손잡이): 시트 안쪽 위 끝에서 본문 위 끝까지(나누든 안 나누든 같다)
+        const above = Math.max(0, body.getBoundingClientRect().top - el.getBoundingClientRect().top - el.clientTop + el.scrollTop);
         const bs = getComputedStyle(body);
         const bodyMin = parseFloat(bs.minHeight) || 0;
         const head = body.querySelector(".pause-head, .sheet-title");
         const lh = parseFloat(bs.lineHeight) || parseFloat(bs.fontSize) * 1.6;
         const readable = (head ? head.offsetHeight : 0) + 4 * lh;
-        const fits = room >= 420 && room - foot.scrollHeight >= Math.max(room * 0.4, 240, bodyMin, readable);
+        const fits = room >= 420 && room - above - foot.offsetHeight >= Math.max(room * 0.4, 240, bodyMin, readable);
         el.classList.toggle("split", fits);
+        // 읽던 자리: 본문 스크롤과 시트 스크롤은 같은 글을 같은 화면 높이에 둔다(나눔이 바뀌어도 그 자리 그대로)
+        if (fits) {
+          el.scrollTop = 0;   // 나눈 카드는 본문만 스크롤한다(시트가 밀려 손잡이가 잘리지 않게)
+          if (!wasSplit) body.scrollTop = sheetTop;
+        } else {
+          el.scrollTop = wasSplit ? bodyTop : sheetTop;
+        }
         paintBelow();
       }
       function paintBelow() {
@@ -482,6 +496,7 @@ export default {
             back);
           fitLayout();
           body.scrollTop = 0;
+          sheetApi.el.scrollTop = 0;   // 새 화면은 맨 위부터(나누지 않은 카드는 시트가 스크롤된다)
           body.querySelector("#card-ask-title").focus();
           return;
         }
@@ -516,6 +531,7 @@ export default {
           back);
         fitLayout();
         body.scrollTop = 0;
+        sheetApi.el.scrollTop = 0;   // 새 화면은 맨 위부터(나누지 않은 카드는 시트가 스크롤된다)
         body.querySelector("#card-ask-title").focus();
       }
 
@@ -798,7 +814,10 @@ function recordedNote(note, recorded) {
 
 function namesText(names) { return names.length <= 2 ? names.join(", ") : `${names[0]} 외 ${names.length - 1}명`; }
 
-/** 카드 안 조력자 안내: 조력자에게 물어보면 누구에게 묻게 되는지. */
+/**
+ * 카드 안 조력자 안내: 조력자에게 물어볼래요를 누르면 누구에게 묻게 되는지. 버튼 이름 그대로 이어 쓴다
+ * (조력자에게 물어보면 이영희에게 물어봐요는 같은 말을 되풀이하는 것처럼 읽혔다, 나중에 보기를 누르면과 같은 꼴).
+ */
 function askPreviewText(cands) {
   const selectable = cands.filter((c) => !c.conflict);
   const picked = selectable.filter((c) => c.default || c.auto).map((c) => c.name);
@@ -810,9 +829,9 @@ function askPreviewText(cands) {
     if (others.length && !autoNames.length) more = " 다음 화면에서 바꿀 수 있어요.";
     else if (others.some((c) => c.default)) more = ` 다음 화면에서 ${namesText(autoNames)} 말고는 바꿀 수 있어요.`;
     else if (others.length) more = " 다음 화면에서 다른 사람을 더할 수 있어요.";
-    return `조력자에게 물어보면 ${namesText(picked)}에게 물어봐요.${more}`;
+    return `조력자에게 물어볼래요를 누르면 ${namesText(picked)}에게 물어봐요.${more}`;
   }
-  if (selectable.length) return "조력자에게 물어보면, 물어볼 사람을 다음 화면에서 골라요.";
+  if (selectable.length) return "조력자에게 물어볼래요를 누르면 물어볼 사람을 다음 화면에서 골라요.";
   return "지금은 물어볼 수 있는 조력자가 없어요. 조력자가 돈을 받는 사람이에요.";
 }
 
