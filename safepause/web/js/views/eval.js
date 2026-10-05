@@ -80,7 +80,8 @@ export default {
         options.map(([v, t]) => h("label", null, h("input", { type: "radio", name, value: v, checked: v === value }), h("span", { text: t }))));
       return { el, get value() { return (el.querySelector("input:checked") || {}).value || value; } };
     };
-    const seeds = radios("eval-seeds", [["1", "1번 (빠름)"], ["3", "3번"], ["5", "5번"], ["10", "10번"], ["20", "20번 (느림)"]], "3");
+    // 칸 이름은 횟수만(빠름·느림은 바로 아래 안내가 말한다): 다섯 칸이 넓은 화면에서 한 줄, 좁으면 고르게 줄을 나눈다
+    const seeds = radios("eval-seeds", [["1", "1번"], ["3", "3번"], ["5", "5번"], ["10", "10번"], ["20", "20번"]], "3");
     const intensity = radios("eval-intensity", Object.entries(INTENSITY_KO), "standard");
     const modeBoxes = Object.keys(MODE_KO).map((m) => h("input", { type: "checkbox", name: "eval-mode", value: m, checked: m === "fused" }));
     const reBtn = h("button", { type: "button", class: "btn primary big block ev-re-btn", onclick: (e) => exclusive(e.currentTarget, recompute) },

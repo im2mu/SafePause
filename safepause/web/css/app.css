@@ -464,6 +464,9 @@ select.input { background-image: linear-gradient(45deg, transparent 50%, var(--t
 .segmented:has(> :nth-child(3):last-child) {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, max(var(--seg-min), (3 * var(--seg-min) + 2 * var(--seg-gap) - 100%) * 999)), 1fr));
 }
+.segmented:has(> :nth-child(5):last-child) {   /* 다섯 칸: 한 줄에 다 들면 다섯, 아니면 한 칸씩(4+1·2+2+1로 들쭉날쭉하지 않게) */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(var(--seg-min), (5 * var(--seg-min) + 4 * var(--seg-gap) - 100%) * 999)), 1fr));
+}
 .segmented:has(> :nth-child(4):last-child) {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, max(var(--seg-min),
     min((4 * var(--seg-min) + 3 * var(--seg-gap) - 100%) * 999, (100% - var(--seg-gap)) / 2))), 1fr));

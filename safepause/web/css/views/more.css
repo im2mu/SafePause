@@ -275,5 +275,5 @@
   .pref-seg { --seg-gap: .2rem; }
 }
 /* 성능 확인 고르기: 반복 횟수 다섯 칸은 좁으면 여러 줄로(칸 이름 한 줄), 시나리오 종류 두 칸 */
-.seg-eval-seeds { --seg-min: 6.5rem; }   /* '20번 (느림)'이 한 줄에 드는 칸 폭(5.5rem이면 PC 1배에서도 '20번 / (느림)'으로 접혔다) */
-.seg-eval-intensity { --seg-min: 8rem; }
+.seg-eval-seeds { --seg-min: 4.25rem; }   /* '20번'이 한 줄에 드는 칸 폭(이름에서 빠름·느림을 빼 다섯 칸이 넓은 화면에서 한 줄) */
+.seg-eval-intensity { --seg-min: 6.75rem; }   /* '표준 시나리오'(글 약 5.6rem + 여백 1rem)가 한 줄에 드는 폭: 8rem이면 태블릿에서도 위아래로 쌓였다 */
