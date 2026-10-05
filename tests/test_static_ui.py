@@ -858,11 +858,11 @@ def test_bundle_spans_do_not_take_label_styles() -> None:
 
 def test_icons_keep_size_with_large_text_2026_10_03() -> None:
     # 글 옆 그림은 화면 폭 상한(vw)이 있어도 글자의 0.8배보다 작아지지 않는다(큰 글씨에서 그림이 글의 절반 크기로 보이던 것, K9).
-    # 상자 안 그림(목록 동그라미 등)은 상자 크기를 따른다. 버튼 안 낱말 묶음은 풀지 않는다(내 / 거래로 확인 방지, 넘치면 fitBundles)
+    # 상자 안 그림(목록 동그라미 등)은 상자 크기를 따른다. 버튼 안 낱말 묶음은 푼다(묶음이 있으면 balance가 첫 줄을 짧게 나눴다, 2026-10-06 측정)
     for sel in (".chip svg", ".btn svg", ".check-row > svg", ".notice > svg", ".engine-bar svg", ".np-expand svg"):
         rule = _rule(sel, CSS)   # 공용 + 화면별 CSS
         assert re.search(r"max\(\d*\.?\d+vw, \.8em\)", rule), (sel, rule)
-    assert ":is(.btn, .chip, .badge, .tag, .seg-tab, .soon, .toast) .bind { white-space: normal; }" not in CSS
+    assert ":is(.btn, .chip, .badge, .tag, .seg-tab, .soon, .toast) .bind { white-space: normal; }" in CSS
 
 
 def test_disabled_and_soon_controls_stay_readable() -> None:

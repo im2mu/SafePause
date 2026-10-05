@@ -168,6 +168,11 @@ p, li, .sent, .row-sub, .hint, .list-head { text-wrap: pretty; }
 /* 낱말 묶음(ui.keepNodes): 한 글자 낱말 + 뒤 낱말(열 수 있어요), 글 끝 한두 글자 낱말 + 앞 낱말(불법금융 신고)의 사이 빈칸.
    문장 6글자·이름 5글자까지만 묶어 큰 글씨 좁은 칸에서도 넘치지 않는다. 버튼·칩·배지 안에서는 줄 고르기(balance)에 맡긴다 */
 .bind { white-space: nowrap; }
+/* 버튼·칩·배지·태그·탭 안에서는 낱말 묶음을 풀고 줄 고르기(balance)에 맡긴다. 묶음을 남기면 Chrome의 balance가 첫 줄을 짧게 나눴다
+   ('상담하는 / 곳에 알림 보내기', '거래 / 없이 직접 적기'). 5조건 × 화면 20개의 이름 677개를 재 보니 첫 줄이 짧은 이름 13 → 2,
+   두 글자 꼬리 16 → 7(화면 이름 묶음 .kn은 남김: 알림 / 목록에 담기 방지). 묶음으로 막으려던 '내 / 거래로 확인'은 묶음이 칸보다 넓어
+   풀리는 크기(320폭 2배)에서만 생겨 묶음을 남겨도 막지 못했다 */
+:is(.btn, .chip, .badge, .tag, .seg-tab, .soon, .toast) .bind { white-space: normal; }
 /* 묶음 하나가 그 글 칸보다 넓으면(아주 큰 글씨·좁은 화면·넓은 글꼴) ui.fitBundles가 .flow를 붙여 보통 글처럼 줄을 바꾼다(넘침 방지) */
 .nowrap.flow, .bind.flow { white-space: normal; }
 /* 화면 이름 + 붙은 말(알림 보내기에서, ui.keepNodes span.kn > span.nowrap): 칸보다 넓으면 이름 가운데 빈칸에서 바꾼다 */

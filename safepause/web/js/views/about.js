@@ -89,11 +89,13 @@ export default {
       h("h3", { class: "section-title", text: "오픈소스 고지" }),
       h("div", { class: "card" },
         h("p", { class: "muted", text: "SafePause는 아래 오픈소스를 써요. 각 라이선스 전문은 앱과 함께 담긴 licenses 폴더에 있어요." }),
-        // threadpool·ctl 사이 줄 바꿀 자리(\u00ad, 바뀌면 붙임표): 아주 큰 글씨 좁은 화면에서 threadpoolct / l로 잘리지 않게
         h("ul", { class: "bullets about-bullets" },
           ["Pyodide (MPL-2.0)", "Python 표준 라이브러리 (PSF License)", "NumPy (BSD-3-Clause)", "SciPy (BSD-3-Clause)",
-            "scikit-learn (BSD-3-Clause)", "joblib (BSD-3-Clause)", "threadpool\u00adctl (BSD-3-Clause)", "pydantic · pydantic-core (MIT)",
+            "scikit-learn (BSD-3-Clause)", "joblib (BSD-3-Clause)", "threadpoolctl (BSD-3-Clause)", "pydantic · pydantic-core (MIT)",
             "typing-extensions (PSF License)", "annotated-types · typing-inspection (MIT)"].map((t) => {
+            // threadpool·ctl 사이 줄 바꿀 자리(wbr): 아주 큰 글씨 좁은 화면에서 threadpoolct / l로 잘리지 않게. 연성 붙임표(\u00ad)는
+            // Chrome·WebView가 줄이 바뀌지 않아도 붙임표로 그려 이름이 threadpool-ctl로 보였다
+            if (t.startsWith("threadpoolctl ")) return h("li", null, h("span", { text: "threadpool" }), h("wbr"), h("span", { text: t.slice(10) }));
             // 빈칸이 든 괄호 라이선스 이름((PSF License))은 한 덩어리(inline-block: 들어가면 한 줄, 칸보다 넓으면 안에서 줄바꿈)로
             // (PSF / License)처럼 갈리지 않게. 빈칸 없는 이름((BSD-3-Clause))은 글 넣기의 낱말 묶기가 이미 덩어리로 만든다
             const m = /^(.*) (\([^()]* [^()]*\))$/.exec(t);
