@@ -21,6 +21,8 @@ serve.lock
 file_eval_*
 *.csv
 !sample_data/*.csv
+# 공고 선택 사항 '샘플 결과물'(tools/make_samples.py가 만든 합성 데이터 결과, samples/README.md가 소개함)
+!samples/*.csv
 # 안드로이드: 서명 키(비밀)·조립 결과·내려받은 Pyodide·빌드 결과
 android/signing/
 android/www-build/
