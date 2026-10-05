@@ -258,7 +258,8 @@ export function keepNodes(text, { bind = false } = {}) {
     return el;
   };
   const writeParts = (u) => {
-    for (const p of u.parts) {
+    for (let pi = 0; pi < u.parts.length; pi += 1) {
+      const p = u.parts[pi];
       if (p.kind === "kw") { flush(); out.push(keepWord(p.text)); }
       // 전화번호: 하이픈 뒤(wbr)에서만 줄을 바꾼다(하이픈 뒤 숫자 앞은 브라우저가 줄을 바꾸지 않아 큰 글씨에서 넘쳤다).
       // 세 마디(010-1234-5678)면 뒤 두 마디는 한 덩어리(span.keep-word): 칸이 좁으면 010- / 1234-5678로 나뉜다(앞줄을 끝까지
@@ -274,7 +275,13 @@ export function keepNodes(text, { bind = false } = {}) {
           span("tel-text", [g[0], document.createElement("wbr"), rest]);
         }
       }
-      else if ((p.kind === "keep" && /[ \u00a0]/.test(p.text)) || p.kind === "dot") span("nowrap", [p.text]);
+      else if ((p.kind === "keep" && /[ \u00a0]/.test(p.text)) || p.kind === "dot") {
+        // 바로 뒤에 붙은 말(조사 등, 같은 낱말)까지 같은 묶음에: 묶음 끝에서 Chrome이 줄을 바꿔 '새벽 2시 32분 / 에'처럼
+        // 조사만 다음 줄 첫머리로 떨어졌다(묶음 경계는 keep-all이 막지 못한다). 칸보다 넓으면 fitBundles가 풀어 빈칸에서 바꾼다
+        let t = p.text;
+        while (pi + 1 < u.parts.length && u.parts[pi + 1].kind === "text") { pi += 1; t += u.parts[pi].text; }
+        span("nowrap", [t]);
+      }
       else buf += p.text;   // 보통 글·빈칸 없는 금액(50,000원·63만7천원: 줄을 바꿀 자리가 없다)
     }
   };

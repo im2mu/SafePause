@@ -192,7 +192,23 @@ export function columnChart(items, opts = {}) {
     // 이름 옆에 시간까지 한 줄에 들어가면 한 줄, 아니면 모든 줄에서 시간을 둘째 줄로 내린다(줄 높이를 같게)
     const subInline = items.every((it) => !it.sub || head(it) + rem * 0.35 + m.width(it.sub) + rem * 0.6 + valW <= W);
     const subLine = !subInline && items.some((it) => it.sub);
-    const textH = lineH * (subLine ? 2 : 1);
+    // 둘째 줄 시간 글이 칸보다 넓으면(아주 큰 글씨 좁은 칸) 물결 뒤에서, 그래도 넓으면 빈칸에서 줄을 나눈다: SVG 글은 저절로 줄이
+    // 바뀌지 않아 '낮 12시~저녁 6시'가 카드 오른쪽 밖으로 나갔다(320폭 2배). 줄 수는 모든 막대가 같게(가장 많은 것)
+    const wrapSub = (s) => {
+      if (!s || m.width(s) <= W) return s ? [s] : [];
+      const lines = [];
+      for (const piece of s.split(/(?<=~)/)) {
+        let cur = "";
+        for (const w of piece.split(/(?= )/)) {
+          if (cur && m.width((cur + w).trim()) > W) { lines.push(cur.trim()); cur = w.trimStart(); } else cur += w;
+        }
+        if (cur.trim()) lines.push(cur.trim());
+      }
+      return lines;
+    };
+    const subs = items.map((it) => (subLine && it.sub ? wrapSub(it.sub) : []));
+    const subN = subLine ? Math.max(1, ...subs.map((x) => x.length)) : 0;
+    const textH = lineH * (1 + subN);
     const rowH = textH + rem * 0.3 + barH + rem * 0.8;
     const H = Math.ceil(rowH * items.length - rem * 0.5);
     root.setAttribute("viewBox", `0 0 ${W} ${H}`);
@@ -214,7 +230,7 @@ export function columnChart(items, opts = {}) {
         dotX = labelW + rem * 0.35 + m.width(it.sub) + dotR * 2;
       }
       g.append(t);
-      if (it.sub && subLine) g.append(el("text", { class: "ch-sub", x: 0, y: base1 + lineH }, it.sub));
+      subs[i].forEach((line, k) => g.append(el("text", { class: "ch-sub", x: 0, y: base1 + lineH * (k + 1) }, line)));
       if (it.flag) g.append(el("circle", { class: "flag-dot", cx: Math.min(dotX, W - valW - dotR * 2), cy: base1 - rem * 0.35, r: dotR }));
       g.append(el("text", { class: "ch-value", x: W, y: base1, "text-anchor": "end" }, it.valueText));
       g.append(el("rect", { class: "track", x: 0, y: by, width: W, height: barH, rx: barH / 2 }));
