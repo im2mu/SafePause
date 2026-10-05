@@ -1,7 +1,7 @@
 /* 동의: 세 가지를 따로 켜고 끄며, 끄면 바로 멈춘다(S18·S37 즉시 철회). 맨 아래에 모두 지우기.
  * 거래 살펴보기를 끄거나 모두 지울 때는 화면 데이터 세대를 올려, 요청 중이던 옛 거래 목록이 다시 그려지지 않게 한다(리뷰 H1). */
-import { h, icon, fill, setText, toast, announce, skeleton, busy, confirmSheet, paragraphs } from "../ui.js";
-import { formatWhen, deviceWord, keepUnits } from "../format.js";
+import { h, icon, fill, setText, keepNodes, toast, announce, skeleton, busy, confirmSheet, paragraphs } from "../ui.js";
+import { parseTs, formatDate, formatTime, deviceWord } from "../format.js";
 import { errorNotice } from "../components.js";
 import { STALE } from "../api.js";
 import { clearBankApp } from "./bankapp.js";
@@ -84,7 +84,15 @@ export default {
       }
       for (const it of ITEMS) switches[it.key].setAttribute("aria-checked", c[it.key] ? "true" : "false");
       for (const r of givenBy.querySelectorAll("input")) r.checked = r.value === (c.given_by || "self");
-      setText(updated, c.updated_at ? keepUnits(`마지막으로 바꾼 때: ${formatWhen(c.updated_at)}`) : "아직 아무것도 켜지 않았어요. 모두 꺼져 있어요.");   // 문장마다 한 줄(C5)
+      const when = parseTs(c.updated_at);
+      // 이름(마지막으로 바꾼 때:)과 값(날짜·시각)을 나눠 넣는다. 값은 한 덩어리(span.keep-word): 한 줄에 들면 통째로 옮기고, 칸보다 넓을
+      // 때만 해 뒤·날짜와 시각 사이에서 바꾼다('때:'만 한 줄에 남거나 요일 '(화)'가 날짜에서 떨어지지 않게)
+      if (when) {
+        const [year, ...day] = formatDate(when).split(" ");
+        updated.replaceChildren(...keepNodes("마지막으로 바꾼 때: ", { bind: true }),
+          h("span", { class: "keep-word" }, h("span", { class: "nowrap" }, year), " ", h("span", { class: "nowrap" }, day.join(" ")), " ",
+            h("span", { class: "nowrap" }, formatTime(when))));
+      } else setText(updated, c.updated_at ? `마지막으로 바꾼 때: ${c.updated_at}` : "아직 아무것도 켜지 않았어요. 모두 꺼져 있어요.");   // 문장마다 한 줄(C5)
     }
 
     async function toggle(it, sw) {

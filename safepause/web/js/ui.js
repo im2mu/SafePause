@@ -65,7 +65,7 @@ export function splitSentences(text) {
 // · 전화번호 · 두 글자 낱말 둘을 가운뎃점으로 이은 말(문자·메일) · 띄어 쓴 화면 이름(알림 보내기·알림 목록: 남지만 알림 / 보내기에는처럼
 // 이름이 갈려 앞말과 한 덩어리로 읽히지 않게, S010·S073. 붙은 말까지 한 묶음, 아래 name). 해(2026년)·요일((토))은 묶지 않는다
 // (묶음이 길면 큰 글씨 좁은 칸에서 넘친다. 칸보다 넓은 묶음은 fitBundles가 푼다)
-const KEEP_RE = /(?:새벽|아침|오전|낮|오후|저녁|밤)[ \u00a0]\d{1,2}시(?:[ \u00a0]\d{1,2}분)?|\d{1,2}월[ \u00a0]\d{1,2}일|\d[\d,.]*(?:억|만|천)?(?:[ \u00a0]?\d[\d,.]*(?:만|천))*[ \u00a0]?원|(?<![\d*])[\d*]{2,4}-[\d*]{3,4}-[\d*]{4}(?![\d*])|(?<![가-힣·])[가-힣]{1,2}·[가-힣]{1,2}(?![가-힣·])|(?<![가-힣])(?:돈[ \u00a0]보내기[ \u00a0]전[ \u00a0]확인|알림[ \u00a0](?:보내기|목록)|돈[ \u00a0]보내기|상담하는[ \u00a0]곳|내[ \u00a0]거래|쉬운[ \u00a0]말)/g;
+const KEEP_RE = /(?:새벽|아침|오전|낮|오후|저녁|밤)[ \u00a0]\d{1,2}시(?:[ \u00a0]\d{1,2}분)?|\d{1,2}월[ \u00a0]\d{1,2}일|\d[\d,.]*(?:억|만|천)?(?:[ \u00a0]?\d[\d,.]*(?:만|천))*[ \u00a0]?원|(?<![\d*])[\d*]{2,4}-[\d*]{3,4}-[\d*]{4}(?![\d*])|(?<![가-힣·])[가-힣]{1,2}·[가-힣]{1,2}(?![가-힣·])|(?<![가-힣])(?:돈[ \u00a0]보내기[ \u00a0]전[ \u00a0]확인|알림[ \u00a0](?:보내기|목록)|돈[ \u00a0]보내기|상담하는[ \u00a0]곳|내[ \u00a0](?:거래|은행[ \u00a0]앱)|쉬운[ \u00a0]말|복지급여[ \u00a0]수급자)/g;
 const HANGUL_TAIL = /^[가-힣]{3,}/;
 // 기관 이름처럼 긴 낱말(앞 4글자 이상 + 뒤 기관 말)은 그 사이에서 줄을 바꿀 수 있게 한다(지역발달장애인 / 지원센터).
 // 낱말 끝 한두 글자(센 / 터)만 다음 줄로 밀리지 않게 한다
@@ -142,7 +142,7 @@ function splitUnits(s) {
       last += tail.length + punct.length;
       continue;
     }
-    if (/^(?:알림|돈|상담하는|내|쉬운)[ \u00a0]/.test(k)) { word("name", k); continue; }   // 화면 이름(아래 KEEP_RE 이름 갈래)
+    if (/^(?:알림|돈|상담하는|내|쉬운|복지급여)[ \u00a0]/.test(k)) { word("name", k); continue; }   // 화면 이름(아래 KEEP_RE 이름 갈래)
     word("keep", k);
   }
   plain(s.slice(last));
@@ -221,7 +221,9 @@ function bindGroups(units) {
       const prev = groups.find((q) => q !== g && q[1] === g[0] - 1);
       const start = prev ? prev[0] : g[0] - 1;
       const strand = start > 0 && size(start - 1, start - 1) <= 2 && !groups.some((q) => q[0] <= start - 1 && start - 1 <= q[1]);
-      if (!strand && prev && ok(prev[0], g[1])) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); }
+      // 앞 묶음이 '꾸미는 말 + 곳이·것이'(도와줄 곳이)면 상한을 BIND_CAN_MAX로: 6글자에 막혀 '상담을 / 도와줄 곳이 / 있어요.' 세 줄이 됐다.
+      // 칸보다 넓으면 fitBundles가 풀어 '상담을 도와줄 / 곳이 있어요.'가 된다. 다른 문장은 6글자 그대로('꼭 / 확인으로' 방지)
+      if (!strand && prev && ok(prev[0], g[1], pair(prev[1]) ? BIND_CAN_MAX : BIND_MAX)) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); }
       else if (!strand && !prev && ok(g[0] - 1, g[1]) && !BACK_LEAD.test(text(units[g[0] - 1]))) g[0] -= 1;
     }
   }
@@ -256,6 +258,17 @@ export function keepNodes(text, { bind = false } = {}) {
     el.append(...(/[ \u00a0]/.test(amount) ? [Object.assign(document.createElement("span"), { className: "nowrap", textContent: amount })] : [amount]),
       document.createElement("wbr"), rest);
     return el;
+  };
+  // 낱말 묶음(span.bind) 안: 시각·날짜·띄어 쓴 금액·문자·메일은 span.nowrap을 그대로 둔다(버튼 안에서 묶음이 풀려도 끊기지 않게)
+  // 묶음 안 글: 글자 + 가운뎃점(계정·)은 안쪽 nowrap(묶음이 풀려도 가운뎃점이 줄 첫머리에 오지 않게)
+  const pushText = (kids, t) => {
+    let last = 0;
+    for (const m of t.matchAll(/[가-힣A-Za-z0-9]·/g)) {
+      if (m.index > last) kids.push(document.createTextNode(t.slice(last, m.index)));
+      kids.push(Object.assign(document.createElement("span"), { className: "nowrap", textContent: m[0] }));
+      last = m.index + m[0].length;
+    }
+    if (last < t.length) kids.push(document.createTextNode(t.slice(last)));
   };
   const writeParts = (u) => {
     for (let pi = 0; pi < u.parts.length; pi += 1) {
@@ -298,16 +311,38 @@ export function keepNodes(text, { bind = false } = {}) {
     // 낱말 전체를 nowrap 하나로 묶지 않는다: 그러면 문단의 text-wrap: pretty가 꼬리 줄(직접 / 보내요.)을 막지 못했다
     if (u.parts.some((p) => p.kind === "name")) {
       flush();
+      // 이름 앞 가운뎃점까지(조력자·)는 묶음 밖에: 가운뎃점 뒤에서 줄을 바꿀 수 있게 하고, 글자 + 가운뎃점은 안쪽 nowrap으로
+      // 가운뎃점이 줄 첫머리에 오지 않게 한다. 묶음에 넣으면 '조력자·상담하는 곳에' 전체가 칸보다 넓어 풀려
+      // '조력자 / ·상담하는 / 곳에'처럼 가운뎃점이 줄 머리에 오고 이름도 갈렸다
+      const parts = u.parts.map((p) => ({ kind: p.kind, text: p.kind === "name" ? p.text : p.text.replace("\u0000", "") }));
+      const first = parts.findIndex((p) => p.kind === "name");
+      const lead = parts.slice(0, first).map((p) => p.text).join("");
+      const cut = lead.lastIndexOf("·") + 1;
+      if (cut > 0) {
+        pushText(out, lead.slice(0, cut));
+        out.push(document.createElement("wbr"));
+        parts.splice(0, first, ...(cut < lead.length ? [{ kind: "text", text: lead.slice(cut) }] : []));
+      }
       const el = document.createElement("span");
       el.className = "kn";
-      for (const p of u.parts) {
+      for (const p of parts) {
         if (p.kind === "name") el.append(Object.assign(document.createElement("span"), { className: "nowrap", textContent: p.text }));
-        else el.append(p.text.replace("\u0000", ""));
+        else el.append(p.text);
       }
       out.push(el);
       return;
     }
     const ut = u.parts.map((p) => p.text).join("");
+    // 여는 괄호가 이 낱말 안에서 닫히지 않으면(섞어요(정답 표시가 붙음).) 괄호 앞(묶음 밖 wbr)에서 줄을 바꿀 수 있게 나눈다:
+    // 통째로 묶으면 '섞어요(정답 / 표시가 붙음).'처럼 괄호 설명 한가운데에서 바뀌었다. 닫히는 괄호(약속(규칙)과)는 그대로 묶는다
+    const open = ut.lastIndexOf("(");
+    if (open > 0 && !ut.includes(")", open) && u.parts.length === 1 && u.parts[0].kind === "text") {
+      writeUnit({ ...u, parts: [{ kind: "text", text: ut.slice(0, open) }] });
+      flush();
+      out.push(document.createElement("wbr"));
+      writeUnit({ ...u, space: "", parts: [{ kind: "text", text: ut.slice(open) }] });
+      return;
+    }
     if (!PUNCT_IN.test(ut) || letters(ut) > PUNCT_WORD_MAX || /[\n\r]/.test(ut) || u.parts.some((p) => p.kind === "kw" || p.kind === "tel")) { writeParts(u); return; }
     flush();
     const at = out.length;
@@ -372,17 +407,6 @@ export function keepNodes(text, { bind = false } = {}) {
       }
     }
     out.push(el);
-  };
-  // 낱말 묶음(span.bind) 안: 시각·날짜·띄어 쓴 금액·문자·메일은 span.nowrap을 그대로 둔다(버튼 안에서 묶음이 풀려도 끊기지 않게)
-  // 묶음 안 글: 글자 + 가운뎃점(계정·)은 안쪽 nowrap(묶음이 풀려도 가운뎃점이 줄 첫머리에 오지 않게)
-  const pushText = (kids, t) => {
-    let last = 0;
-    for (const m of t.matchAll(/[가-힣A-Za-z0-9]·/g)) {
-      if (m.index > last) kids.push(document.createTextNode(t.slice(last, m.index)));
-      kids.push(Object.assign(document.createElement("span"), { className: "nowrap", textContent: m[0] }));
-      last = m.index + m[0].length;
-    }
-    if (last < t.length) kids.push(document.createTextNode(t.slice(last)));
   };
   const bindChildren = (g) => {
     const kids = [];

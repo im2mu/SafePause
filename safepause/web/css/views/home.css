@@ -114,6 +114,7 @@ a.home-top-link:active { background: var(--bg-sub); }
 .home-top-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 .75rem; }
 .home-top-name { min-width: 0; overflow-wrap: break-word; }
 .home-top-money { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.home-top.money-below .home-top-money { flex-basis: 100%; text-align: right; }   /* 한 줄이라도 내려가면 모두 다음 줄(home.js evenRows) */
 .home-top .hbar-track { height: .6rem; }
 .home-top .hbar-track > i { min-width: 4px; }
 .home-top-sub { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; color: var(--text-3); line-height: var(--lh-sub); }

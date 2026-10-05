@@ -34,7 +34,7 @@ export default {
 
       h("h3", { class: "section-title", text: "어떻게 판단하나요" }),
       h("div", { class: "list" },
-        h("div", { class: "list-head", text: "① 약속(규칙) 5가지: 착취 때 자주 보이는 다섯 가지 모습" }),
+        h("div", { class: "list-head step-title" }, h("span", { class: "step-no", text: "①" }), h("span", { text: "약속(규칙) 5가지: 착취 때 자주 보이는 다섯\u00a0가지 모습" })),
         SIGNALS.map((code) => h("div", { class: "row" }, h("span", { class: "row-icon orange" }, icon(SIGNAL_ICON[code])),
           h("span", { class: "row-main" }, h("span", { class: "row-title about-wrap", text: SIGNAL_KO[code] }),
             h("span", { class: "row-sub about-wrap", text: RULES[code] }))))),
@@ -54,12 +54,12 @@ export default {
         h("ul", { class: "bullets about-bullets" },
           li("돈 보내기에서 적은 받는 사람과 금액도 위와 같은 방법으로 살펴봐요."),
           li("거래가 30건보다 적으면 AI 없이 약속으로만 살펴봐요."),
-          li("거래 살펴보기 동의가 꺼져 있으면 안 살펴봐요."))),
+          li("거래 살펴보기 동의를 끄면 안 살펴봐요."))),
 
       h("h3", { class: "section-title", text: "무엇으로 배웠나요 (학습 데이터셋 요약)" }),
       h("div", { class: "card" },
         // 첫 문단: 무엇으로 만들었나(첫 문장은 굵게) / 둘째 문단: 앱을 쓸 때는 무엇으로 배우나
-        h("p", { class: "lead-strong", text: "개발·평가에는 실제 사람의 거래를 쓰지 않았어요. 착취 때 자주 보이는 다섯 가지 모습을 재현하도록 만든 합성(가상) 데이터예요." }),
+        h("p", { class: "lead-strong", text: "개발·평가에는 실제 사람의 거래를 쓰지 않았어요. 착취 때 자주 보이는 다섯\u00a0가지 모습을 재현하도록 만든 합성(가상) 데이터예요." }),
         h("p", { class: "muted", text: "앱을 쓸 때는 내가 올린 내 거래로 내 평소 모습을 배워요(위 ②)." }),
         h("ul", { class: "bullets about-bullets" },
           li("가상 인물 3종: 근로자(월급), 복지급여 수급자, 학생(용돈)"),

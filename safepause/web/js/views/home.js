@@ -175,7 +175,7 @@ function flowSection(ctx, data) {
     monthsCard(ctx, data.months || [], partialDay(data.as_of, tm.month)),
     channelsCard(ctx, data.channels || [], mWord),
     bandsCard(ctx, data.time_bands || [], mWord),
-    payeesCard(data.top_payees || [], tm, mWord));
+    payeesCard(ctx, data.top_payees || [], tm, mWord));
 }
 
 /**
@@ -297,18 +297,19 @@ function channelsCard(ctx, channels, mWord) {
   return h("section", { class: "card home-card", "aria-labelledby": "home-where-title" },
     cardHead("home-where-title", label, `${withRo(name(top))} 가장 많이 나갔어요.`),
     bar.el,
-    evenLegend(h("ul", { class: "legend home-legend", "aria-label": "결제 방법별 나간 돈" }, channels.map((c) => h("li", { class: cls(c) },
+    evenRows(h("ul", { class: "legend home-legend", "aria-label": "결제 방법별 나간 돈" }, channels.map((c) => h("li", { class: cls(c) },
       h("span", { class: "swatch", "aria-hidden": "true" }),
       h("span", { class: "grow" }, h("span", { class: "home-legend-name", text: name(c) }),
         h("span", { class: "pct", text: `${percent(c.share, 0)} · ${nf.format(c.out_count || 0)}건` })),
-      h("b", { class: "home-legend-money", text: moneyText(c.out_total) })))), ctx.onCleanup));
+      h("b", { class: "home-legend-money", text: moneyText(c.out_total) })))), ".home-legend-name", ".home-legend-money", ctx.onCleanup));
 }
 
 /**
- * 범례 줄 맞추기: 한 줄이라도 금액이 이름 아래로 내려가면(큰 글씨·긴 금액) 모든 줄의 금액을 다음 줄 오른쪽으로 둔다(.money-below, .stack은 비율 막대 이름이라 쓰지 않는다).
- * 줄마다 따로 내려가면 일곱 자리 금액 줄만 두 줄이 되어 들쭉날쭉했다(1280폭 2배). 칸 폭·글자 크기가 바뀌면 다음 틀에서 다시 잰다
+ * 이름 + 금액 목록 줄 맞추기(결제 방법 범례·많이 보낸 곳 TOP 3): 한 줄이라도 금액이 이름 아래로 내려가면(큰 글씨·긴 금액) 모든 줄의
+ * 금액을 다음 줄 오른쪽으로 둔다(.money-below, .stack은 비율 막대 이름이라 쓰지 않는다). 줄마다 따로 내려가면 일곱 자리 금액 줄만
+ * 두 줄이 되어 들쭉날쭉했다(1280폭 2배). 칸 폭·글자 크기가 바뀌면 다음 틀에서 다시 잰다
  */
-function evenLegend(ul, onCleanup) {
+function evenRows(ul, nameSel, moneySel, onCleanup) {
   if (typeof ResizeObserver !== "function") return ul;
   let frame = 0;
   const run = () => {
@@ -316,8 +317,8 @@ function evenLegend(ul, onCleanup) {
     if (!ul.isConnected || !ul.clientWidth) return;
     ul.classList.remove("money-below");
     const wrapped = [...ul.children].some((li) => {
-      const name = li.querySelector(".home-legend-name");
-      const money = li.querySelector(".home-legend-money");
+      const name = li.querySelector(nameSel);
+      const money = li.querySelector(moneySel);
       return name && money && money.offsetTop > name.offsetTop + name.offsetHeight / 2;
     });
     ul.classList.toggle("money-below", wrapped);
@@ -359,7 +360,7 @@ function bandsCard(ctx, bands, mWord) {
       bands.map((b) => [`${bandName(b)} ${bandRange(b)}`, `${nf.format(b.flagged || 0)}건`, `${nf.format(b.out_count || 0)}건`])));
 }
 
-function payeesCard(payees, tm, mWord) {
+function payeesCard(ctx, payees, tm, mWord) {
   const label = "많이 보낸 곳 TOP 3";
   if (!payees.length) {
     return h("section", { class: "card home-card", "aria-labelledby": "home-top-title" },
@@ -370,7 +371,7 @@ function payeesCard(payees, tm, mWord) {
   return h("section", { class: "card home-card", "aria-labelledby": "home-top-title" },
     cardHead("home-top-title", label),
     h("p", { class: "muted", text: `${mWord}에 계좌 이체와 카드 결제로 나간 돈이에요. 누르면 그 이름의 거래를 모아 보여 줘요.` }),
-    h("ol", { class: "home-top" }, payees.map((p, i) => {
+    evenRows(h("ol", { class: "home-top" }, payees.map((p, i) => {
       const share = whole ? p.out_total / whole : 0;
       const inner = [
         h("span", { class: "home-rank", "aria-hidden": "true", text: String(i + 1) }),
@@ -388,7 +389,7 @@ function payeesCard(payees, tm, mWord) {
         ? h("a", { class: "home-top-link", href: `#/txns?q=${encodeURIComponent(p.name)}` },
           inner, h("span", { class: "sr-only", text: ", 이 이름의 거래 보기" }), h("span", { class: "row-chev home-top-chev" }, icon("chevron")))
         : h("div", { class: "home-top-link" }, inner));
-    })));
+    })), ".home-top-name", ".home-top-money", ctx.onCleanup));
 }
 
 // ---- 바로가기 ---------------------------------------------------------------------

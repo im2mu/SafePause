@@ -33,6 +33,15 @@
 }
 .mn-more-text { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .6rem; }
 .mn-more > summary::-webkit-details-marker { display: none; }
+/* 좁은 칸(큰 글씨): 부제가 제목 옆 칸에서 접혀 '보낼 / 시각 지금'이 됐다. 제목·화살표를 첫 줄에, 부제를 둘째 줄 전체 폭에 둔다 */
+.mn-more { container-type: inline-size; }
+@container (max-width: 15em) {
+  .mn-more > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: .6rem; }
+  .mn-more-text { display: contents; }
+  .mn-more-title { grid-row: 1; grid-column: 1; }
+  .mn-more-chev { grid-row: 1; grid-column: 2; margin-left: 0; }
+  .mn-more-sub { grid-row: 2; grid-column: 1 / -1; }
+}
 .mn-more-sub { min-width: 0; color: var(--text-3); font-weight: 600; }
 .mn-more-chev { width: 1.2rem; height: 1.2rem; flex: none; margin-left: auto; color: var(--text-3); transition: transform .2s ease; }
 .mn-more[open] .mn-more-chev { transform: rotate(180deg); }

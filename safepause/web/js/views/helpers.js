@@ -138,7 +138,7 @@ export default {
 
       const sheet = openSheet((close) => {
         const form = h("form", { novalidate: true, oninput: markDirty, onchange: markDirty, onsubmit: (e) => e.preventDefault() },
-          h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: isNew ? "새 조력자" : `조력자: ${hp.name}` }),
+          h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: isNew ? "조력자 더하기" : `조력자: ${hp.name}` }),
           h("div", { class: "field" }, h("label", { for: "hp-name", text: "이름" }), name),
           h("div", { class: "field" }, h("label", { for: "hp-rel", text: "관계" }), relation,
             h("datalist", { id: "hp-rel-list" }, RELATIONS.map((r) => h("option", { value: r })))),
@@ -224,7 +224,7 @@ export default {
             }, icon("trash"), h("span", { text: "이 조력자 빼기" })),
             h("button", { type: "button", class: "btn big block", text: "닫기", onclick: () => tryClose() })));
         return form;
-      }, { label: isNew ? "새 조력자" : `조력자 ${hp.name}`, dismissible: false, onEscape: () => tryClose(), onClose: () => { ctx.session.unsaved = null; } });
+      }, { label: isNew ? "조력자 더하기" : `조력자 ${hp.name}`, dismissible: false, onEscape: () => tryClose(), onClose: () => { ctx.session.unsaved = null; } });
 
       async function tryClose() {
         if (dirty) {

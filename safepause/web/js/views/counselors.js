@@ -200,7 +200,7 @@ export default {
         } }, icon("contacts"), h("span", { text: "연락처에서 불러오기" }));
       }
 
-      const title = isNew ? (preset ? preset.name : "새 상담하는 곳") : c.name;
+      const title = isNew ? (preset ? preset.name : "상담하는 곳 더하기") : c.name;
       const sheet = openSheet((close) => h("form", { novalidate: true, oninput: markDirty, onchange: markDirty, onsubmit: (e) => e.preventDefault() },
         h("h2", { class: "sheet-title focus-target", tabindex: "-1", text: title }),
         preset && preset.memo ? h("p", { class: "sheet-sub", text: preset.memo }) : null,
