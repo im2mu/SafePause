@@ -147,7 +147,7 @@ function toggleButton(ctx, { on, cls, iconOn, iconOff, textOn, textOff, request,
   function paint() {
     btn.setAttribute("aria-pressed", state ? "true" : "false");
     ic.replaceChildren(icon(state ? iconOn : iconOff));
-    text.textContent = state ? textOn : textOff;
+    setText(text, state ? textOn : textOff);   // 묶음을 지킨다(알림 목록에 담기가 알림 / 목록에 담기로 갈리지 않게, S073)
   }
   btn.addEventListener("click", async () => {
     if (btn.getAttribute("aria-busy") === "true") return;

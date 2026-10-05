@@ -488,7 +488,7 @@ export default {
           fill(body,
             h("h2", { class: "sheet-title focus-target", id: "card-ask-title", tabindex: "-1", text: "물어볼 조력자가 없어요" }),
             h("p", { class: "sheet-sub", text: lines.join(" ") }),
-            orgs.length ? h("div", { class: "notice blue" }, icon("building"), h("div", null, h("p", { text: COUNSELING_TITLE }), h("ul", null, orgs.map((o) => h("li", { text: o }))))) : null,
+            orgs.length ? h("div", { class: "notice blue" }, icon("building"), h("div", null, h("p", { class: "notice-lead", text: COUNSELING_TITLE }), h("ul", null, orgs.map((o) => h("li", { text: o }))))) : null,
             errorSlot,
             speakButton(() => ["물어볼 조력자가 없어요.", ...lines, ...(orgs.length ? [COUNSELING_TITLE, ...orgs] : [])].map(sentence).join(" ")));
           fill(foot, below,
@@ -661,9 +661,9 @@ export default {
           notes.length || showCounseling || tsNote || (decision === "send" && notifyBtns) ? h("div", { class: "result-notes" },
             notes.length ? h("p", { class: "muted mn-notes", text: notes.join(" ") }) : null,
             decision === "send" ? notifyBtns : null,
-            showCounseling ? h("div", { class: "notice blue" }, icon("building"), h("div", null, h("p", { text: COUNSELING_TITLE }), h("ul", null, plan.counseling_orgs.map((o) => h("li", { text: o }))))) : null,
+            showCounseling ? h("div", { class: "notice blue" }, icon("building"), h("div", null, h("p", { class: "notice-lead", text: COUNSELING_TITLE }), h("ul", null, plan.counseling_orgs.map((o) => h("li", { text: o }))))) : null,
             // 내 거래에 적는 날짜 안내는 접어 둔다(결과의 핵심 문장 수를 줄임, ⑥). 소리로 듣기에는 그대로 들어간다
-            tsNote ? h("details", { class: "mn-ts" }, h("summary", null, h("span", { text: "내 거래에 적는 날짜" }), icon("chevron-down", "mn-ts-chev")),
+            tsNote ? h("details", { class: "mn-ts" }, h("summary", null, trailingIcon(h("span", { class: "mn-ts-label", text: "내 거래에 적는 날짜" }), icon("chevron-down", "mn-ts-chev"))),
               h("p", { class: "muted", text: tsNote })) : null) : null,
           h("div", { class: "sheet-actions" },
             speakButton(() => spoken.map(sentence).join(" ")),
@@ -762,6 +762,18 @@ function fitSummary(dl) {
   else window.addEventListener("resize", schedule);
   schedule();
   return dl;
+}
+
+/**
+ * 글 뒤 그림(접힘 화살표 등)을 마지막 글 묶음(.bind·.nowrap) 안에 넣는다(S107): 글이 두 줄로 접혀도 그림이 마지막 낱말
+ * 바로 뒤에 붙고(칸 오른쪽 끝으로 떨어지지 않음) 그림만 다음 줄로 넘어가지 않는다. 묶음이 없으면 글 뒤에 둔다
+ */
+function trailingIcon(label, ic) {
+  const marks = label.querySelectorAll(".bind, .nowrap");
+  const last = marks[marks.length - 1];
+  const tail = last && label.textContent.trimEnd().endsWith(last.textContent) ? last : label;
+  tail.append(ic);
+  return label;
 }
 
 /** 결과의 필수 문장 한 줄(은행 앱 버튼 바로 아래). */

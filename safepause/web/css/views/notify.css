@@ -262,6 +262,10 @@ textarea.input.np-msg { min-height: 6rem; white-space: pre-wrap; }
 .al-next-list li { display: flex; gap: .5rem; align-items: flex-start; }
 .al-next-list svg { width: 1.15rem; height: 1.15rem; flex: none; margin-top: max(0px, calc((1lh - 1.15rem) / 2)); color: var(--primary); }
 .al-next-btns { margin-top: .25rem; }
+/* 두 버튼을 나란히 둘지는 이름 길이로 정한다(S074): 두 이름이 한 줄씩 함께 들어갈 때만 나란히(폭은 반씩 같게), 아니면 위아래로 쌓아
+   이름이 한 줄. 기본 .btn-row의 9rem 기준은 글자 크기를 따지지 않아 412폭 1배·768폭 1.6배에서 이름이 두 줄로 접힌 채 나란히 놓였다.
+   최소 폭 fit-content = 이름 한 줄 폭(칸보다 넓으면 칸 폭: 아주 큰 글씨에서도 넘치지 않음) */
+.al-next-btns > .btn { flex: 1 1 0; min-width: fit-content; }
 
 /* 담은 거래 */
 .al-send-all { margin-bottom: .75rem; }

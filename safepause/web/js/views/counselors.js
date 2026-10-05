@@ -250,7 +250,7 @@ export default {
                 showErr(e2.message);
               }
             }),
-          }, icon("check"), h("span", { text: isNew ? "더하기" : "저장하기" })),
+          }, icon(isNew ? "plus" : "check"), h("span", { text: isNew ? "더하기" : "저장하기" })),   // 더하기는 다른 더하기 버튼과 같은 + 그림(S071)
           isNew ? null : h("button", {
             type: "button", class: "btn danger-weak big block",
             onclick: async () => {

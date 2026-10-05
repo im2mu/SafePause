@@ -62,9 +62,10 @@ export function splitSentences(text) {
 }
 
 // 줄 끝에서 떨어지면 안 되는 묶음: 시각(새벽 4시 41분) · 날짜(6월 27일) · 금액(5만 원, 3만 5천 원, 63만7천원, 50,000원)
-// · 전화번호 · 두 글자 낱말 둘을 가운뎃점으로 이은 말(문자·메일). 해(2026년)·요일((토))은 묶지 않는다
-// (묶음이 길면 큰 글씨 좁은 칸에서 넘친다)
-const KEEP_RE = /(?:새벽|아침|오전|낮|오후|저녁|밤)[ \u00a0]\d{1,2}시(?:[ \u00a0]\d{1,2}분)?|\d{1,2}월[ \u00a0]\d{1,2}일|\d[\d,.]*(?:억|만|천)?(?:[ \u00a0]?\d[\d,.]*(?:만|천))*[ \u00a0]?원|(?<![\d*])[\d*]{2,4}-[\d*]{3,4}-[\d*]{4}(?![\d*])|(?<![가-힣·])[가-힣]{1,2}·[가-힣]{1,2}(?![가-힣·])/g;
+// · 전화번호 · 두 글자 낱말 둘을 가운뎃점으로 이은 말(문자·메일) · 띄어 쓴 화면 이름(알림 보내기·알림 목록: 남지만 알림 / 보내기에는처럼
+// 이름이 갈려 앞말과 한 덩어리로 읽히지 않게, S010·S073. 붙은 말까지 한 묶음, 아래 name). 해(2026년)·요일((토))은 묶지 않는다
+// (묶음이 길면 큰 글씨 좁은 칸에서 넘친다. 칸보다 넓은 묶음은 fitBundles가 푼다)
+const KEEP_RE = /(?:새벽|아침|오전|낮|오후|저녁|밤)[ \u00a0]\d{1,2}시(?:[ \u00a0]\d{1,2}분)?|\d{1,2}월[ \u00a0]\d{1,2}일|\d[\d,.]*(?:억|만|천)?(?:[ \u00a0]?\d[\d,.]*(?:만|천))*[ \u00a0]?원|(?<![\d*])[\d*]{2,4}-[\d*]{3,4}-[\d*]{4}(?![\d*])|(?<![가-힣·])[가-힣]{1,2}·[가-힣]{1,2}(?![가-힣·])|(?<![가-힣])알림[ \u00a0](?:보내기|목록)/g;
 const HANGUL_TAIL = /^[가-힣]{3,}/;
 // 기관 이름처럼 긴 낱말(앞 4글자 이상 + 뒤 기관 말)은 그 사이에서 줄을 바꿀 수 있게 한다(지역발달장애인 / 지원센터).
 // 낱말 끝 한두 글자(센 / 터)만 다음 줄로 밀리지 않게 한다
@@ -100,7 +101,8 @@ const letters = (w) => (w.match(/[가-힣A-Za-z0-9]/g) || []).length;
 
 /**
  * 글을 낱말 단위(unit)로 나눈다. unit = 빈칸 없이 이어진 조각들(묶음 + 붙은 말 포함), 사이 빈칸은 따로 둔다.
- * 조각 kind: "text"(보통 글) · "keep"(시각·날짜·띄어 쓴 금액·빈칸 없는 금액) · "dot"(문자·메일) · "tel"(전화번호) · "kw"(금액 + 붙은 말).
+ * 조각 kind: "text"(보통 글) · "keep"(시각·날짜·띄어 쓴 금액·빈칸 없는 금액) · "dot"(문자·메일) · "tel"(전화번호) · "kw"(금액 + 붙은 말)
+ * · "name"(띄어 쓴 화면 이름: 알림 보내기·알림 목록).
  * 돌려주는 값: {units: [{parts: [{kind, text}], space: 앞 빈칸}], tail: 끝 빈칸}
  */
 function splitUnits(s) {
@@ -134,6 +136,7 @@ function splitUnits(s) {
       last += tail.length + punct.length;
       continue;
     }
+    if (/^알림/.test(k)) { word("name", k); continue; }
     word("keep", k);
   }
   plain(s.slice(last));
@@ -153,7 +156,7 @@ function bindGroups(units) {
   const n = units.length;
   const text = (u) => u.parts.map((p) => p.text).join("");
   // 줄바꿈 문자가 든 낱말(보낸 알림 글처럼 줄을 그대로 보이는 글)은 묶지 않는다(nowrap이 줄바꿈을 빈칸으로 바꾼다)
-  const free = (i) => units[i].parts.every((p) => p.kind !== "tel" && p.kind !== "kw" && !/[\n\r]/.test(p.text)) && !/[\n\r]/.test(units[i].space);
+  const free = (i) => units[i].parts.every((p) => p.kind !== "tel" && p.kind !== "kw" && p.kind !== "name" && !/[\n\r]/.test(p.text)) && !/[\n\r]/.test(units[i].space);
   const single = (i) => units[i].parts.length === 1 && units[i].parts[0].kind === "text" && SINGLE_WORD.test(units[i].parts[0].text);
   const size = (i0, i1) => { let c = 0; for (let i = i0; i <= i1; i += 1) c += letters(text(units[i])); return c; };
   const ok = (i0, i1) => { for (let i = i0; i <= i1; i += 1) if (!free(i)) return false; return size(i0, i1) <= BIND_MAX; };
@@ -254,6 +257,20 @@ export function keepNodes(text, { bind = false } = {}) {
   //    가운뎃점으로 이은 말(이름·계좌번호·연락처는)·범위(밤 11시~새벽 6시에)는 가운뎃점·물결 뒤(wbr)에서 바꾼다(줄 첫머리에 오지 않게)
   //  - 아주 긴 낱말(파일 경로)은 그대로
   const writeUnit = (u) => {
+    // 띄어 쓴 화면 이름 + 붙은 말(알림 보내기에는·알림 목록에): span.kn(낱말 전체) 안에 이름만 span.nowrap. 붙은 말까지 한 덩어리가
+    // 칸보다 넓으면(320폭 2배) 아무 글자에서나 끊기므로(알림 보내기에 / 서) fitBundles가 .kn을 재서 풀고 이름 가운데 빈칸에서 바꾼다.
+    // 낱말 전체를 nowrap 하나로 묶지 않는다: 그러면 문단의 text-wrap: pretty가 꼬리 줄(직접 / 보내요.)을 막지 못했다
+    if (u.parts.some((p) => p.kind === "name")) {
+      flush();
+      const el = document.createElement("span");
+      el.className = "kn";
+      for (const p of u.parts) {
+        if (p.kind === "name") el.append(Object.assign(document.createElement("span"), { className: "nowrap", textContent: p.text }));
+        else el.append(p.text.replace("\u0000", ""));
+      }
+      out.push(el);
+      return;
+    }
     const ut = u.parts.map((p) => p.text).join("");
     if (!PUNCT_IN.test(ut) || letters(ut) > PUNCT_WORD_MAX || /[\n\r]/.test(ut) || u.parts.some((p) => p.kind === "kw" || p.kind === "tel")) { writeParts(u); return; }
     flush();
@@ -487,7 +504,23 @@ function sticksOut(el) {
   return false;
 }
 
-const BUNDLES = ".nowrap, .bind, .keep-word";
+// .kn(화면 이름 + 붙은 말, keepNodes): 칸보다 넓어 두 줄로 끊겼으면 푼다
+const BUNDLES = ".nowrap, .bind, .keep-word, .kn";
+/** 인라인 요소가 두 줄 이상에 걸쳤는가. 꾸밈 없는 인라인은 한 줄에서도 조각(자식 글·묶음)마다 사각형을 주므로 개수가 아니라 줄 높이로 본다 */
+function splitLines(el) {
+  const rs = el.getClientRects();
+  for (let i = 1; i < rs.length; i += 1) if (Math.abs(rs[i].top - rs[0].top) > rs[0].height / 2) return true;
+  return false;
+}
+/** 버튼 이름 첫머리의 .kn이 그림 옆에 들지 않아 그림만 첫 줄에 홀로 남았는가(320폭 2배 좁은 카드의 [그림] / 알림 목록에 / 담기). 그러면 푼다 */
+function iconAlone(el) {
+  const lab = el.closest(".btn-label");
+  const ic = lab && lab.firstElementChild;
+  if (!ic || !(ic.namespaceURI === SVG_NS || ic.classList.contains("btn-ic")) || !lab.textContent.trimStart().startsWith(el.textContent)) return false;
+  const r = el.getClientRects()[0];
+  const ir = ic.getBoundingClientRect();
+  return Boolean(r && ir.height > 0 && Math.abs((r.top + r.bottom) / 2 - (ir.top + ir.bottom) / 2) > r.height / 2);
+}
 
 /** 칸보다 넓거나 상자 밖으로 나간 묶음에 .flow를 붙인다. reset이면 먼저 모두 떼고 다시 잰다(창·글자 크기가 바뀐 뒤). */
 export function fitBundles(root = document.body, reset = false) {
@@ -498,7 +531,7 @@ export function fitBundles(root = document.body, reset = false) {
   for (const el of els) {
     if (el.classList.contains("flow") || el.closest(".sr-only, .flow")) continue;   // 화면 읽기 전용 글(1px 칸)·이미 푼 묶음 안
     const w = el.offsetWidth;   // 레이아웃 폭(시트가 올라오는 동안의 transform과 무관)
-    if (w > 0 && (w > blockInner(el) + 0.5 || sticksOut(el))) wide.push(el);
+    if (w > 0 && (w > blockInner(el) + 0.5 || sticksOut(el) || (el.classList.contains("kn") && (splitLines(el) || iconAlone(el))))) wide.push(el);
   }
   for (const el of wide) el.classList.add("flow");   // 다 잰 뒤에 바꾼다(재고 바꾸기를 번갈아 하지 않게)
   fitLabels(root);
