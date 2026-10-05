@@ -556,7 +556,7 @@ function iconAlone(el) {
 // 풀린 묶음(.flow) 안에서만 줄 바꿀 자리를 만든다: 줄 바꾸지 않는 빈칸(U+00A0)을 보통 빈칸으로, 글자 바로 뒤 여는 괄호 앞에 wbr.
 // 묶인 동안에 넣으면 Chrome이 nowrap 안의 wbr에서도 줄을 바꿨다('5만 / 원', '약속 / (규칙)과'). 안쪽 묶음(아직 묶인 것)은 건드리지 않는다.
 // 다시 잴 때(reset) tighten이 원래 노드로 되돌린다(풀린 동안에만 글의 U+00A0가 보통 빈칸이 된다)
-const LOOSE_AT = /\u00a0|[가-힣A-Za-z0-9]\(/;
+const LOOSE_AT = /\u00a0|[가-힣A-Za-z0-9]\(|\)[가-힣]/;
 function loosen(el) {
   if (el.__orig || !LOOSE_AT.test(el.textContent)) return;
   el.__orig = [...el.childNodes].map((n) => n.cloneNode(true));
@@ -565,7 +565,19 @@ function loosen(el) {
   for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.parentElement.closest(BUNDLES) === el) nodes.push(n);
   for (const n of nodes) {
     const parts = n.nodeValue.replace(/\u00a0/g, " ").split(/(?<=[가-힣A-Za-z0-9])(?=\()/);
-    n.replaceWith(...parts.flatMap((t, k) => (k ? [document.createElement("wbr"), t] : [t])));
+    // 닫는 괄호 + 붙은 한글(규칙)으로)은 안쪽 묶음: 괄호 뒤에서 조사만 다음 줄로 떨어지지 않게('약속(규칙) / 으로' 방지)
+    const glue = (t) => {
+      const out = [];
+      let last = 0;
+      for (const m of t.matchAll(/\)[가-힣]+/g)) {
+        if (m.index > last) out.push(t.slice(last, m.index));
+        out.push(Object.assign(document.createElement("span"), { className: "nowrap", textContent: m[0] }));
+        last = m.index + m[0].length;
+      }
+      if (last < t.length) out.push(t.slice(last));
+      return out;
+    };
+    n.replaceWith(...parts.flatMap((t, k) => (k ? [document.createElement("wbr"), ...glue(t)] : glue(t))));
   }
 }
 function tighten(el) {
