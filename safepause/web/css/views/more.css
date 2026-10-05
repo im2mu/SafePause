@@ -78,7 +78,7 @@
 .auto-row + .hint { margin: 0 0 .5rem; }
 
 /* 무엇을 알릴까요: 신호 선 아이콘(둥근 바탕) + 명사형 이름 */
-.sig-row { gap: .65rem; padding: .45rem 0; }
+.sig-row { gap: min(.65rem, 13px); padding: .45rem 0; }   /* 사이는 글자 1배 크기(13px)까지만: 큰 글씨에서 체크 칸·그림 사이가 함께 커져 이름 칸이 4글자쯤만 남아 '한 사람에 / 게'처럼 낱말 가운데에서 끊겼다(360폭 2배) */
 /* 큰 글씨(2배)에서 둥근 아이콘이 글자 칸을 좁히지 않게 화면 폭으로 상한(L4). 누르는 자리는 줄 전체라 크기와 관계없다 */
 .sig-ic { width: var(--ic-row); height: var(--ic-row); border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--primary-weak); color: var(--primary); }
 .sig-ic svg { width: min(1.3rem, 6vw); height: min(1.3rem, 6vw); }
