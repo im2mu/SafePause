@@ -548,7 +548,8 @@ export default {
       const n = counselors.filter((p) => chosen.has(p.key)).length;
       const picks = n ? ` · ${nf.format(n)}곳 고름` : "";
       // 곳 수·고른 수는 이름 옆 보조 표시(한 덩어리): 큰 글씨에서 이름이 줄을 바꿔도 수만 홀로 남지 않게
-      fill(counselorToggle.querySelector(".np-expand-text"), "상담하는 곳",
+      // 이름은 글 넣기(h text)로: 낱말 묶기가 '상담하는 곳'을 한 덩어리로(fill 문자열은 그대로 들어가 '상담하는 / 곳'으로 갈렸다)
+      fill(counselorToggle.querySelector(".np-expand-text"), h("span", { text: "상담하는 곳" }),
         counselors.length ? [" ", h("span", { class: "np-expand-count", text: `${nf.format(counselors.length)}곳${picks}` })] : null);
     }
 

@@ -168,7 +168,7 @@ function bindGroups(units) {
   const free = (i) => units[i].parts.every((p) => p.kind !== "tel" && p.kind !== "kw" && p.kind !== "name" && !/[\n\r]/.test(p.text)) && !/[\n\r]/.test(units[i].space);
   const single = (i) => units[i].parts.length === 1 && units[i].parts[0].kind === "text" && SINGLE_WORD.test(units[i].parts[0].text);
   const size = (i0, i1) => { let c = 0; for (let i = i0; i <= i1; i += 1) c += letters(text(units[i])); return c; };
-  const ok = (i0, i1) => { for (let i = i0; i <= i1; i += 1) if (!free(i)) return false; return size(i0, i1) <= BIND_MAX; };
+  const ok = (i0, i1, max = BIND_MAX) => { for (let i = i0; i <= i1; i += 1) if (!free(i)) return false; return size(i0, i1) <= max; };
   const pair = (i) => units[i].parts.length === 1 && units[i].parts[0].kind === "text" && BACK_PAIR.test(units[i].parts[0].text);
   const back = (i) => (single(i) && BACK_WORD.test(units[i].parts[0].text)) || pair(i);
   const groups = [];
@@ -221,8 +221,9 @@ function bindGroups(units) {
       const prev = groups.find((q) => q !== g && q[1] === g[0] - 1);
       const start = prev ? prev[0] : g[0] - 1;
       const strand = start > 0 && size(start - 1, start - 1) <= 2 && !groups.some((q) => q[0] <= start - 1 && start - 1 <= q[1]);
-      if (!strand && prev && ok(prev[0], g[1])) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); }
-      else if (!strand && !prev && ok(g[0] - 1, g[1]) && !BACK_LEAD.test(text(units[g[0] - 1]))) g[0] -= 1;
+      // 상한은 '~ㄹ 수 있어요'와 같은 8글자(살펴보지 않아요. 7글자): 넓으면 fitBundles가 푼다
+      if (!strand && prev && ok(prev[0], g[1], BIND_CAN_MAX)) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); }
+      else if (!strand && !prev && ok(g[0] - 1, g[1], BIND_CAN_MAX) && !BACK_LEAD.test(text(units[g[0] - 1]))) g[0] -= 1;
     }
   }
   return groups.filter(([x0, x1]) => x1 > x0).sort((p, q) => p[0] - q[0]);
