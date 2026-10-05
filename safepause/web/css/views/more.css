@@ -161,7 +161,8 @@
 .guide-steps .guide-step { margin-bottom: 0; }
 .guide-step { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; container-type: inline-size; }
 .guide-head { display: flex; align-items: center; gap: min(.6rem, 2.5vw); }
-.guide-no { width: min(1.75rem, 10vw); height: min(1.75rem, 10vw); border-radius: 50%; display: grid; place-items: center; flex: none;
+/* 번호 동그라미는 숫자(글자 크기)보다 작아지지 않게(1.4em 하한): 320폭 2배에서 32px 동그라미에 40px 숫자가 아래로 삐져나왔다 */
+.guide-no { width: min(1.75rem, max(10vw, 1.4em)); height: min(1.75rem, max(10vw, 1.4em)); border-radius: 50%; display: grid; place-items: center; flex: none;
   background: var(--primary-weak); color: var(--primary-weak-text); font-weight: 800; }
 .guide-title { flex: 1 1 8em; min-width: 0; margin: 0; font-size: 1.05rem; font-weight: 700; }
 .guide-body { color: var(--text-2); }
