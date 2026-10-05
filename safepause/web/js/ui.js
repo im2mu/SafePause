@@ -87,6 +87,12 @@ function softBreaks(text, out) {
 // 넘치지 않게 짧게 둔다(360폭 글자 2배의 가장 좁은 문장 칸이 6.5글자쯤)
 const BIND_MAX = 6;
 const BIND_CAN_MAX = BIND_MAX + 2;   // ~ㄹ 수 있어요 묶음 상한(bindGroups)
+// 글 끝 세 글자 낱말(않아요.·눌러요.·있어요.)의 꼬리 줄 막기: 문단의 text-wrap: pretty는 문단 안에 줄을 바꾸지 않는 묶음
+// (.bind·.nowrap)이 있으면 꼬리를 다 막지 못한다(조력자 화면의 알리지 / 않아요. 문장, 글자 1.3배 160~720px 폭에서 꼬리 47곳,
+// 묶음을 풀면 18곳). 묶음은 거의 모든 문장에 있으므로 끝 낱말 하나만 앞 낱말과 묶는다(bindGroups)
+const TAIL3 = 3;
+// 의존 명사 + 조사 한 글자(때는·수도·것은·적이·뒤에): 세 글자 끝 낱말과 묶지 않는다(알릴 / 때는 이래요.처럼 꾸미는 말과 갈리지 않게)
+const BACK_LEAD = /^(?:곳|것|때|등|달|번|장|개|명|건|쯤|뿐|데|줄|중|수|뒤|후|전|적)[가-힣]$/;
 // 낱말 안 문장부호(앞뒤가 빈칸이 아닌 괄호·물결·붙임표·가운뎃점·빗금·밑줄): 브라우저가 그 앞이나 뒤에서 줄을 바꿀 수 있는 자리
 const PUNCT_IN = /[^\s\u00a0][([~/·\-–_)\]][^\s\u00a0]/;
 const PUNCT_WORD_MAX = 16;
@@ -150,6 +156,9 @@ function splitUnits(s) {
  *    ~ㄹ 수 있어요·없어요는 뒤 낱말까지 한 덩어리(BIND_CAN_MAX 글자까지): 센터에도 알릴 수 / 있어요. → 센터에도 / 알릴 수 있어요.
  *  - 글 끝 묶음이 두 글자 이하면 앞 낱말을 더한다: 불법금융 / 신고 → 불법금융 신고, 돈을 / 낼 때 → 돈을 낼 때(꼬리 줄).
  *    더할 낱말이 앞 묶음의 끝이면 합치고, 합쳐서 상한을 넘으면 앞 묶음에서 그 낱말을 떼어 온다(꼬리를 먼저 막는다)
+ *  - 글 끝 낱말 하나가 세 글자(TAIL3)면 앞 낱말 하나와(앞 낱말이 묶음 끝이면 그 묶음째) 묶는다: 알리지 / 않아요. → 알리지 않아요.,
+ *    늘 내가 / 눌러요. → 늘 내가 눌러요. 앞 묶음을 가르지 않고(인쇄할 수 / 있어요.는 그대로) 더 늘리지 않는다.
+ *    앞 낱말이 의존 명사 + 조사(때는·수도)이거나, 묶을 덩어리 앞이 묶이지 않은 두 글자 이하 낱말(돈을 보내지 않아요.의 돈을)이면 묶지 않는다
  *  - 전화번호·금액 + 붙은 말은 묶지 않는다(그 자체로 줄 바꾸는 규칙이 있다). 묶음은 BIND_MAX 글자까지
  */
 function bindGroups(units) {
@@ -196,6 +205,15 @@ function bindGroups(units) {
       if (prev && ok(prev[0], g[1])) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); continue; }
       if (prev) { prev[1] -= 1; if (prev[1] <= prev[0]) groups.splice(groups.indexOf(prev), 1); }
       g[0] -= 1;
+    }
+    // 세 글자 끝 낱말: 앞 낱말 하나(또는 앞 묶음째)와. 앞 묶음을 가르면(인쇄할 / 수 있어요.) 앞 낱말에 붙는 말이 갈리므로 하지 않는다.
+    // 묶을 덩어리 바로 앞이 묶이지 않은 두 글자 이하 낱말이면 하지 않는다(돈을 / 보내지 않아요.처럼 그 낱말이 홀로 남지 않게)
+    if (g[0] === g[1] && g[0] > 0 && size(g[0], g[1]) === TAIL3) {
+      const prev = groups.find((q) => q !== g && q[1] === g[0] - 1);
+      const start = prev ? prev[0] : g[0] - 1;
+      const strand = start > 0 && size(start - 1, start - 1) <= 2 && !groups.some((q) => q[0] <= start - 1 && start - 1 <= q[1]);
+      if (!strand && prev && ok(prev[0], g[1])) { g[0] = prev[0]; groups.splice(groups.indexOf(prev), 1); }
+      else if (!strand && !prev && ok(g[0] - 1, g[1]) && !BACK_LEAD.test(text(units[g[0] - 1]))) g[0] -= 1;
     }
   }
   return groups.filter(([x0, x1]) => x1 > x0).sort((p, q) => p[0] - q[0]);

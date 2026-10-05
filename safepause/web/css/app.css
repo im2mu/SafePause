@@ -430,6 +430,8 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 }
 .card .input { background: var(--surface-2); }
 .input:focus { border-color: var(--primary); background: var(--surface); }
+/* 전화번호 칸: 글자 사이를 조금 좁혀 예시(010-0000-0000)와 적은 번호가 아주 큰 글씨 좁은 화면(320폭 2배)에서도 칸 안에 다 보이게 */
+.input[type="tel"] { letter-spacing: -0.03em; }
 .input.big { font-size: 1.35rem; font-weight: 700; padding: .9rem min(var(--space-4), 4vw); }
 .input[aria-invalid="true"] { border-color: var(--danger); }
 textarea.input { min-height: 5rem; resize: vertical; word-break: keep-all; overflow-wrap: break-word; line-break: strict; line-height: var(--lh-sub); }
@@ -486,7 +488,7 @@ input[type="checkbox"]:focus-visible { outline: none; box-shadow: var(--focus); 
 .check-row.row:has(> .row-main .row-sub) { align-items: flex-start; }
 .check-row.row:has(> .row-main .row-sub) > input { margin-top: calc((1lh - 1.375rem) / 2); }
 .check-row.row:has(> .row-main .row-sub) > .row-icon { margin-top: calc((1lh - var(--ic-row)) / 2); }
-.check-row .grow { flex: 1; min-width: 0; }   /* 긴 신호 이름(휴대폰 소액결제 급증)이 줄을 바꾸게 */
+.check-row .grow { flex: 1; min-width: 0; text-wrap: balance; }   /* 긴 신호 이름(휴대폰 소액결제 급증)이 줄을 바꾸게. 두 줄이면 고르게(자동으로 / 알리기처럼 끝 낱말만 넘어가지 않게) */
 .check-row > svg { width: min(1.5rem, max(6vw, .8em)); height: min(1.5rem, max(6vw, .8em)); flex: none; color: var(--text-2); }   /* 무엇을 알릴까요의 신호 아이콘 */
 
 /* 스위치: 보이는 크기가 작아져도 누르는 자리는 48px 이상(L11) */

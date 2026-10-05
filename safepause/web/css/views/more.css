@@ -74,6 +74,7 @@
 .field-head > label { font-size: 1rem; font-weight: 600; color: var(--text-2); }
 .form-group { border: 0; padding: 0; margin: 0 0 var(--space-4); min-width: 0; }
 .auto-row { margin-top: .25rem; }
+.form-group > .group-hint { margin: 0 0 var(--space-1); text-wrap: balance; }   /* 묶음 제목(언제 알릴까요?) 바로 아래 설명. 두 줄이면 쉼표에서 고르게(확인할 / 거래도로 갈리지 않게) */
 .auto-row + .hint { margin: 0 0 .5rem; }
 
 /* 무엇을 알릴까요: 신호 선 아이콘(둥근 바탕) + 명사형 이름 */
@@ -81,8 +82,6 @@
 /* 큰 글씨(2배)에서 둥근 아이콘이 글자 칸을 좁히지 않게 화면 폭으로 상한(L4). 누르는 자리는 줄 전체라 크기와 관계없다 */
 .sig-ic { width: var(--ic-row); height: var(--ic-row); border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--primary-weak); color: var(--primary); }
 .sig-ic svg { width: min(1.3rem, 6vw); height: min(1.3rem, 6vw); }
-.sig-row input:disabled ~ .sig-ic { background: var(--bg-sub); color: var(--text-3); }
-.sig-row input:disabled ~ .grow { color: var(--text-3); }
 
 /* 상담하는 곳: 추천 카드 */
 /* 목록 이름이 길면(기관 이름 등) 줄여 쓰지 않고 줄을 바꾼다 */

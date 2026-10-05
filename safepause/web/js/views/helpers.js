@@ -88,10 +88,24 @@ export default {
       name.addEventListener("input", syncIds);
       const levelHigh = h("input", { type: "radio", name: "hp-level", value: "high", checked: hp.min_level !== "caution" });
       const levelCaution = h("input", { type: "radio", name: "hp-level", value: "caution", checked: hp.min_level === "caution" });
+      // 무엇을 알릴까요: 모든 것(범위 없음 = AI만 걱정한 거래까지 모두)과 신호 몇 가지 중 하나. 신호 칸은 늘 누를 수 있다:
+      // 신호를 고르면 모든 것이 풀리고, 모든 것을 고르거나 고른 신호를 다 빼면 모든 것으로 돌아간다.
+      // 전에는 모든 것을 고른 동안 신호 칸을 막아(disabled) 흐린 빈칸이 눌리지 않아, 고를 수 있는 칸인지 알기 어려웠다.
+      // 신호 다섯을 다 골라도 모든 것과 같지 않다(AI만 걱정한 거래는 빠진다, policy.in_signal_scope)
       const scope = new Set(hp.signal_scope || []);
       const allBox = h("input", { type: "checkbox", checked: scope.size === 0 });
-      const sigBoxes = SIGNALS.map((code) => h("input", { type: "checkbox", value: code, checked: scope.has(code), disabled: scope.size === 0 }));
-      allBox.addEventListener("change", () => sigBoxes.forEach((b) => { b.disabled = allBox.checked; if (allBox.checked) b.checked = false; }));
+      const sigBoxes = SIGNALS.map((code) => h("input", { type: "checkbox", value: code, checked: scope.has(code) }));
+      allBox.addEventListener("change", () => {
+        if (!allBox.checked || !sigBoxes.some((b) => b.checked)) return;
+        sigBoxes.forEach((b) => { b.checked = false; });
+        announce("모든 것을 알려요.");
+      });
+      sigBoxes.forEach((b) => b.addEventListener("change", () => {
+        const any = sigBoxes.some((x) => x.checked);
+        if (any === !allBox.checked) return;
+        allBox.checked = !any;
+        announce(any ? "고른 것만 알려요." : "모든 것을 알려요.");
+      }));
       const active = h("input", { type: "checkbox", checked: hp.active !== false, "aria-describedby": "hp-active-hint" });
       const err = h("p", { class: "error-text", role: "alert", hidden: true });
       // v0.2에서 옮겨 온 가린 연락처(원본 없음): 보여 주기만 하고, 지울 때만 clear_contact를 보낸다(BE-8)
@@ -134,25 +148,30 @@ export default {
           h("div", { class: "field" },
             h("div", { class: "field-head" }, h("label", { for: "hp-email", text: "이메일" }), pickBtn("email", email, () => fieldErr(email, emailErr, ""))),
             email, emailErr,
-            h("p", { class: "hint", text: "번호나 메일이 있어야 문자·메일로 알릴 수 있어요." })),
+            h("p", { class: "hint", text: "휴대폰 번호나 이메일이 있어야 문자나 메일로 알릴 수 있어요." })),
           legacy ? h("div", { class: "card flat legacy-contact" },
             h("p", { class: "strong" }, h("span", { text: "옛 연락처: " }), h("span", { class: "tnum", text: legacy })),
-            h("p", { class: "hint", id: "hp-legacy-hint", text: "예전 버전에서 가려서 옮겨 온 연락처예요. 가려져 있어서 이 연락처로는 문자·메일을 보낼 수 없어요. 위에 번호나 메일을 새로 적어 주세요." }),
+            h("p", { class: "hint", id: "hp-legacy-hint", text: "예전 버전에서 가려서 옮겨 온 연락처예요. 가려져 있어서 이 연락처로는 문자·메일을 보낼 수 없어요. 위에 휴대폰 번호나 이메일을 새로 적어 주세요." }),
             h("label", { class: "check-row" }, clearLegacy, h("span", { class: "grow", text: "옛 연락처 지우기" }))) : null,
           h("div", { class: "field" }, h("label", { for: "hp-ids", text: "이 사람의 계좌번호·이름" }), ids,
             h("p", { class: "hint", id: "hp-ids-hint", text: "쉼표나 줄바꿈으로 나눠 적어요. 받는 사람이 여기 적은 계좌번호나 이름과 같으면, 이번에는 이 조력자에게 알리지 않아요." })),
-          h("fieldset", { class: "field form-group" },
+          h("fieldset", { class: "field form-group", "aria-describedby": "hp-level-hint" },
             h("legend", { class: "field-label", text: "언제 알릴까요?" }),
+            // 고르는 말(꼭 확인할 때만·확인할 때도)은 설명서·모델 카드·평가 보고서가 그대로 인용한다. 무엇을 확인하는지는
+            // 바로 위 설명으로 밝힌다(화면 곳곳의 이름 꼭 확인할 거래·확인할 거래)
+            h("p", { class: "hint group-hint", id: "hp-level-hint", text: "꼭 확인할 거래만 알릴지, 확인할 거래도 알릴지 골라요." }),
             h("label", { class: "check-row" }, levelHigh, h("span", { class: "grow", text: "꼭 확인할 때만 (처음 설정)" })),
             h("label", { class: "check-row" }, levelCaution, h("span", { class: "grow", text: "확인할 때도" }))),
           h("fieldset", { class: "field form-group" },
             h("legend", { class: "field-label", text: "무엇을 알릴까요?" }),
-            h("label", { class: "check-row sig-row" }, allBox, h("span", { class: "sig-ic", "aria-hidden": "true" }, icon("check-line")), h("span", { class: "grow", text: "모든 것" })),
+            // 모든 것의 그림은 상태와 관계없는 모양(전체 탭과 같은 네모 넷): 체크 그림이면 옆 체크 칸과 겹쳐 늘 골라진 것처럼 읽혔다
+            h("label", { class: "check-row sig-row" }, allBox, h("span", { class: "sig-ic", "aria-hidden": "true" }, icon("grid")), h("span", { class: "grow", text: "모든 것" })),
             SIGNALS.map((code, i) => h("label", { class: "check-row sig-row" }, sigBoxes[i],
               h("span", { class: "sig-ic", "aria-hidden": "true" }, icon(SIGNAL_ICON[code])), h("span", { class: "grow", text: SIGNAL_KO[code] })))),
           h("label", { class: "check-row auto-row" }, active, h("span", { class: "grow strong", text: "이 조력자에게 자동으로 알리기" })),
-          // 실제 동작: 켜 두면 알릴 때 미리 골라 두고 적어 둔다(보내지는 않음). 끄면 직접 고를 때만
-          h("p", { class: "hint", id: "hp-active-hint", text: "켜 두면 걱정되는 거래를 알릴 때 이 사람을 미리 골라 두고 적어 둬요. 끄면 알림 보내기에서 직접 골라요. 보내기는 늘 내가 눌러요." }),
+          // 실제 동작(policy.decide·notify_suggest): 켜 두면 걱정되는 거래를 이 사람에게 알릴 수 있게 적어 두고(알림 탭의 적어 둔 기록,
+          // 보내지는 않음), 알림 보내기에서 이 사람을 미리 골라 둔다. 끄면 직접 고를 때만. 무엇을 적는지·누가 고르는지 드러나게 쓴다
+          h("p", { class: "hint", id: "hp-active-hint", text: "켜 두면 걱정되는 거래를 이 사람에게 알릴 수 있게 적어 둬요. 알림 보내기에서도 이 사람이 미리 골라져 있어요. 끄면 알림 보내기에서 직접 골라요. 보내기는 늘 내가 눌러요." }),
           err,
           h("div", { class: "sheet-actions" },
             h("button", {
