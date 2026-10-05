@@ -274,3 +274,6 @@
 @media (max-width: 420px) {
   .pref-seg { --seg-gap: .2rem; }
 }
+/* 성능 확인 고르기: 반복 횟수 다섯 칸은 좁으면 여러 줄로(칸 이름 한 줄), 시나리오 종류 두 칸 */
+.seg-eval-seeds { --seg-min: 5.5rem; }
+.seg-eval-intensity { --seg-min: 8rem; }

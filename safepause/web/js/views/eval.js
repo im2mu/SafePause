@@ -74,10 +74,14 @@ export default {
     let tick = 0;
     ctx.onCleanup(() => window.clearInterval(tick));
 
-    const seeds = h("select", { class: "input", id: "eval-seeds" },
-      [["1", "1번 (빠름)"], ["3", "3번"], ["5", "5번"], ["10", "10번"], ["20", "20번 (느림)"]].map(([v, t]) => h("option", { value: v, text: t, selected: v === "3" })));
-    const intensity = h("select", { class: "input", id: "eval-intensity" },
-      Object.entries(INTENSITY_KO).map(([v, t]) => h("option", { value: v, text: t, selected: v === "standard" })));
+    // 고르기 상자(select)는 큰 글씨에서 고른 값이 잘려(표준 시나리) 라디오 묶음으로(.segmented)
+    const radios = (name, options, value) => {
+      const el = h("div", { class: `segmented seg-${name}`, role: "radiogroup", "aria-labelledby": `${name}-label` },
+        options.map(([v, t]) => h("label", null, h("input", { type: "radio", name, value: v, checked: v === value }), h("span", { text: t }))));
+      return { el, get value() { return (el.querySelector("input:checked") || {}).value || value; } };
+    };
+    const seeds = radios("eval-seeds", [["1", "1번 (빠름)"], ["3", "3번"], ["5", "5번"], ["10", "10번"], ["20", "20번 (느림)"]], "3");
+    const intensity = radios("eval-intensity", Object.entries(INTENSITY_KO), "standard");
     const modeBoxes = Object.keys(MODE_KO).map((m) => h("input", { type: "checkbox", name: "eval-mode", value: m, checked: m === "fused" }));
     const reBtn = h("button", { type: "button", class: "btn primary big block ev-re-btn", onclick: (e) => exclusive(e.currentTarget, recompute) },
       icon("refresh"), h("span", { text: "보고서 수치 다시 계산" }));
@@ -103,8 +107,8 @@ export default {
       h("h3", { class: "section-title", text: "직접 골라 계산해 보기 (seed 1부터)" }),
       h("div", { class: "card" },
         h("p", { class: "ev-intro", text: "보고서 수치 다시 계산은 보고서와 같은 가상 거래로 계산해서 같은 값이 나오는지 봐요. 여기서는 seed 1부터 고른 횟수만큼 다른 가상 거래로 계산해요. 그래서 값이 위 표와 달라요." }),
-        h("div", { class: "field" }, h("label", { for: "eval-seeds", text: "반복 횟수 (seed 수, 인물 3명씩)" }), seeds),
-        h("div", { class: "field" }, h("label", { for: "eval-intensity", text: "시나리오 종류" }), intensity),
+        h("div", { class: "field" }, h("span", { class: "field-label", id: "eval-seeds-label", text: "반복 횟수 (seed 수, 인물 3명씩)" }), seeds.el),
+        h("div", { class: "field" }, h("span", { class: "field-label", id: "eval-intensity-label", text: "시나리오 종류" }), intensity.el),
         h("fieldset", { class: "field form-group" }, h("legend", { class: "field-label", text: "어떤 방식으로 확인할까요?" }),
           modeBoxes.map((b) => h("label", { class: "check-row" }, b, h("span", { class: "grow", text: `${MODE_KO[b.value]} (${b.value})` })))),
         h("p", { class: "hint", text: "횟수가 많을수록 오래 걸리고, 적을수록 값이 더 흔들려요. 20번에 세 방식을 모두 고르면 보고서 수치 다시 계산의 한 세트와 같은 양이에요." }),

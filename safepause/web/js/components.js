@@ -65,7 +65,8 @@ export function txnSignals(item) {
  * 조각 안 숫자·날짜·시각·금액은 묶음이라 끊기지 않는다(ui.keepNodes: 2026년 / 6월 27일 / (토)처럼 묶음 사이에서만).
  */
 export function subParts(parts, cls = "row-sub") {
-  return h("span", { class: `${cls} parts` }, parts.filter(Boolean).map((t) => h("span", null, keepNodes(String(t), { bind: true }))));
+  // 조각은 글 또는 이미 만든 노드(설정 이름 + 값처럼 안을 따로 묶은 것)
+  return h("span", { class: `${cls} parts` }, parts.filter(Boolean).map((t) => h("span", null, t instanceof Node ? t : keepNodes(String(t), { bind: true }))));
 }
 
 /** 날짜와 시각을 따로: ["2026년 6월 27일 (토)", "새벽 4시 41분"](subParts에서 날짜·시각 사이에서만 줄을 바꾸게). */

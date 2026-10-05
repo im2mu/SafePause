@@ -112,7 +112,8 @@ export default {
       // 앱 설정 화면 하나로 들어간다(IA-8). 내 은행 앱은 이름을 따로 보여 바로 찾게 한다
       group("앱 설정",
         withParts(menuRow({ icon: "settings", title: "앱 설정", href: "#/more/settings" }),
-          [`글자 크기 ${FONT_KO[getPref("font")]}`, `화면 모드 ${THEME_KO[getPref("theme")]}`, "휴대폰 알림", "앱 잠금"]),
+          // 설정 이름은 끊지 않고 이름과 값 사이에서 줄을 바꾼다(글자 / 크기 보통이 되지 않게)
+          [settingPart("글자 크기", FONT_KO[getPref("font")]), settingPart("화면 모드", THEME_KO[getPref("theme")]), "휴대폰 알림", "앱 잠금"]),
         valueRow({ icon: "bank", title: "내 은행 앱", href: "#/more/settings?part=bank",
           value: valueSlot(bankApp ? bankApp.label : "없음") })),
 
@@ -159,6 +160,11 @@ export default {
     }
   },
 };
+
+// 설정 조각: [이름(끊기지 않는 묶음)] 값. 넘치면 ui.fitBundles가 푼다
+function settingPart(name, value) {
+  return h("span", null, h("span", { class: "nowrap", text: name }), ` ${value}`);
+}
 
 // 메뉴 줄 아래 작은 글을 조각으로(조각 안에서는 줄을 바꾸지 않음: 글자 크기 보통 · 화면 모드 자동)
 function withParts(row, parts) {

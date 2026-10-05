@@ -93,7 +93,12 @@ export default {
         h("ul", { class: "bullets about-bullets" },
           ["Pyodide (MPL-2.0)", "Python 표준 라이브러리 (PSF License)", "NumPy (BSD-3-Clause)", "SciPy (BSD-3-Clause)",
             "scikit-learn (BSD-3-Clause)", "joblib (BSD-3-Clause)", "threadpool\u00adctl (BSD-3-Clause)", "pydantic · pydantic-core (MIT)",
-            "typing-extensions (PSF License)", "annotated-types · typing-inspection (MIT)"].map((t) => h("li", { text: t })),
+            "typing-extensions (PSF License)", "annotated-types · typing-inspection (MIT)"].map((t) => {
+            // 빈칸이 든 괄호 라이선스 이름((PSF License))은 한 덩어리(inline-block: 들어가면 한 줄, 칸보다 넓으면 안에서 줄바꿈)로
+            // (PSF / License)처럼 갈리지 않게. 빈칸 없는 이름((BSD-3-Clause))은 글 넣기의 낱말 묶기가 이미 덩어리로 만든다
+            const m = /^(.*) (\([^()]* [^()]*\))$/.exec(t);
+            return m ? h("li", null, h("span", { text: m[1] }), " ", h("span", { class: "keep-word", text: m[2] })) : h("li", { text: t });
+          }),
           MODE === "engine" ? null : ["FastAPI · Starlette · Uvicorn (BSD/MIT)"].map((t) => h("li", { text: t })))),
       h("p", { class: "muted center more-foot", text: "SafePause 0.3.0" }));
   },
