@@ -754,8 +754,10 @@ export default {
       for (const a of acts) {
         const b = g.buttons.get(a.key);
         if (!b) continue;
-        b.querySelector(".np-send-who").textContent = `${a.who} `;
-        b.querySelector(".np-send-what").textContent = a.what;
+        // 글 넣기(setText)로: 긴 기관 이름은 기관 말 앞(장애인권익 / 옹호기관)에서만, 괄호 안 말((학대 신고)에)은 한 덩어리로
+        // 줄을 바꾼다(textContent로 넣으면 장애인권익옹 / 호기관처럼 낱말 가운데에서 잘렸다)
+        setText(b.querySelector(".np-send-who"), `${a.who} `);
+        setText(b.querySelector(".np-send-what"), a.what);
         b.setAttribute("aria-disabled", ready && (!a.target || a.target.phone) ? "false" : "true");
         b.classList.toggle("done", done.has(a.key));
       }

@@ -89,7 +89,7 @@ a.home-fact:active { background: var(--bg-sub); }
 /* 범례: 왼쪽 이름(위)·비율과 건수(아래), 오른쪽 금액. 아주 좁으면 금액이 다음 줄 오른쪽으로 */
 .home-legend { margin-top: .2rem; }
 .home-legend li { flex-wrap: wrap; row-gap: .1rem; padding: .55rem 0; }
-.home-legend .grow { display: grid; flex: 1 1 4rem; min-width: 0; line-height: var(--lh-sub); }
+.home-legend .grow { display: grid; flex: 1 1 auto; min-width: 0; line-height: var(--lh-sub); }   /* 기준 폭 = 이름 폭: 이름과 금액이 한 줄에 안 들면 금액이 다음 줄로(이름 칸이 눌려 휴대폰 / 결제로 접히지 않게) */
 .home-legend-name { font-weight: 600; color: var(--text); white-space: nowrap; }
 .home-legend .pct { min-width: 0; text-align: left; white-space: nowrap; }
 .home-legend-money { margin-left: auto; white-space: nowrap; }

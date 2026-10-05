@@ -405,6 +405,11 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 /* ui.busy·담기 버튼은 disabled 대신 aria-disabled로 막는다(초점이 body로 빠지지 않게, FE-04). 하는 중(aria-busy)은 아래 돌림표 */
 .btn[aria-disabled="true"]:not([aria-busy="true"]) { background: var(--bg-sub); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
 :is(.card, .sheet) :is(.btn:disabled, .btn[aria-disabled="true"]:not([aria-busy="true"])) { background: var(--surface-2); }
+/* 점선 테두리(고를 수 없는 칩 .chip.off와 같은 표시): 회색 상자(보낼 글 상자 등) 안에서는 버튼 바탕이 상자 바탕과 같아 버튼 모양이
+   사라지고 글만 떠 보였다(1280폭 상담처 전화 버튼). outline이라 크기가 바뀌지 않는다 */
+:is(.btn:disabled, .btn[aria-disabled="true"]):not([aria-busy="true"]) { outline: 1px dashed var(--text-4); outline-offset: -1px; }
+/* 초점 표시는 남긴다(aria-disabled 버튼은 초점을 받는다: 위 box-shadow: none이 초점 테두리까지 지웠다) */
+:is(.btn:disabled, .btn[aria-disabled="true"]):focus-visible { box-shadow: var(--focus); }
 .btn.block { width: 100%; container-type: inline-size; }   /* 폭은 늘 칸 폭(글에 따라 바뀌지 않음): 아래 컨테이너 쿼리의 기준 */
 /* 아주 큰 글씨의 좁은 넓은 버튼(이름 칸이 8글자보다 좁음, 360폭 2배): 이름 안 덩어리(조력자·상담하는)를 풀어 정해 둔 자리(가운뎃점 뒤)에서
    줄을 바꾼다. 덩어리가 그림 옆에 다 들지 않아 그림만 첫 줄에 홀로 남지 않게 */

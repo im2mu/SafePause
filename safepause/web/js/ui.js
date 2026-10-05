@@ -102,7 +102,7 @@ const SINGLE_WORD = /^[가-힣]$/;
 const BACK_WORD = /^(?:곳|것|때|등|달|번|장|개|명|건|쯤|뿐|데|줄|중|수|뒤|후|전)$/;   // 전: 보내기 전·알림 전
 // 앞 낱말 없이는 쓰지 않는 한 글자 의존 명사 + 조사 한 글자(보낸 적이·할 수도·본 것은·할 줄을): 이것도 앞 낱말과 묶는다
 // (요즘 밤늦게 돈을 보낸 / 적이 있어요처럼 꾸미는 말과 의존 명사가 다른 줄로 갈리지 않게)
-const BACK_PAIR = /^(?:적|것|수|줄|데)(?:이|은|도|을|가|만|는|에)$/;
+const BACK_PAIR = /^(?:적|것|수|줄|데|곳)(?:이|은|도|을|가|만|는|에|과|와|로)$/;   // 곳: 상담하는 곳에 / 알릴 수 있어요
 const letters = (w) => (w.match(/[가-힣A-Za-z0-9]/g) || []).length;
 
 /**
@@ -173,9 +173,18 @@ function bindGroups(units) {
   const back = (i) => (single(i) && BACK_WORD.test(units[i].parts[0].text)) || pair(i);
   const groups = [];
   for (let k = 0; k < n; k += 1) {
+    // 괄호 안 짧은 말((학대 신고)에): 여는 괄호 낱말부터 닫는 괄호가 든 낱말까지(세 낱말 안) 한 묶음. 괄호 안에서 줄이 바뀌어
+    // '(학대 / 신고),'처럼 닫는 괄호 쪽이 다음 줄 첫머리에 오지 않게
+    const tk = text(units[k]);
+    if (tk.startsWith("(") && !tk.includes(")")) {
+      let j = k + 1;
+      while (j < n && j < k + 3 && !text(units[j]).includes(")")) j += 1;
+      if (j < n && text(units[j]).includes(")") && ok(k, j)) { groups.push([k, j]); k = j; continue; }
+    }
     if (!single(k) && !pair(k)) continue;
-    // 앞 낱말에 붙는 말(가는 곳·보낸 적이): 앞 낱말과 묶는다(앞 낱말이 이미 묶음 끝이면 그 묶음을 늘린다)
-    if (back(k) && k > 0 && !single(k - 1)) {
+    // 앞 낱말에 붙는 말(가는 곳·보낸 적이): 앞 낱말과 묶는다(앞 낱말이 이미 묶음 끝이면 그 묶음을 늘린다). 앞 낱말이 쉼표·마침표로
+    // 끝나면 묶지 않는다(배우고, 뒤 30일을: 여기 뒤는 뒤 낱말을 꾸미는 말이라 앞에 붙이면 '배우고, 뒤 / 30일을'이 됐다)
+    if (back(k) && k > 0 && !single(k - 1) && !/[,.!?]$/.test(text(units[k - 1]))) {
       const prev = groups.length && groups[groups.length - 1][1] === k - 1 ? groups[groups.length - 1] : null;
       let g = null;
       if (prev && ok(prev[0], k)) { prev[1] = k; g = prev; }
