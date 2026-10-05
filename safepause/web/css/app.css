@@ -390,7 +390,8 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 .btn.ghost { background: transparent; color: var(--text-2); }
 /* 누를 수 없는 버튼(준비 중 등): 흐리게(opacity) 하면 파란 버튼의 흰 글이 1.7:1로 읽히지 않는다. 회색 바탕 + 보조 글 색(4.5:1 이상).
    색 갈래(.primary·.weak·.danger…) 뒤에 둔다: 우선순위가 같아 앞에 두면 파란 버튼이 흰 글 그대로 회색 바탕에 남아 1.04:1로 사라졌다 */
-.btn:disabled { background: var(--bg-sub); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
+/* 무게는 변형(.btn.primary 등, 클래스 둘)보다 무겁게(셋): 같으면 뒤에 오는 변형의 흰 글이 남아 회색 바탕 위 1:1로 이름이 사라졌다 */
+.btn:disabled:not([aria-busy="true"]) { background: var(--bg-sub); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
 /* ui.busy·담기 버튼은 disabled 대신 aria-disabled로 막는다(초점이 body로 빠지지 않게, FE-04). 하는 중(aria-busy)은 아래 돌림표 */
 .btn[aria-disabled="true"]:not([aria-busy="true"]) { background: var(--bg-sub); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
 :is(.card, .sheet) :is(.btn:disabled, .btn[aria-disabled="true"]:not([aria-busy="true"])) { background: var(--surface-2); }
@@ -570,7 +571,8 @@ tbody th { font-weight: 600; color: var(--text-2); }
 .soon-icon svg { width: 1.6rem; height: 1.6rem; }
 .soon-lines { color: var(--text-2); margin-bottom: var(--space-4); }
 .soon-steps { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); margin-bottom: var(--space-4); }   /* 한 칸 grid: 칸 폭을 화면 폭에 묶는다(긴 낱말·묶음 때문에 칸이 넓어져 화면 밖으로 넘치지 않게, 들어가면 모양은 같다) */
-.soon-step { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-start; padding: .8rem .9rem; border-radius: var(--r-m); background: var(--surface-2); color: var(--text-3); }
+/* 줄 사이(번호가 제목 위로 올라갔을 때)는 좁게: 번호가 제목에서 떨어져 따로 떠 보이지 않게(2026-10-03 검토). 옆 사이는 그대로 */
+.soon-step { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); align-items: flex-start; padding: .8rem .9rem; border-radius: var(--r-m); background: var(--surface-2); color: var(--text-3); }
 .soon-step b { color: var(--text-2); font-weight: 700; }
 .soon-step-no { width: 1.75rem; height: 1.75rem; border-radius: 50%; display: grid; place-items: center; background: var(--line); color: var(--text-3); font-weight: 800; flex: none; }
 .soon-step > .soon-step-main { flex: 1 1 6em; min-width: 0; }   /* 번호가 제목 위로 올라가는 것은 글 칸이 6글자보다 좁을 때만(⑩) */

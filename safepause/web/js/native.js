@@ -13,6 +13,16 @@ export function isApp() {
   return Boolean(window.SafePauseNative || window.__SAFEPAUSE_ENGINE__);
 }
 
+/**
+ * 태블릿이면 true: 휴대폰 쪽(앱·휴대폰 브라우저)이면서 화면의 짧은 쪽이 600 CSS px 이상(안드로이드의 태블릿 기준 sw600dp와 같음).
+ * 화면(screen) 크기로 본다: 가로로 돌리거나 창을 나눠도 기기는 그대로라서. 크기를 모르면 휴대폰으로 본다.
+ */
+export function isTablet() {
+  if (!isMobile()) return false;
+  const s = window.screen || {};
+  return Math.min(Number(s.width) || 0, Number(s.height) || 0) >= 600;
+}
+
 /** 휴대폰(앱 또는 휴대폰 브라우저)이면 true. */
 export function isMobile() {
   if (isApp()) return true;

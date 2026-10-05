@@ -240,7 +240,7 @@
   - `pickContact(kind)` → `Promise<{name, value}|null>`: 앱이면 브리지, 브라우저에 `navigator.contacts`가 있으면 그것, 없으면 null
   - `canPickContact()`, `copyText(text)`
 - `format.js`
-  - `deviceWord()`: 앱(엔진 모드)이나 휴대폰 브라우저면 "이 휴대폰", 아니면 "이 컴퓨터"
+  - `deviceWord()`: 앱(엔진 모드)이나 휴대폰 브라우저면 "이 휴대폰"(태블릿이면 "이 태블릿"), 아니면 "이 컴퓨터"
   - `moneyText(n)` = "50,000원"(쉼표 원 단위 하나만)
 - `ui.js`
   - `h("p", {text})`는 문장 끝(요. 다. 니다. ? !) 뒤에서 나눠 `span.sent`(display:block)로 한 줄씩 넣는다. `data-nosplit`이면 나누지 않는다.

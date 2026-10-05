@@ -111,6 +111,9 @@
 .result-main { margin-top: .25rem; }
 .result-notes { display: grid; gap: .6rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .result-notes > .btn { justify-self: stretch; }
+/* 결과 아래쪽의 옅은 파랑 버튼(알림 보내기로 문자·메일 보내기)은 테두리를 둔다: 바로 아래 같은 바탕의 안내 상자(상담을 도와줄 곳)와
+   누르는 곳이 구분되게(2026-10-03 검토) */
+.result-notes > .btn.weak { box-shadow: inset 0 0 0 2px var(--primary); }
 /* 내 거래에 적는 날짜 안내(접어 둠, ⑥) */
 .mn-ts > summary {
   list-style: none; display: flex; align-items: center; gap: var(--space-2); min-height: 2.4rem; cursor: pointer;
@@ -131,14 +134,18 @@
 .mn-sum-row + .mn-sum-row { border-top: 1px solid var(--line); }
 .mn-summary dt { color: var(--text-3); font-weight: 600; }
 .mn-summary dd { margin: 0 0 0 auto; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: break-word; min-width: 0; }
+/* 한 줄이라도 값이 이름 아래로 내려가면 모든 줄을 두 줄(이름 / 값)로(money.js fitSummary): 한 줄·두 줄이 번갈아 나오지 않게 */
+.mn-summary.stacked .mn-sum-row { flex-direction: column; align-items: stretch; }
+.mn-summary.stacked dd { margin-left: 0; }
 
 /* ==== 내 은행 앱 ========================================================== */
 .ba-actions { display: grid; gap: .5rem; margin-top: .25rem; }
 /* 열기 버튼 이름: btn-label(그림은 첫 줄 글 앞, 줄은 가운데에서 고르게) + 고른 앱 이름은 아랫줄. 두 줄로 접혀도 그림 + 글 덩어리가 버튼 가운데 */
 .ba-open-text { line-height: var(--lh-ui); }
 .ba-open-name { display: block; font-weight: 600; overflow-wrap: break-word; }   /* 흐리게 하지 않는다(opacity .9는 대비 3.3·2.9:1) */
-.ba-why { display: flex; gap: .45rem; align-items: flex-start; color: var(--text-3); font-weight: 600; }
-.ba-why svg { width: 1.15rem; height: 1.15rem; flex: none; margin-top: max(0px, calc((1lh - 1.15rem) / 2)); }
+/* 까닭 줄(ⓘ)은 바로 아래 필수 문장 줄(방패, .mn-must-line)과 그림 칸·사이를 같게: 두 줄의 글 시작이 세로로 맞는다 */
+.ba-why { display: flex; gap: .5rem; align-items: flex-start; color: var(--text-3); font-weight: 600; }
+.ba-why svg { width: 1.25rem; height: 1.25rem; flex: none; margin-top: max(0px, calc((1lh - 1.25rem) / 2)); }
 .ba-fail:empty { display: none; }
 .ba-fail .notice { margin-bottom: 0; }
 

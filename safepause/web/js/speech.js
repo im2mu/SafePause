@@ -145,5 +145,5 @@ export function stop() {
 export function noVoiceNote() {
   return `${deviceWord()}에 한국어 음성이 없어서 소리로 듣기 버튼을 숨겼어요. 인터넷으로 글을 보내는 음성은 쓰지 않아요.`;
 }
-// 옛 이름(문자열). 처음 불러올 때 장소 말을 정한다(앱·휴대폰 브라우저는 이 휴대폰, PC는 이 컴퓨터)
+// 옛 이름(문자열). 처음 불러올 때 장소 말을 정한다(앱·휴대폰 브라우저는 이 휴대폰·이 태블릿, PC는 이 컴퓨터)
 export const NO_VOICE_NOTE = noVoiceNote();

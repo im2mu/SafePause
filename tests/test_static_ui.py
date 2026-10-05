@@ -708,6 +708,13 @@ def test_focus_is_kept_on_busy_and_sheet_close() -> None:
     assert '.btn[aria-disabled="true"]' in CSS
 
 
+def test_disabled_button_outweighs_variants() -> None:
+    # 2026-10-03 검토: 꺼진 버튼 규칙이 .btn.primary(클래스 둘)보다 무거워야 흰 글이 회색 바탕 위에 남지 않는다(1:1로 사라짐)
+    app = CSS_FILES["app.css"]
+    assert '.btn:disabled:not([aria-busy="true"]) { background: var(--bg-sub); color: var(--text-3);' in app
+    assert re.search(r"(?m)^\.btn:disabled \{", app) is None
+
+
 def test_toast_and_engine_bar_one_sentence_per_line() -> None:
     # C4: 토스트·엔진 띠도 문장마다 한 줄(p의 text → span.sent)
     ui = (JS / "ui.js").read_text(encoding="utf-8")

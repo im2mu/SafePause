@@ -6,7 +6,7 @@
  * - 다른 화면은 이 파일의 함수만 쓴다: bankAppActions(돈 보내기 결과), bankAppSettings(앱 설정), clearBankApp(모두 지우기).
  */
 import { h, icon, fill, setText, openSheet, toast, announce } from "../ui.js";
-import { canListApps, listApps, openApp, isApp } from "../native.js";
+import { canListApps, listApps, openApp, isApp, isMobile } from "../native.js";
 import { deviceWord } from "../format.js";
 
 export const BANK_APP_KEY = "safepause.bankApp";
@@ -14,10 +14,14 @@ export const BANK_APP_KEY = "safepause.bankApp";
 const MONEY_WORDS = /은행|뱅크|bank|페이|pay|증권|카드/i;
 const NO_CHECK = { spellcheck: "false", autocorrect: "off", autocapitalize: "off", autocomplete: "off" };
 
-/** 은행 앱을 고를 수 없는 까닭(PC·브라우저·옛 앱). 고를 수 있으면 빈 글. */
+/**
+ * 은행 앱을 고를 수 없는 까닭(PC·브라우저·옛 앱). 고를 수 있으면 빈 글.
+ * 휴대폰·태블릿 브라우저는 '휴대폰 앱에서'가 지금 든 휴대폰과 앞뒤가 맞지 않게 읽혀 SafePause 앱을 설치하면 열 수 있다고 한다.
+ */
 export function bankAppUnavailable() {
   if (canListApps()) return "";
-  return isApp() ? "이 앱 버전에서는 은행 앱을 열 수 없어요. 앱을 새 버전으로 바꿔 주세요." : "은행 앱은 휴대폰 앱에서 열 수 있어요.";
+  if (isApp()) return "이 앱 버전에서는 은행 앱을 열 수 없어요. 앱을 새 버전으로 바꿔 주세요.";
+  return isMobile() ? "은행 앱은 SafePause 앱을 설치하면 열 수 있어요." : "은행 앱은 휴대폰 앱에서 열 수 있어요.";
 }
 
 // 저장소에 쓰지 못했을 때 이 창이 열려 있는 동안만 기억하는 앱(FE-08)

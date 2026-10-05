@@ -50,7 +50,7 @@ v0.2 send.js를 되살려 다듬는다. 옛 코드는 `git show 7d57ea9:safepaus
   - 이름에 은행·뱅크·bank·페이·pay·증권·카드가 들어간 앱을 위로 올린다. 일반 규칙이고 특정 회사 이름은 넣지 않는다.
   - 고르면 localStorage `safepause.bankApp = {package, label}`(try/catch)에 저장한다.
 - 열기: `SafePauseNative.openApp(package)` → true/false. 실패하면 "은행 앱을 열지 못했어요. 다시 골라 주세요."
-- PC(브라우저)면 버튼을 비활성으로 하고 "은행 앱은 휴대폰 앱에서 열 수 있어요."를 보인다.
+- PC(브라우저)면 버튼을 비활성으로 하고 "은행 앱은 휴대폰 앱에서 열 수 있어요."를 보인다. 휴대폰·태블릿 브라우저는 "은행 앱은 SafePause 앱을 설치하면 열 수 있어요."(휴대폰을 든 사람에게 '휴대폰 앱에서'라고 하지 않게).
 - 설정 화면(`#/more/settings`)에 '내 은행 앱'(고르기·바꾸기·지우기)을 둔다.
 - 모두 지우기 때 `safepause.bankApp`도 지운다(동의 화면 wipe에서 같이).
 

@@ -268,7 +268,7 @@ alertCard(item, { actions: [알리기링크, flagButton(ctx, item, { cls: "btn s
 
 | 함수 | 예 |
 |---|---|
-| `deviceWord()` | 앱·휴대폰 브라우저 → `"이 휴대폰"`, 그 밖 → `"이 컴퓨터"`. `${deviceWord()} 안에서만 살펴봐요.` (127.0.0.1·이 기기 직접 쓰지 않기) |
+| `deviceWord()` | 앱·휴대폰 브라우저 → `"이 휴대폰"`(화면의 짧은 쪽이 600 CSS px 이상인 태블릿은 `"이 태블릿"`, `native.isTablet()`), 그 밖 → `"이 컴퓨터"`. `${deviceWord()} 안에서만 살펴봐요.` (127.0.0.1·이 기기 직접 쓰지 않기) |
 | `moneyText(n, sign?)` | `moneyText(50000)` → `"50,000원"`, `moneyText(50000, "-")` → `"-50,000원"`, `moneyText(-7900)` → `"-7,900원"` |
 | `formatWon(n)` | 쉬운 말 금액 `"5만 원"`(천 원·만 원 단위 반올림). 목록·표·입력 미리 보기에는 쓰지 않는다(차트 눈금·문장용) |
 | `amountPreview(n)` | 입력 금액 미리 보기: 정확한 원 단위 하나 `amountPreview(3500)` → `"3,500원"`. 0 이하·숫자 아님은 `""`. 반올림한 만 원 표기를 `=`로 붙이지 않는다(RF-4·C10) |
@@ -550,7 +550,7 @@ AI 부분(numpy·scikit-learn)만 못 켜면 `engine.status`가 `{stage: "error"
 - bankapp.js
   - `getBankApp()`·`saveBankApp(app)`·`clearBankApp()`: localStorage `safepause.bankApp = {package, label}`(try/catch)
   - `pickBankApp()` → `Promise<app | null>`: 검색 칸 + 은행·결제 앱(이름에 은행·뱅크·bank·페이·pay·증권·카드) 먼저 + 다른 앱. 회사 이름은 넣지 않는다
-  - `openBankApp(app)`, `bankAppUnavailable()`(PC면 `은행 앱은 휴대폰 앱에서 열 수 있어요.`)
+  - `openBankApp(app)`, `bankAppUnavailable()`(PC면 `은행 앱은 휴대폰 앱에서 열 수 있어요.`, 휴대폰·태블릿 브라우저면 `은행 앱은 SafePause 앱을 설치하면 열 수 있어요.`)
   - `bankAppActions()`: [내 은행 앱 열기](고른 앱 이름) / [다른 은행 앱 고르기], 못 열면 `은행 앱을 열지 못했어요. 다시 골라 주세요.`
   - `bankAppSettings()`: 앱 설정의 내 은행 앱(고르기·바꾸기·지우기). 동의 화면의 모두 지우기는 `clearBankApp()`도 부른다
 - notify.js 받는 사람 추천: 거래를 고르거나 바꿀 때 `POST /api/notify/suggest {txn_ids}` → 추천 배지·미리 체크(본인이 바꾼 사람은 그대로), 돈을 받은 조력자는 체크를 풀고 `이 거래에서 돈을 받은 사람이에요. 다른 사람에게 알리는 게 좋아요.`, 그래도 체크하면 보내기 전에 확인 시트. 추천을 못 받으면 추천 없이

@@ -58,7 +58,7 @@ const SUM_WORDS = {
 const SOON_STEPS = [
   { title: "계좌 연결", sub: "오픈뱅킹으로 내 계좌를 연결해요." },
   { title: "출금 동의", sub: "이 앱에서 내 계좌의 돈을 보내도 된다고 동의해요." },
-  { title: "받는 사람·금액 적기" },
+  { title: "받는 사람과 금액 적기" },
   { title: "보내기 전 확인 카드", sub: "걱정되는 점이 있으면 한 번 더 물어봐요." },
   { title: "이체 인증", sub: "은행이 정한 본인 인증과 한도를 거쳐요." },
   { title: "보내기 완료" },
@@ -558,7 +558,7 @@ export default {
         time && t ? [words.time, t.label] : null,
         p.to_id ? ["계좌번호", p.to_id] : null,
       ].filter(Boolean);
-      return h("dl", { class: "mn-summary" }, rows.map(([k, v]) => h("div", { class: "mn-sum-row" }, h("dt", { text: k }), h("dd", { text: v }))));
+      return fitSummary(h("dl", { class: "mn-summary" }, rows.map(([k, v]) => h("div", { class: "mn-sum-row" }, h("dt", { text: k }), h("dd", { text: v })))));
     }
 
     /**
@@ -714,6 +714,39 @@ export default {
     }
   },
 };
+
+/**
+ * 보낼 것 요약 줄 맞추기: 한 줄이라도 값이 이름 아래로 내려가면(큰 글씨·좁은 화면) 모든 줄을 두 줄(이름 / 값)로 둔다.
+ * 넘칠 때만 줄을 나누면 받는 사람 김*호(한 줄)·금액 / 300,000원(두 줄)처럼 줄마다 모양이 번갈아 나왔다(2026-10-03 검토).
+ * 칸 폭·글자 크기가 바뀌면 다음 틀에서 다시 잰다(charts.js와 같은 방법). 화면에서 떨어지면 그친다.
+ */
+function fitSummary(dl) {
+  let frame = 0;
+  let last = "";
+  let shown = false;
+  let ro = null;
+  const stop = () => { if (ro) ro.disconnect(); else window.removeEventListener("resize", schedule); };
+  const run = () => {
+    frame = 0;
+    if (!dl.isConnected) { if (shown) stop(); return; }   // 시트를 닫아 화면에서 떨어졌으면 그친다
+    shown = true;
+    const key = `${dl.clientWidth}|${getComputedStyle(dl).fontSize}`;
+    if (!dl.clientWidth || key === last) return;
+    last = key;
+    dl.classList.remove("stacked");   // .stack은 차트 막대 이름이라 쓰지 않는다
+    const wrapped = [...dl.querySelectorAll(".mn-sum-row")].some((row) => {
+      const dt = row.querySelector("dt");
+      const dd = row.querySelector("dd");
+      return dt && dd && dd.offsetTop > dt.offsetTop + 2;
+    });
+    dl.classList.toggle("stacked", wrapped);
+  };
+  const schedule = () => { if (!frame) frame = window.requestAnimationFrame(run); };
+  if (typeof window.ResizeObserver === "function") { ro = new ResizeObserver(schedule); ro.observe(dl); }
+  else window.addEventListener("resize", schedule);
+  schedule();
+  return dl;
+}
 
 /** 결과의 필수 문장 한 줄(은행 앱 버튼 바로 아래). */
 function mustLine() {

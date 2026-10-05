@@ -1,13 +1,14 @@
 /* 쉬운 숫자·시각 표기. 규칙은 파이썬 explain/easy_card.py와 같다(천 원·만 원 단위 반올림, '새벽 2시').
  * 목록·표의 금액은 moneyText("50,000원") 하나만 쓴다(쉬운 말 금액을 옆에 또 붙이지 않음).
  * 입력 금액 미리 보기는 amountPreview(정확한 원 단위), 시간대 이름은 bandLabel, 줄 끝 끊김 막기는 keepUnits. */
-import { isApp, isMobile } from "./native.js";
+import { isApp, isMobile, isTablet } from "./native.js";
 
 export const nf = new Intl.NumberFormat("ko-KR");
 
-/** 이 앱이 열린 곳: 앱이나 휴대폰 브라우저면 "이 휴대폰", 아니면 "이 컴퓨터". */
+/** 이 앱이 열린 곳: 앱이나 휴대폰 브라우저면 "이 휴대폰"(태블릿이면 "이 태블릿"), 아니면 "이 컴퓨터". */
 export function deviceWord() {
-  return isApp() || isMobile() ? "이 휴대폰" : "이 컴퓨터";
+  if (!isApp() && !isMobile()) return "이 컴퓨터";
+  return isTablet() ? "이 태블릿" : "이 휴대폰";
 }
 
 /** 목록·표의 금액: moneyText(50000) → "50,000원", moneyText(50000, "-") → "-50,000원", moneyText(50000, "+") → "+50,000원". */
