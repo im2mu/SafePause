@@ -440,6 +440,7 @@ button.row:active, a.row:active { background: var(--bg-sub); }
 }
 .card .input { background: var(--surface-2); }
 .input:focus { border-color: var(--primary); background: var(--surface); }
+.input::placeholder { color: var(--text-3); opacity: 1; }   /* 예시 글: 브라우저 기본 회색(#757575)은 어두운 바탕에서 4.1:1이었다 */
 /* 전화번호 칸: 글자 사이를 조금 좁혀 예시(010-0000-0000)와 적은 번호가 아주 큰 글씨 좁은 화면(320폭 2배)에서도 칸 안에 다 보이게 */
 .input[type="tel"] { letter-spacing: -0.03em; }
 .input.big { font-size: 1.35rem; font-weight: 700; padding: .9rem min(var(--space-4), 4vw); }
@@ -484,6 +485,9 @@ select.input { background-image: linear-gradient(45deg, transparent 50%, var(--t
 .segmented label > span svg { width: 1.05rem; height: 1.05rem; flex: none; }
 .segmented input:checked + span { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
 .segmented input:focus-visible + span { box-shadow: var(--focus); }
+/* 어두운 모드: 고른 칸 바탕이 묶음 바탕과 1.17:1이라 무엇을 골랐는지 안 보였다 → 테두리 */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .segmented input:checked:not(:focus-visible) + span { box-shadow: inset 0 0 0 1.5px var(--text-3); } }
+:root[data-theme="dark"] .segmented input:checked:not(:focus-visible) + span { box-shadow: inset 0 0 0 1.5px var(--text-3); }
 
 .check-row { display: flex; align-items: center; gap: min(.75rem, 3vw); padding: .6rem 0; cursor: pointer; }
 .check-row input[type="checkbox"], .check-row input[type="radio"] { width: 1.375rem; height: 1.375rem; accent-color: var(--primary); flex: none; margin: 0; }

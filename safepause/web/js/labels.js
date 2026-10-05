@@ -109,7 +109,7 @@ export const MODE_KO = { fused: "규칙 + AI 함께", rules: "규칙만", anomal
 export const COUNSELING_TITLE = "상담을 도와줄 곳이 있어요.";   // guardian/policy.py NOTE_COUNSELING과 같은 문장
 
 export const PERSONAS = [
-  { value: "worker", label: "가상 근로자 (월급)" },
-  { value: "benefit", label: "가상 복지급여 수급자" },
-  { value: "student", label: "가상 학생 (용돈)" },
+  { value: "worker", label: "근로자 (월급)" },   // 가상 인물임은 묶음 이름 '(가상 인물)'이 말한다(칸마다 쓰면 '가상 / 근로자'로 갈렸다)
+  { value: "benefit", label: "복지급여 수급자" },
+  { value: "student", label: "학생 (용돈)" },
 ];

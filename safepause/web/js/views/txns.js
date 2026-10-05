@@ -720,7 +720,7 @@ export default {
         // 미리 볼 수 있어요는 미리 살펴봐요로 줄였다: 볼 수 있어요가 낱말 묶음(span.bind)이라 그 앞 빈칸을 \u00a0로 두어도 크롬은 묶음 앞에서
         // 줄을 바꿔 미리 / 볼 수 있어요로 갈렸다
         h("p", { class: "sheet-sub", text: "진짜 사람의 거래가 아니에요. AI가 어떻게 알려\u00a0주는지 미리\u00a0살펴봐요." }),
-        h("div", { class: "field" }, h("span", { class: "field-label", id: "sample-persona-label", text: "누구의 거래인가요?" }), persona),
+        h("div", { class: "field" }, h("span", { class: "field-label", id: "sample-persona-label", text: "누구의 거래인가요? (가상 인물)" }), persona),
         h("div", { class: "field" }, h("label", { for: "sample-seed", text: "번호" }), seed,
           h("p", { class: "hint", id: "sample-seed-hint", text: "같은 번호면 같은\u00a0거래가 나와요." })),
         h("label", { class: "check-row" }, mix, h("span", { class: "grow", text: "걱정되는 거래 섞기" })),
