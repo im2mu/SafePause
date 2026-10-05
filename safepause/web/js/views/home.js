@@ -297,11 +297,35 @@ function channelsCard(ctx, channels, mWord) {
   return h("section", { class: "card home-card", "aria-labelledby": "home-where-title" },
     cardHead("home-where-title", label, `${withRo(name(top))} 가장 많이 나갔어요.`),
     bar.el,
-    h("ul", { class: "legend home-legend", "aria-label": "결제 방법별 나간 돈" }, channels.map((c) => h("li", { class: cls(c) },
+    evenLegend(h("ul", { class: "legend home-legend", "aria-label": "결제 방법별 나간 돈" }, channels.map((c) => h("li", { class: cls(c) },
       h("span", { class: "swatch", "aria-hidden": "true" }),
       h("span", { class: "grow" }, h("span", { class: "home-legend-name", text: name(c) }),
         h("span", { class: "pct", text: `${percent(c.share, 0)} · ${nf.format(c.out_count || 0)}건` })),
-      h("b", { class: "home-legend-money", text: moneyText(c.out_total) })))));
+      h("b", { class: "home-legend-money", text: moneyText(c.out_total) })))), ctx.onCleanup));
+}
+
+/**
+ * 범례 줄 맞추기: 한 줄이라도 금액이 이름 아래로 내려가면(큰 글씨·긴 금액) 모든 줄의 금액을 다음 줄 오른쪽으로 둔다(.stack).
+ * 줄마다 따로 내려가면 일곱 자리 금액 줄만 두 줄이 되어 들쭉날쭉했다(1280폭 2배). 칸 폭·글자 크기가 바뀌면 다음 틀에서 다시 잰다
+ */
+function evenLegend(ul, onCleanup) {
+  if (typeof ResizeObserver !== "function") return ul;
+  let frame = 0;
+  const run = () => {
+    frame = 0;
+    if (!ul.isConnected || !ul.clientWidth) return;
+    ul.classList.remove("stack");
+    const wrapped = [...ul.children].some((li) => {
+      const name = li.querySelector(".home-legend-name");
+      const money = li.querySelector(".home-legend-money");
+      return name && money && money.offsetTop > name.offsetTop + name.offsetHeight / 2;
+    });
+    ul.classList.toggle("stack", wrapped);
+  };
+  const ro = new ResizeObserver(() => { if (!frame) frame = window.requestAnimationFrame(run); });
+  ro.observe(ul);
+  if (typeof onCleanup === "function") onCleanup(() => ro.disconnect());
+  return ul;
 }
 
 // 시간대 이름(format.bandLabel: 새벽·오전·낮·저녁·밤)과 시각 범위(밤 12시~아침 6시처럼 앱 시각 표기와 같음, D5·C12)

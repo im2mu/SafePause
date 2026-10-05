@@ -91,8 +91,8 @@ export default {
         h("p", { class: "muted", text: "SafePause는 아래 오픈소스를 써요. 각 라이선스 전문은 앱과 함께 담긴 licenses 폴더에 있어요." }),
         h("ul", { class: "bullets about-bullets" },
           ["Pyodide (MPL-2.0)", "Python 표준 라이브러리 (PSF License)", "NumPy (BSD-3-Clause)", "SciPy (BSD-3-Clause)",
-            "scikit-learn (BSD-3-Clause)", "joblib (BSD-3-Clause)", "threadpoolctl (BSD-3-Clause)", "pydantic\u00a0· pydantic-core (MIT)",
-            "typing-extensions (PSF License)", "annotated-types\u00a0· typing-inspection (MIT)"].map((t) => {
+            "scikit-learn (BSD-3-Clause)", "joblib (BSD-3-Clause)", "threadpoolctl (BSD-3-Clause)", "pydantic, pydantic-core (MIT)",
+            "typing-extensions (PSF License)", "annotated-types, typing-inspection (MIT)"].map((t) => {
             // threadpool·ctl 사이 줄 바꿀 자리(wbr): 아주 큰 글씨 좁은 화면에서 threadpoolct / l로 잘리지 않게. 연성 붙임표(\u00ad)는
             // Chrome·WebView가 줄이 바뀌지 않아도 붙임표로 그려 이름이 threadpool-ctl로 보였다
             if (t.startsWith("threadpoolctl ")) return h("li", null, h("span", { text: "threadpool" }), h("wbr"), h("span", { text: t.slice(10) }));
@@ -101,7 +101,7 @@ export default {
             const m = /^(.*) (\([^()]* [^()]*\))$/.exec(t);
             return m ? h("li", null, h("span", { text: m[1] }), " ", h("span", { class: "keep-word", text: m[2] })) : h("li", { text: t });
           }),
-          MODE === "engine" ? null : ["FastAPI · Starlette · Uvicorn (BSD/MIT)"].map((t) => h("li", { text: t })))),
+          MODE === "engine" ? null : ["FastAPI, Starlette, Uvicorn (BSD/MIT)"].map((t) => h("li", { text: t })))),
       h("p", { class: "muted center more-foot", text: "SafePause 0.3.0" }));
   },
 };

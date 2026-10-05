@@ -65,7 +65,7 @@ export function splitSentences(text) {
 // · 전화번호 · 두 글자 낱말 둘을 가운뎃점으로 이은 말(문자·메일) · 띄어 쓴 화면 이름(알림 보내기·알림 목록: 남지만 알림 / 보내기에는처럼
 // 이름이 갈려 앞말과 한 덩어리로 읽히지 않게, S010·S073. 붙은 말까지 한 묶음, 아래 name). 해(2026년)·요일((토))은 묶지 않는다
 // (묶음이 길면 큰 글씨 좁은 칸에서 넘친다. 칸보다 넓은 묶음은 fitBundles가 푼다)
-const KEEP_RE = /(?:새벽|아침|오전|낮|오후|저녁|밤)[ \u00a0]\d{1,2}시(?:[ \u00a0]\d{1,2}분)?|\d{1,2}월[ \u00a0]\d{1,2}일|\d[\d,.]*(?:억|만|천)?(?:[ \u00a0]?\d[\d,.]*(?:만|천))*[ \u00a0]?원|(?<![\d*])[\d*]{2,4}-[\d*]{3,4}-[\d*]{4}(?![\d*])|(?<![가-힣·])[가-힣]{1,2}·[가-힣]{1,2}(?![가-힣·])|(?<![가-힣])알림[ \u00a0](?:보내기|목록)/g;
+const KEEP_RE = /(?:새벽|아침|오전|낮|오후|저녁|밤)[ \u00a0]\d{1,2}시(?:[ \u00a0]\d{1,2}분)?|\d{1,2}월[ \u00a0]\d{1,2}일|\d[\d,.]*(?:억|만|천)?(?:[ \u00a0]?\d[\d,.]*(?:만|천))*[ \u00a0]?원|(?<![\d*])[\d*]{2,4}-[\d*]{3,4}-[\d*]{4}(?![\d*])|(?<![가-힣·])[가-힣]{1,2}·[가-힣]{1,2}(?![가-힣·])|(?<![가-힣])(?:돈[ \u00a0]보내기[ \u00a0]전[ \u00a0]확인|알림[ \u00a0](?:보내기|목록)|돈[ \u00a0]보내기|상담하는[ \u00a0]곳|내[ \u00a0]거래)/g;
 const HANGUL_TAIL = /^[가-힣]{3,}/;
 // 기관 이름처럼 긴 낱말(앞 4글자 이상 + 뒤 기관 말)은 그 사이에서 줄을 바꿀 수 있게 한다(지역발달장애인 / 지원센터).
 // 낱말 끝 한두 글자(센 / 터)만 다음 줄로 밀리지 않게 한다
@@ -142,7 +142,7 @@ function splitUnits(s) {
       last += tail.length + punct.length;
       continue;
     }
-    if (/^알림/.test(k)) { word("name", k); continue; }
+    if (/^(?:알림|돈|상담하는|내)[ \u00a0]/.test(k)) { word("name", k); continue; }   // 화면 이름(아래 KEEP_RE 이름 갈래)
     word("keep", k);
   }
   plain(s.slice(last));
@@ -283,9 +283,9 @@ export function keepNodes(text, { bind = false } = {}) {
         // 조사만 다음 줄 첫머리로 떨어졌다(묶음 경계는 keep-all이 막지 못한다). 칸보다 넓으면 fitBundles가 풀어 빈칸에서 바꾼다
         let t = p.text;
         while (pi + 1 < u.parts.length && u.parts[pi + 1].kind === "text") { pi += 1; t += u.parts[pi].text; }
-        // 묶음 안 줄 바꾸지 않는 빈칸(서버 글의 U+00A0) 뒤에 wbr: 묶인 동안에는 쓰이지 않고, 칸보다 넓어 풀리면(.flow) 그 자리에서 바뀐다
-        // (없으면 풀려도 바꿀 자리가 없어 '새벽 2시 32 / 분에'처럼 낱말 가운데가 잘렸다)
-        span("nowrap", t.split(/(?<=\u00a0)/).flatMap((x, k) => (k ? [document.createElement("wbr"), x] : [x])));
+        // 묶음 안에는 wbr을 넣지 않는다: Chrome은 nowrap 안의 wbr에서도 줄을 바꿔 '5만 / 원'·'새벽 / 3시'가 됐다.
+        // 칸보다 넓어 풀릴 때 바꿀 자리는 fitBundles(loosen)가 그때 만든다
+        span("nowrap", [t]);
       }
       else buf += p.text;   // 보통 글·빈칸 없는 금액(50,000원·63만7천원: 줄을 바꿀 자리가 없다)
     }
@@ -322,8 +322,6 @@ export function keepNodes(text, { bind = false } = {}) {
     const el = document.createElement("span");
     if (letters(ut) <= BIND_MAX) {
       el.className = "nowrap";
-      // 여는 괄호 앞에 줄 바꿀 자리(wbr): 묶음 안에서는 쓰이지 않고, 묶음이 칸보다 넓어 풀리면(.flow, 아주 큰 글씨 좁은 칸)
-      // 약속 / (규칙)으로처럼 괄호 앞에서 바뀐다(없으면 약속(규칙)으 / 로처럼 아무 글자에서나 잘렸다)
       // 글자 + 가운뎃점(계정·)은 안쪽 nowrap: 풀렸을 때 가운뎃점이 줄 첫머리에 오지 않게('내 계정 / ·데이터' 방지)
       const dot = (t) => {
         let last = 0;
@@ -335,8 +333,8 @@ export function keepNodes(text, { bind = false } = {}) {
         if (last < t.length) el.append(t.slice(last));
       };
       for (const nd of inner) {
-        if (nd.nodeType !== 3 || !/[가-힣A-Za-z0-9][(·]/.test(nd.nodeValue)) { el.append(nd); continue; }
-        nd.nodeValue.split(/(?<=[가-힣A-Za-z0-9])(?=\()/).forEach((t, k) => { if (k) el.append(document.createElement("wbr")); dot(t); });
+        if (nd.nodeType !== 3 || !/[가-힣A-Za-z0-9]·/.test(nd.nodeValue)) { el.append(nd); continue; }
+        dot(nd.nodeValue);
       }
     } else {
       el.className = "keep-word";
@@ -555,10 +553,31 @@ function iconAlone(el) {
   return Boolean(r && ir.height > 0 && Math.abs((r.top + r.bottom) / 2 - (ir.top + ir.bottom) / 2) > r.height / 2);
 }
 
+// 풀린 묶음(.flow) 안에서만 줄 바꿀 자리를 만든다: 줄 바꾸지 않는 빈칸(U+00A0)을 보통 빈칸으로, 글자 바로 뒤 여는 괄호 앞에 wbr.
+// 묶인 동안에 넣으면 Chrome이 nowrap 안의 wbr에서도 줄을 바꿨다('5만 / 원', '약속 / (규칙)과'). 안쪽 묶음(아직 묶인 것)은 건드리지 않는다.
+// 다시 잴 때(reset) tighten이 원래 노드로 되돌린다(풀린 동안에만 글의 U+00A0가 보통 빈칸이 된다)
+const LOOSE_AT = /\u00a0|[가-힣A-Za-z0-9]\(/;
+function loosen(el) {
+  if (el.__orig || !LOOSE_AT.test(el.textContent)) return;
+  el.__orig = [...el.childNodes].map((n) => n.cloneNode(true));
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.parentElement.closest(BUNDLES) === el) nodes.push(n);
+  for (const n of nodes) {
+    const parts = n.nodeValue.replace(/\u00a0/g, " ").split(/(?<=[가-힣A-Za-z0-9])(?=\()/);
+    n.replaceWith(...parts.flatMap((t, k) => (k ? [document.createElement("wbr"), t] : [t])));
+  }
+}
+function tighten(el) {
+  if (!el.__orig) return;
+  el.replaceChildren(...el.__orig);
+  delete el.__orig;
+}
+
 /** 칸보다 넓거나 상자 밖으로 나간 묶음에 .flow를 붙인다. reset이면 먼저 모두 떼고 다시 잰다(창·글자 크기가 바뀐 뒤). */
 export function fitBundles(root = document.body, reset = false) {
   if (!root) return;
-  if (reset) for (const el of root.querySelectorAll(".flow")) el.classList.remove("flow");
+  if (reset) for (const el of root.querySelectorAll(".flow")) { el.classList.remove("flow"); tighten(el); }
   const wide = [];
   const els = root.matches && root.matches(BUNDLES) ? [root, ...root.querySelectorAll(BUNDLES)] : root.querySelectorAll(BUNDLES);
   for (const el of els) {
@@ -566,7 +585,7 @@ export function fitBundles(root = document.body, reset = false) {
     const w = el.offsetWidth;   // 레이아웃 폭(시트가 올라오는 동안의 transform과 무관)
     if (w > 0 && (w > blockInner(el) + 0.5 || sticksOut(el) || (el.classList.contains("kn") && (splitLines(el) || iconAlone(el))))) wide.push(el);
   }
-  for (const el of wide) el.classList.add("flow");   // 다 잰 뒤에 바꾼다(재고 바꾸기를 번갈아 하지 않게)
+  for (const el of wide) { el.classList.add("flow"); loosen(el); }   // 다 잰 뒤에 바꾼다(재고 바꾸기를 번갈아 하지 않게)
   fitLabels(root);
 }
 

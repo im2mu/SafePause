@@ -93,6 +93,7 @@ a.home-fact:active { background: var(--bg-sub); }
 .home-legend-name { font-weight: 600; color: var(--text); white-space: nowrap; }
 .home-legend .pct { min-width: 0; text-align: left; white-space: nowrap; }
 .home-legend-money { margin-left: auto; white-space: nowrap; }
+.home-legend.stack .home-legend-money { flex-basis: 100%; text-align: right; }   /* 한 줄이라도 내려가면 모두 다음 줄(home.js evenLegend) */
 
 /* ---- 많이 보낸 곳 ---- */
 .home-top { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: var(--space-2); }   /* 큰 글씨: 긴 금액이 칸을 밀어내지 않게 */
