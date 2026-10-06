@@ -1,10 +1,5 @@
-# 줄바꿈 고정: Windows 배치 파일은 CRLF가 아니면 cmd.exe가 줄 경계를 잘못 읽는다.
-# 셸 스크립트는 CRLF면 macOS·Linux sh에서 실패할 수 있다.
+# 줄바꿈 고정(소스·문서는 LF)
 * text=auto
-*.bat text eol=crlf
-*.cmd text eol=crlf
-*.sh text eol=lf
-*.spec text eol=lf
 *.py text eol=lf
 *.js text eol=lf
 *.mjs text eol=lf

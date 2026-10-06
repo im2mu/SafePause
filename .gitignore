@@ -7,7 +7,7 @@ dist/
 .pytest_cache/
 eval_out/
 ci-eval/
-# 개인 데이터가 들 수 있는 파일(serve --home, analyze --out, 사용자가 둔 실제 거래내역)
+# 개인 데이터가 들 수 있는 파일(저장 파일·분석 보고서, 사용자가 둔 실제 거래내역)
 consent.json
 helpers.json
 transactions.json

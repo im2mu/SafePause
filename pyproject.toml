@@ -29,7 +29,7 @@ safepause = "safepause.cli:main"
 include = ["safepause*"]
 
 [tool.setuptools.package-data]
-# 화면 파일(PC·앱 공통). 옛 setuptools도 읽도록 폴더마다 적는다(**는 62.3+에서만)
+# 화면 파일(앱 묶음에 들어가는 것과 같은 파일). 옛 setuptools도 읽도록 폴더마다 적는다(**는 62.3+에서만)
 "safepause" = ["web/*", "web/css/*", "web/css/views/*", "web/js/*", "web/js/views/*", "web/engine/*", "web/icons/*", "web/data/*"]
 
 [tool.pytest.ini_options]

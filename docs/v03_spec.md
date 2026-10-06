@@ -47,7 +47,7 @@
 | R16 | "SafePause는 막지 않아요…", "AI 혼자서는 정하지 않아요…" 등 불필요 문구 삭제 | 전 화면 |
 | R17 | '보내지 않고 멈춘 것도 (함께) 세어요' 삭제 | consent.js |
 | R18 | 설명 글은 한 문장에 한 줄씩 | ui.h()의 p 문장 나누기 + CSS |
-| R19 | 접속 환경 감지: 휴대폰은 "이 휴대폰 안에서만", PC는 "이 컴퓨터 안에서만", 127.0.0.1 노출 금지 | format.deviceWord() |
+| R19 | 장소 말: 휴대폰은 "이 휴대폰 안에서만"(태블릿은 "이 태블릿"), 127.0.0.1 노출 금지 | format.deviceWord() |
 | R20 | "상담하는 곳을 알려 줘요" → "상담하는 곳에 알려 줘요" | consent.js 등 |
 | R21 | 금액 중복 표기 제거(50,000원 5만원 → 50,000원) | txnRow 등 목록 |
 | R22 | (바뀜) 돈 보내기 = 확인 후 내 은행 앱 열기, 직접 이체 없음(`docs/v03_spec_money.md`) | send.js·money.js·bankapp.js, 안드로이드 listApps·openApp |
@@ -185,7 +185,7 @@
 
 결정과 까닭은 fixplan 1절이 원본이다. 여기에는 구현된 계약만 적는다(서비스·router·FastAPI 같음, `tests/test_v03_fixplan.py` 파리티 시험).
 
-- **새 저장 파일 `reviews.json`** `[{txn_id, status: "ok", created_at}]`(내가 한 거예요). `store.STORE_FILES`·모두 지우기·packaging `PRIVATE_FILE_NAMES`·`.gitignore`에 들어 있다. 거래를 통째로 바꾸면 비우고, 이어 붙이기에서는 그대로 둔다.
+- **새 저장 파일 `reviews.json`** `[{txn_id, status: "ok", created_at}]`(내가 한 거예요). `store.STORE_FILES`·모두 지우기·`.gitignore`에 들어 있다. 거래를 통째로 바꾸면 비우고, 이어 붙이기에서는 그대로 둔다.
 - **새 API**
   - `POST /api/reviews {txn_id}` → `{ok, count}`. 거래 살펴보기 동의가 필요하고, 없는 거래는 404 "그 거래를 찾지 못했어요."
   - `POST /api/reviews/remove {txn_id}` → `{ok, count}`(동의 없이 됨)
@@ -194,7 +194,7 @@
   - `GET /api/export/summary` → `{filename: "safepause-summary-YYYYMMDD.txt", mime: "text/plain", text, note}`. 조력자·기관용 한 장 요약이고 이름·계좌는 넣지 않는다.
 - **바뀐 API**
   - `POST /api/notify/suggest {txn_ids, pending?}`: `pending`(check 응답의 pending 모양)이면 저장하지 않은 확인 거래도 이해충돌·등급을 본다. 이해충돌은 나간 돈의 받는 사람만 본다. 알릴 조력자가 모두 돈 받은 사람이고 상담하는 곳 동의가 있으면 상담하는 곳을 추천한다. 응답에 `counseling_reason: "repeat"|"conflict"|""`를 더했다.
-  - `POST /api/data/upload`: 본문 `mode: "replace"(기본)|"append"`(PC는 multipart 칸, 앱 엔진은 본문). append는 같은 거래(시각·금액·방향·방법·상대 정규화)를 한 번만 둔다. 응답에 `mode, added, duplicates, levels, ai_only`. 틀린 mode는 422 "입력한 값을 확인해 주세요: 올리는 방법"
+  - `POST /api/data/upload`: 본문 `mode: "replace"(기본)|"append"`(FastAPI는 multipart 칸, 앱 엔진은 본문). append는 같은 거래(시각·금액·방향·방법·상대 정규화)를 한 번만 둔다. 응답에 `mode, added, duplicates, levels, ai_only`. 틀린 mode는 422 "입력한 값을 확인해 주세요: 올리는 방법"
   - `.xlsx`: 표준 라이브러리(zipfile·xml.etree)만으로 첫 시트를 읽는다(`safepause/data/xlsx.py`). 압축 해제 합계 30MB, 파일 5,000개, 10만 줄, 256칸 상한, DTD 거부. 앱 엔진(Pyodide)에서도 같다.
   - `.xls`(2026-10-03): 엑셀 97~2003(BIFF8)은 첫 워크시트를 읽고(`safepause/data/xls.py`), 확장자만 .xls인 HTML 표는 날짜·금액 머리글이 있는 첫 표를 읽는다(`safepause/data/htmltable.py`). 암호가 걸린 엑셀(.xls·암호로 감싼 .xlsx)·엑셀 95 이전·한글/워드 문서는 안내만 한다. 표 전체 300만 칸 상한(.xlsx에도).
   - `GET /api/insights`: 보내기 전 확인 기록(live)을 모든 수치에서 빼고 `checked_excluded`로 그 수를 알린다. `compare: {month, days, prev_days, prev_same_period_out, prev_same_period_count}`(지난달 같은 날짜 범위, 지난달을 다 모르면 null)를 더했다.
@@ -236,11 +236,11 @@
   - 아래 탭 이름: 홈·내 거래·보내기·알림·전체
 - `native.js`(새로 만듦)
   - `capabilities()`
-  - `openExternal(uri)`: 앱이면 브리지, PC면 mailto·tel은 location, sms는 false
-  - `pickContact(kind)` → `Promise<{name, value}|null>`: 앱이면 브리지, 브라우저에 `navigator.contacts`가 있으면 그것, 없으면 null
+  - `openExternal(uri)`: 앱의 브리지로 연다
+  - `pickContact(kind)` → `Promise<{name, value}|null>`: 앱의 브리지로 고르고, 못 쓰면 null
   - `canPickContact()`, `copyText(text)`
 - `format.js`
-  - `deviceWord()`: 앱(엔진 모드)이나 휴대폰 브라우저면 "이 휴대폰"(태블릿이면 "이 태블릿"), 아니면 "이 컴퓨터"
+  - `deviceWord()`: 앱(엔진 모드)이면 "이 휴대폰"(태블릿이면 "이 태블릿")
   - `moneyText(n)` = "50,000원"(쉼표 원 단위 하나만)
 - `ui.js`
   - `h("p", {text})`는 문장 끝(요. 다. 니다. ? !) 뒤에서 나눠 `span.sent`(display:block)로 한 줄씩 넣는다. `data-nosplit`이면 나누지 않는다.
@@ -253,7 +253,7 @@
     - '연습용 정답' 없음
     - 담은 거래면 '담음' 배지
   - `soonBadge()`
-- `speech.js`: 상태 관리(`speak(text, {onEnd})`, `stop()`, `isSpeaking()`). 네이티브 끝남 콜백과 Web Speech onend를 쓴다.
+- `speech.js`: 상태 관리(`speak(text, {onEnd})`, `stop()`, `isSpeaking()`). 네이티브 끝남 콜백을 쓴다.
 - `labels.js`
   - SIGNAL_KO(명사형)
 
@@ -342,7 +342,6 @@
    - 성공하면 POST /api/notices/record → 토스트 → 알림 탭 '보낸 알림'
    - 실패하면 "이 휴대폰에서 문자 앱을 열지 못했어요." + [글 복사하기]를 보인다.
 - 필수 문장: "보내기 버튼은 문자·메일 앱에서 직접 눌러요."
-- PC에서는 문자 비활성 + "문자는 휴대폰 앱에서 보낼 수 있어요." 메일은 mailto로 연다.
 - spellcheck·autocorrect·autocapitalize를 끈다(textarea 포함).
 
 ### 6.4 알림 (alerts.js, css/views/notify.css 공유)
@@ -376,7 +375,6 @@
   - 언제 알릴까요, 무엇을 알릴까요(새 선 아이콘 + 명사형), 이 조력자에게 자동으로 알리기
   - '(가려서 저장해요)' 삭제
   - 목록은 가린 번호·메일을 보인다.
-  - 연락처 고르기를 쓸 수 없는 PC면 버튼을 숨긴다.
 - **상담하는 곳**: presets 추천(한 번에 더하기) + 직접 추가·수정(이름, 종류, 전화, 이메일, 메모, 연락처에서 불러오기, 사용)
 - **설정**: 글자 크기 3단(바로 적용·저장), 화면 모드 3단, 준비 중 항목
 - **내보내기**: 기존 data.js의 내보내기 두 줄
@@ -396,7 +394,7 @@
   - FORBIDDEN_WORDS + 이상거래·패턴·탐지·알고리즘·모니터링·이례·임계·통계·고위험·푸시·당사자님·단독 '주의'
   - '휴대폰 알림'이라고 쓰고 '푸시'라고 쓰지 않는다.
 - 금액은 목록·표에서 `moneyText`("50,000원") 하나만 쓴다. 쉬운 말 카드 문장(파이썬)은 그대로 둔다.
-- 장소는 `deviceWord()`로 이 휴대폰·이 컴퓨터를 쓴다.
+- 장소는 `deviceWord()`로 이 휴대폰·이 태블릿을 쓴다.
 - 실제 은행·카드사 이름·로고는 쓰지 않는다(제휴로 오해받지 않게).
 - 준비 중 기능은 반드시 '준비 중' 배지와 "정식 버전에서 열려요."를 붙인다. 동작하는 척하지 않는다.
 

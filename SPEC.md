@@ -1,6 +1,7 @@
 # SafePause — 구현 명세 (모든 빌더 에이전트 공통 계약)
 
-SafePause = 2026 AI 라이프 솔루션 챌린지 출품 프로토타입.
+SafePause = 2026 AI 라이프 솔루션 챌린지 출품 안드로이드 앱(제출물은 APK 하나).
+이 문서는 앱 안에서 도는 파이썬 엔진(`safepause` 패키지)의 처음 구현 명세(v0.1)와 그 뒤 수정 기록이다. 앱 구조와 APK는 [docs/mobile.md](docs/mobile.md).
 아이디어: 「지원의사결정 기반 발달장애인 경제적 착취 사전 예방 AI 모니터링 시스템」(아이디어 챌린지 수상 후보작).
 **이 명세의 기능 요구는 모두 제출 제안서 원문(S 번호)에서 왔다. 제안서에 없는 기능을 "제안서 기능"이라고 문서화하지 말 것.**
 
@@ -15,11 +16,11 @@ SafePause = 2026 AI 라이프 솔루션 챌린지 출품 프로토타입.
 
 ## 0. 공통 규칙
 - Python 3.10+ (개발 환경 3.12). 의존성: numpy, scikit-learn, fastapi, uvicorn, python-multipart. 그 밖의 런타임 의존성 추가 금지(테스트: pytest, httpx).
-  - [변경 r1] fastapi의 전이 의존성인 pydantic을 `pydantic>=2,<3`으로 requirements·pyproject에 명시한다(새 패키지 아님). 서버가 v2 API(AliasChoices, ConfigDict, field_validator)를 쓰는데 fastapi 0.110은 pydantic v1도 허용해, 기존 환경에서 설치하면 serve가 실패했기 때문이다.
+  - [변경 r1] fastapi의 전이 의존성인 pydantic을 `pydantic>=2,<3`으로 requirements·pyproject에 명시한다(새 패키지 아님). 엔진·시험용 서버가 v2 API(AliasChoices, ConfigDict, field_validator)를 쓰는데 fastapi 0.110은 pydantic v1도 허용해, 기존 환경에서 설치하면 서버가 시작하지 못했기 때문이다.
   - [변경 r1] `pyproject.toml`의 `[tool.pytest.ini_options] pythonpath = ["."]`로 패키지를 설치하지 않은 환경에서도 `pytest -q`가 동작한다. 문서의 테스트 명령은 `python -m pytest -q`.
   - [변경 r2] `pyproject.toml`의 dependencies에 requirements.txt와 같은 주 버전 상한(numpy<3, scikit-learn<2, fastapi<1, uvicorn<1, python-multipart<1)을 둔다(`pip install .`도 확인한 범위만 설치). 테스트 의존성은 `httpx>=0.27,<0.28`: httpx 0.28은 하한 fastapi 0.110(starlette 0.36.3)의 TestClient와 맞지 않는다(리뷰 실측 89 errors). 확인: 하한 조합(fastapi 0.110.0, starlette 0.36.3, numpy 1.26.4, scikit-learn 1.4.0, uvicorn 0.29.0, httpx 0.27.2)과 개발 조합(starlette 1.7.0 + httpx 0.27.2 / 0.28.1) 모두 전체 테스트 통과.
 - 타입은 `safepause/models.py`에서만 가져온다. 필드명·열거값을 바꾸지 말 것.
-- **네트워크 금지**: 코드에서 외부 호스트로 나가는 호출 금지. 유일한 예외는 `explain/llm_adapter.py`의 선택 기능(기본 꺼짐)이며 `127.0.0.1`/`localhost`만 허용(다른 호스트면 ValueError). 서버는 `127.0.0.1`에만 바인드.
+- **네트워크 금지**: 코드에서 외부 호스트로 나가는 호출 금지. 유일한 예외는 `explain/llm_adapter.py`의 선택 기능(기본 꺼짐)이며 `127.0.0.1`/`localhost`만 허용(다른 호스트면 ValueError). 
 - 결정론: 난수는 모두 `seed` 인자로 제어(`numpy.random.default_rng(seed)`). 같은 seed → 같은 결과.
 - 문자열·UI·문서는 한국어. 코드 주석은 간결하게.
 - 각 모듈은 자기 테스트 파일을 `tests/`에 함께 작성한다. `pytest -q`가 3분 이내에 끝나야 한다.
@@ -31,7 +32,7 @@ safepause/
   __main__.py        from safepause.cli import main; main()
   models.py          [계약, 수정 금지]
   config.py          경로·설정
-  store.py           로컬 JSON 저장소
+  store.py           JSON 저장소(앱은 /spdata/store)
   data/synth.py      합성 데이터 생성
   data/loader.py     CSV 가져오기
   detect/features.py 특징량
@@ -44,17 +45,18 @@ safepause/
   guardian/outbox.py     알림 기록(실제 발송 없음)
   eval/metrics.py        성능 평가
   eval/report.py         평가 보고서(JSON/Markdown)
-  cli.py                 명령행
-  server/app.py          FastAPI
-  server/static/         index.html, app.js, style.css, icons/*.svg
+  api/                   service.py 업무 로직, router.py, bridge.py(앱 안 파이썬 엔진 진입점)
+  web/                   앱 화면(index.html, css/, js/, engine/worker.mjs)
+  cli.py                 개발 환경 명령행(평가 다시 계산)
+  server/app.py          자동 시험용 HTTP 틀(FastAPI)
+android/               안드로이드 셸·APK 빌드
 tests/
 sample_data/
 docs/
-packaging/
 ```
 
 ## 2. config.py / store.py
-- `config.data_dir() -> Path`: 환경변수 `SAFEPAUSE_HOME` 우선, 없으면 Windows `%LOCALAPPDATA%\SafePause`, 그 외 `~/.safepause`. 없으면 생성.
+- `config.data_dir() -> Path`: 앱 안 엔진은 `/spdata/store`(IndexedDB에 연결된 폴더). 개발 환경 명령행은 환경변수 `SAFEPAUSE_HOME` 또는 기본 사용자 폴더. 없으면 생성.
 - `config.Settings` dataclass: `night_start_hour=23`, `night_end_hour=6`(23:00~05:59를 심야로 봄), `window_short_days=7`, `window_long_days=30`, `baseline_days=90`, `high_repeat_for_counseling=3`(30일 내 고위험 3건 이상이면 상담 연계 제안).
   - [변경 r4] `is_night(h)`: 시작 > 끝이면 자정을 넘는 구간(h ≥ 시작 또는 h < 끝), 아니면 시작 ≤ h < 끝(시작 = 끝이면 심야 없음). 두 시각과 h는 0~23 정수여야 한다(아니면 ValueError). 이유: 자정을 넘지 않는 설정(예: 0~5시)이면 늘 `h ≥ 0`이 참이라 하루 종일 심야가 됐다(리뷰).
 - `store.Store(root: Path)`: JSON 파일 기반. 메서드
@@ -72,7 +74,7 @@ packaging/
   - [변경 r3] 프로세스 사이 잠금: 읽기·쓰기(특히 `_append`의 읽기-수정-쓰기)를 스레드 RLock에 더해 폴더 안 빈 파일
     `.sp-store.lock`의 OS 파일 잠금(표준 라이브러리 `msvcrt.locking`/`fcntl.flock`, `store.FileLock`)으로 줄 세운다. 10초 안에
     못 잡으면 한국어 `StoreError`("다른 SafePause 창이 저장 파일을 쓰고 있어요…"). 잠금 파일은 내용이 없고 wipe 대상이 아니다.
-    이유(리뷰 재현): 같은 폴더에 두 프로세스가 `append_decision`을 300건씩 동시에 하자 한쪽 300건이 모두 사라졌다(serve 두 창).
+    이유(리뷰 재현): 같은 폴더에 두 프로세스가 `append_decision`을 300건씩 동시에 하자 한쪽 300건이 모두 사라졌다(두 프로세스).
     확인: 두 프로세스 80건씩 동시 기록 → 160건(잠금을 끄면 80건, 테스트가 차이를 잡음).
 
 ## 3. data/synth.py — 합성 데이터
@@ -88,7 +90,7 @@ packaging/
   - MULTI_LINE_TELECOM: 30일 내 서로 다른 새 회선 2~3개의 통신요금 청구(명의도용 개통 재현)
 - `make_dataset(persona_key: str, seed: int, days: int = 120, scenarios: list[SignalCode] | None = None) -> list[Transaction]`: 정상 이력 + (scenarios 각 1회, 마지막 30일 안) 주입. ts 오름차순 정렬, id 고유.
 - `to_csv(txns, path)`, `from_csv(path) -> list[Transaction]`: SafePause 표준 CSV(열: id,ts,amount,direction,channel,counterparty,counterparty_id,line_id,memo,label).
-  - [변경 r2] 표준 CSV의 ts는 `parse_standard_ts`로 읽는다: 시간대 표기('+09:00', 'Z')가 있으면 이 컴퓨터 시각으로 바꾼 뒤 시간대를 뗀다(models.py 계약: 시각은 모두 naive 로컬, 서버의 보낼 시각 처리와 같은 규칙). 'Z'는 Python 3.10에서도 읽히도록 '+00:00'으로 바꿔 읽는다. 연도가 1900~2100 밖이면 `DateRangeError`(ValueError). 이유: 시간대가 섞인 파일은 정렬에서 TypeError(500), 모두 시간대가 있는 파일은 이후 check마다 500이었고, '0001-01-01' 같은 빈 날짜 대용값은 날짜 계산 넘침(OverflowError)으로 ②·③ 화면을 멈췄다.
+  - [변경 r2] 표준 CSV의 ts는 `parse_standard_ts`로 읽는다: 시간대 표기('+09:00', 'Z')가 있으면 기기 시각으로 바꾼 뒤 시간대를 뗀다(models.py 계약: 시각은 모두 naive 로컬, 서버의 보낼 시각 처리와 같은 규칙). 'Z'는 Python 3.10에서도 읽히도록 '+00:00'으로 바꿔 읽는다. 연도가 1900~2100 밖이면 `DateRangeError`(ValueError). 이유: 시간대가 섞인 파일은 정렬에서 TypeError(500), 모두 시간대가 있는 파일은 이후 check마다 500이었고, '0001-01-01' 같은 빈 날짜 대용값은 날짜 계산 넘침(OverflowError)으로 ②·③ 화면을 멈췄다.
   - [변경 r3] `parse_standard_ts`는 먼저 `normalize_iso_ts`로 ISO 8601 모양을 Python 3.10 `fromisoformat`이 읽는 모양으로 맞춘다:
     '+0900'·'+09'→'+09:00', 'Z'→'+00:00', 소수 초는 6자리로 채우거나 자름, '20260901T100000'·'2026-09-01 10:00'→'2026-09-01T10:00:00'.
     이유: 3.11부터 fromisoformat이 넓어져, 같은 표준 CSV가 3.12에서는 읽히고 3.10에서는 행이 '형식 오류'로 빠지거나(from_csv는 실패) 했다.
@@ -171,7 +173,7 @@ packaging/
     고위험 2건·주의 1건 → 0건). detect/는 바꾸지 않았다(회선이 빈 통신요금은 multi_line_telecom 룰·new_line 특징에서 빠진다).
   - 상대 열이 없으면 상대를 비우고 warnings에 "받는 사람 열을 찾지 못해 '한 사람에게 많이 보내기'는 판단하기 어려워요"를 남긴다.
     이유: 적요를 상대로 쓰면 모든 이체가 '모바일이체' 한 상대로 합쳐졌다(리뷰 재현: '보낸분/받는분' 파일 고위험 0건 vs 내용 열 3건 → 둘 다 3건).
-  - 날짜·시각은 칸 전체가 맞아야 읽는다(요일 '(화)', 소수 초, '+09:00'·'Z' 시간대는 허용하며 시간대는 이 컴퓨터 시각으로 바꾼다).
+  - 날짜·시각은 칸 전체가 맞아야 읽는다(요일 '(화)', 소수 초, '+09:00'·'Z' 시간대는 허용하며 시간대는 기기 시각으로 바꾼다).
     오전/오후와 영어 AM/PM(앞·뒤, 'A.M.' 포함)을 24시간제로 바꾸고, '오전 13시'처럼 모순이면 못 읽음. 이유: 앞부분만 맞아도 받아서
     'PM'을 버렸고(낮 송금 → 심야 알림 4건·고위험 1건), '2026.09.01 ~ 2026.09.30 합계' 같은 행이 가짜 출금이 되었다.
   - 숫자만 있는 시각 열은 엑셀이 앞 0을 지운 값으로 보고 0을 채운다: 열에 5~6자리가 하나라도 있으면 HHMMSS(91030 → 09:10:30),
@@ -240,7 +242,7 @@ packaging/
   - `score(txn, history_before) -> float`: 0~1. 학습 데이터 점수 분포 대비 백분위(`학습 거래 중 대상보다 덜 이례적인 거래의 비율` = `1 - 학습 거래 중 대상만큼 또는 더 이례적인 비율`)로 정규화. 높을수록 이례적(1.0이면 학습한 어떤 거래보다도 이례적).
   - `explain(txn, history_before, top_k=2) -> list[Reason]`: 특징별 학습 분포 대비 표준화 편차가 큰 순으로 `Reason(code="anomaly:<feature>", detail={...})`.
     - [변경 r4] 학습 때 값이 한 가지뿐이던(분산 0) 연속 특징은 z를 구할 수 없고 모델 점수에도 쓰이지 않으므로 이유로 내지 않는다(z=0). 0/1 사실 특징(`new_counterparty`, `new_line`, `is_night`, `is_out`)은 분산 0이어도 값이 다르면 남긴다(±99). 학습 거래 시각이 모두 같으면(날짜만 있는 CSV, 모두 12:00) 시각 특징(`hour_sin`, `hour_cos`, `is_night`)은 이유로 내지 않는다(`time_known()`). 시각 특징 이유의 detail에는 모델 설정 기준 심야 여부 `is_night`(bool)를 담는다(카드 그림용). 이유(리뷰 재현): 날짜만 있는 CSV에서 모델 단독 카드 28장 모두 '평소와 다른 시간이에요'(z=±99)였는데, 점수는 시각을 바꿔도 같았다(237/240). 등급·점수는 그대로라 eval 수치도 그대로다.
-    - [변경 r4] scikit-learn은 `fit()`이 처음 불러온다(지연 불러오기). `import safepause.detect.engine`은 sklearn·scipy를 싣지 않고, 룰만 쓰거나 학습 전(30건 미만)이면 sklearn 없이 돈다(모바일 2단계 로딩). 실측(이 PC, 3회): engine import 1.2초·새 모듈 1,216개 → 0.1초·130개. pickle·`version` 문자열은 그대로다.
+    - [변경 r4] scikit-learn은 `fit()`이 처음 불러온다(지연 불러오기). `import safepause.detect.engine`은 sklearn·scipy를 싣지 않고, 룰만 쓰거나 학습 전(30건 미만)이면 sklearn 없이 돈다(모바일 2단계 로딩). 실측(개발 컴퓨터, 3회): engine import 1.2초·새 모듈 1,216개 → 0.1초·130개. pickle·`version` 문자열은 그대로다.
   - `version` 문자열(예: "iforest-v1-<n_train>").
 ### engine.py
 - `class RiskEngine(settings=None, seed=0)`:
@@ -275,7 +277,7 @@ packaging/
     이유: 제목에 과거형이 없었고(리뷰 실측: 인물 3명×seed 3개의 ④ 카드 215장 중 73장이 '휴대폰 결제가 많아요'), 6월 카드도 '요즘…'이라고 말했다.
 - `readability_issues(card) -> list[str]`: 규칙 위반 목록(줄 길이>30, 금지어, 줄 수>4, 제목>15). 테스트에서 모든 템플릿 카드가 빈 목록이어야 한다.
 ### llm_adapter.py (선택)
-- [변경 r2] 파이썬 API로만 제공하고 화면·명령행(serve·demo·analyze)에는 연결하지 않는다. 문서는 '선택 기능(기본 꺼짐)'이 아니라 'API만 제공'으로 쓴다(켤 방법이 있는 것처럼 읽히지 않게).
+- [변경 r2] 파이썬 API로만 제공하고 화면·명령행에는 연결하지 않는다. 문서는 '선택 기능(기본 꺼짐)'이 아니라 'API만 제공'으로 쓴다(켤 방법이 있는 것처럼 읽히지 않게).
 - `LocalLLMRewriter(endpoint="http://127.0.0.1:11434", model="", enabled=False)`; `rewrite(card) -> AlertCard`: enabled이고 서버 응답 시 lines만 다듬고, `readability_issues`가 생기거나 숫자가 달라지면 원본 반환. endpoint 호스트가 loopback이 아니면 ValueError. 네트워크 실패 시 원본 반환. `source="llm"`은 실제 다듬었을 때만.
   - [변경 r4] 숫자 보존 검사(`same_numbers`)는 줄마다 비교하고, 토큰은 숫자와 뒤의 단위어 전체('3번째', '2시간', '3개월')다. '시'는 앞의 때 말까지 한 토큰('새벽2시' ≠ '오후2시'). 이유(리뷰 재현): 숫자와 바로 뒤 한 글자만 봐서 "7일 동안 이번이 3번째예요."(보내기 전) → "7일 동안 3번 보냈어요."처럼 뜻이 바뀐 문장과, 숫자를 다른 줄로 옮긴 문장이 통과했다. 남은 한계: 숫자·단위가 같은 채 '모두/이번' 같은 말만 바뀌는 경우("이번 돈까지 모두 30만 원" → "이번 돈은 30만 원")는 이 검사로 막지 못한다.
 
@@ -301,7 +303,6 @@ packaging/
     - [변경 r2] 이해충돌로 뺀 조력자가 있으면 까닭을 먼저 쓴다: "엄마는 돈을 받는 사람이에요. 그래서 아빠에게만 알려 드릴게요." `decide(..., preview=True)`(check의 미리 보기)는 아직 한 일이 없으므로 현재형("…알리지 않아요.")을 쓴다.
 ### outbox.py
 - `Outbox(store)`: `send(notice)`는 store.append_notice만 한다. **실제 문자·메일·푸시 발송 없음**(프로토타입). 문서와 UI에 "알림은 기록만 됩니다" 명시.
-  - [변경 r1] 화면 문구는 해요체로 쓴다: "알림은 기록만 해요. 이 컴퓨터에 적어 두고, 문자나 메일은 보내지 않아요."
 
 ## 8. eval/
 ### metrics.py
@@ -357,18 +358,7 @@ packaging/
     검증 세트 seed가 표본 안 seed와 겹치거나 설정이 다르면 그 사실을 적는다. 네 JSON 중 어느 것을 먼저 써도 같은 보고서가 된다.
 
 ## 9. cli.py
-`python -m safepause <명령>`:
-- `serve [--port 8765] [--no-browser]`: 서버 시작, 기본 브라우저로 `http://127.0.0.1:8765` 열기.
-  - [변경 r3] 저장 폴더마다 하나만 뜬다: `data_dir()/serve.lock`을 OS 파일 잠금(`store.FileLock`, 파일 앞쪽에 주소 JSON, 1GiB 위치의
-    바이트를 잠가 Windows에서도 앞쪽을 읽을 수 있음)으로 잡는다. 이미 잡혀 있으면 두 번째 서버를 띄우지 않고 "이미 켜져 있어요"와 먼저 뜬
-    주소를 보여 주고 브라우저로 연다(종료 코드 0). 끝날 때 주소를 지우고 잠금을 놓는다(파일은 남김: 지우면 잠금 경쟁이 생김).
-    이유: 8765가 사용 중이면 다음 포트로 같은 폴더를 쓰는 두 번째 서버가 조용히 떴고, 두 서버의 기록이 서로를 덮어썼다.
-- [변경 r3] `demo`는 아무것도 저장하지 않으므로 "(알림 대상 N명, 데모라 기록하지 않음)"과 마지막 줄 "데모는 저장하지 않아요. 화면(serve)에서는
-  알림을 이 컴퓨터에 기록만 해요."를 쓴다(전에는 '알림 기록 1건'·DELIVERY_NOTE라고 해 ⑤ 기록에서 찾을 수 없었다).
-- `demo`: 합성 데이터로 샘플 3건 평가 결과와 카드 출력(콘솔).
-- `synth --persona worker --seed 1 --out file.csv [--no-scenarios]`
-- `analyze --file my.csv [--mapping map.json]`: 거래내역 가져와 알림 목록 출력.
-  - [변경 r2] SafePause 저장소에는 넣지 않는다. `--out`을 주면 받는 곳·금액이 든 보고서를 쓰고, "wipe는 이 보고서를 지우지 않아요"를 함께 출력한다(도움말·README의 '저장 안 함' 문구를 고침).
+`python -m safepause <명령>`(개발 환경에서 엔진을 시험·평가할 때 쓰는 명령행):
 - `eval [--seeds 20] [--out docs/eval]`: 3개 모드 비교 평가 + 보고서.
   - [변경 r2] 기본 `--out`은 `eval_out`. 제출 보고서 폴더 `docs/eval`에 다른 설정(seed 수·인물·방식 등, 출력 경로 표기는 비교하지 않음)의 결과를 쓰려 하면 거절하고 `--overwrite`로만 허용한다. 이유: 빠른 확인(`--seeds 3`)이 README 수치의 근거인 20-seed 보고서를 경고 없이 덮어썼다.
   - [추가 r4] `--intensity standard|subtle`(기본 standard). subtle이면 `eval_results_subtle.json`을 쓰고, 재현 명령에 `--intensity subtle`을
@@ -376,9 +366,11 @@ packaging/
   - [추가 r5] `--seed-start N`(기본 1): seeds = range(N, N + --seeds). 1이 아니면 별도 검증 세트로 보고 결과 JSON을
     `eval_results_holdout.json`(standard) / `eval_results_subtle_holdout.json`(subtle)에 쓰고, 재현 명령에 `--seed-start N`을 붙이며,
     docs/eval 덮어쓰기 보호도 그 파일의 명령과 비교한다. 기본값(1)의 재현 명령·파일 이름·결과는 그대로다.
-- `wipe`: 저장 데이터 삭제.
 
-## 10. server/ — FastAPI (127.0.0.1 전용)
+## 10. server/ — FastAPI(자동 시험용 HTTP 틀)
+지금(v0.3) 업무 로직은 `safepause/api/service.py`에 있고, 앱(APK)은 이 서버 없이 같은 서비스를 앱 안 파이썬(Pyodide) 브리지
+(`safepause/api/bridge.py`)로 부른다. 이 서버는 같은 API를 HTTP로 감싼 틀이며, 자동 시험이 같은 요청에 같은 응답을 주는지 검사할 때
+쓴다(`tests/test_api_service.py`의 `test_router_matches_fastapi`). 아래는 v0.1 명세와 수정 기록이다.
 엔드포인트(JSON):
 - `GET /api/health` → {"status":"ok","version":...,"offline":true}
 - `GET/PUT /api/consent`
@@ -408,64 +400,28 @@ packaging/
   - [변경 r3] 가린 모양(010-****-5678, ***5678) 밖에 숫자가 아직 7개 이상 남으면, 숫자와 글자(한글 음절·영문)·가림표·@가 아닌 모든 문자를
     구분 기호로 보고 다시 가린다('010ㆍ1234ㆍ5678', '010·1234·5678', '010ㅡ1234ㅡ5678', '010/1234/5678', '010_1234_5678', '010~1234~5678',
     '010,1234,5678' → 010-****-5678). 그래도 남으면(글자 사이에 끼운 번호) 끝 4자리만 남긴다. 여러 번호('010-…, 010-…')는 따로 가린다.
-- [추가 r1] `POST /api/data/upload`: 본문을 읽기 전에 Content-Length를 본다. 없으면 411, 5MB+64KB를 넘으면 413(큰 파일이 시스템 임시 폴더에 통째로 쓰이지 않게). 화면도 5MB를 넘는 파일은 보내지 않는다.
-  - [변경 r2] Transfer-Encoding 머리글이 있으면 411(Content-Length와 chunked를 함께 보내 한도를 속이는 요청). 본문은 받는 동안 바이트 수를 세어 한도를 넘는 순간 413. multipart는 메모리에서 표준 라이브러리 email 파서로 나눈다(Starlette 파서는 1MB가 넘는 파일을 시스템 임시 폴더에 썼다. 그 폴더는 wipe 대상이 아니다). 그래서 이 경로는 python-multipart를 쓰지 않는다(의존성 목록에는 남겨 둠).
+- [추가 r1] `POST /api/data/upload`: 5MB까지.
   - [변경 r2] 동의 확인과 저장을 모두 서버 잠금 안에서 한다: 요청 시작 때(본문을 읽기 전) 동의를 확인하고 세대 번호를 적어 두며, 파일을 읽은 뒤 저장 직전에 세대 번호와 동의를 다시 본다. 지우기(`/api/wipe`)·거래 살펴보기 끄기는 세대 번호를 올리므로, 그사이 지우기·동의 끄기가 먼저 끝났으면 저장하지 않고 409("지우기(또는 동의 끄기)가 먼저 처리돼서 이번 거래는 저장하지 않았어요…"). `POST /api/data/sample`도 같은 세대 번호 확인을 한다. 이유: 파일을 읽는 사이 지우기·동의 철회를 하면 '모두 지웠어요'를 본 뒤에 실제 거래가 다시 저장됐다(S37 위반, 리뷰 재현).
-- [변경 r3] 상태를 바꾸는 요청: `X-SafePause: 1`은 늘 필요하고, Origin 머리글이 있으면 같은 출처여야 한다. 'null' Origin도 403(화면은 null을
-  보내지 않음). 전에는 'null'이면 출처 검사를 건너뛰어, 문서의 '같은 출처가 필요'보다 실제 보호 범위가 좁았다(브라우저 공격은 사전 요청에서 막혔음).
-- [변경 r3] 화면 파일(/, /static)은 `Cache-Control: no-cache`(늘 다시 확인). 새 버전으로 바꾼 뒤 옛 app.js가 남지 않게.
 - `POST /api/eval/run` {"seeds":5} → 평가 결과 (빠른 버전)
 - `POST /api/wipe` → 모든 데이터 삭제
 - 서버 시작 시 모델은 저장된 거래의 앞 75%(최소 30건)로 학습, 데이터 변경 시 재학습.
-  - [변경 r1] '데이터 변경'에는 서버 밖의 변경도 포함한다: 메모리 스냅샷은 transactions.json의 `Store.signature()`가 바뀌면 버리고 다시 만든다(밖에서 `python -m safepause wipe` 한 거래가 되살아나지 않게). 동의(거래 살펴보기)를 끄거나 다시 켤 때도 버린다.
+  - [변경 r1] '데이터 변경'에는 서버 밖의 변경도 포함한다: 메모리 스냅샷은 transactions.json의 `Store.signature()`가 바뀌면 버리고 다시 만든다. 동의(거래 살펴보기)를 끄거나 다시 켤 때도 버린다.
   - [변경 r2] 걱정되는 거래를 섞은 합성 데이터(시나리오 라벨이 있는 거래가 하나라도 있음)는 앞 75% 대신 '마지막 SCENARIO_WINDOW_DAYS(30)일 이전' 거래로 학습한다(`server/app.py train_count`, eval.metrics.synthetic_case와 같은 날짜 경계. 마지막 날은 라벨 있는 거래의 마지막 날짜). 라벨은 경계를 정하는 데만 쓴다. 이유: 시나리오가 마지막 30일에 몰려 앞 75% 경계가 시나리오 기간 안으로 들어가, 60사례 중 57사례에서 섞은 거래(합계 423건)를 평소로 배웠고 ②·③·④ 데모가 ⑥ 평가 방식과 달랐다. 실제 거래내역은 앞 75% 그대로(eval/file과 같음). 확인: 60사례 모두 학습 구간에 섞은 거래 0건, 47사례는 평가 기준 기간과 건수까지 같고 나머지는 마지막 날에 거래가 없어 1~4일 앞에서 자른다.
-정적 UI(`/`): 바닐라 HTML/CSS/JS, 빌드 도구 없음, 외부 CDN·폰트 금지(오프라인).
-- 탭: ①동의 ②내 거래 ③보내기 연습(안전 정지) ④알림 카드 ⑤조력자 ⑥성능 확인 ⑦내 데이터 지우기
-- 접근성: 기본 글자 20px 이상, 고대비, 버튼 최소 48px, 픽토그램(인라인 SVG, `static/icons/*.svg`: moon, money, question, phone, store, person, warning, check, stop, helper, ear), 음성 읽기 버튼(브라우저 Web Speech API `speechSynthesis`, 없으면 버튼 숨김), 키보드 조작.
-  - [변경 r1] 음성은 `SpeechSynthesisVoice.localService`가 참인 한국어 음성만 쓴다(온라인 음성은 받는 사람·금액 글을 밖의 서버로 보냄, S35). 없으면 버튼을 숨기고 안내한다. 좁은 화면(480px 이하)에서도 기본 글자를 줄이지 않는다.
-  - [변경 r1] 당사자 화면의 등급 표기는 "확인해요"/"꼭 확인해요"만 쓴다('주의'·'고위험'은 ⑥ 성능 확인 표에만).
-- 안전 정지 화면: 받는 사람·금액 입력 → "보내기" → /check → 위험이면 카드 모달(그림+쉬운 말+질문+3 선택지). 위험 없으면 바로 "보냈어요" 연습 완료. 모든 경우 실제 송금 없음을 화면에 표시.
-  - [변경 r2] '누구에게 물어볼까요?': 자동 알림 대상(`auto`)은 체크한 채 풀 수 없게 두고 까닭을 적는다('고른 사람에게만'이라고 하지 않음). 물어볼 수 있는 사람이 없으면 요청을 보내지 않고 까닭(과 동의 시 상담하는 곳)을 보여 준 뒤 다른 선택지로 돌아가게 한다. 이 단계에도 '소리로 듣기'가 있고, 카드 음성은 조력자 안내도 읽는다.
-  - [변경 r2] 카드가 떠 있을 때 결정 요청이 실패해도 갇히지 않는다: 동의 오류면 카드를 닫고 '확인하지 않은 연습 결과'를 보여 주고(보내기와 같음), 그 밖의 오류면 '닫기' 버튼을 보여 준다.
-  - [변경 r2] ⑦ 지우기 뒤에는 보내기 연습 입력칸(받는 사람·금액·계좌번호), 열 이름 지정 칸, 카드 모달의 제목·질문·그림·조력자 안내, 조력자 목록도 비운다.
-  - [변경 r2] ① 동의 설명은 한 줄에 한 내용(30자 안팎)으로 나누고, ⑤ 안내는 ① 스위치 이름('상담하는 곳 알려 주기')으로 부른다.
-  - [변경 r3] 화면 확인 리뷰 반영:
-    - `.two-col`·`.cards-list`·`.helper-grid`·`.tabs`의 칸 너비는 `minmax(min(Nem, 100%), 1fr)`: 320px(400% 확대)에서 ②④⑤가 가로로 넘쳤다
-      (실측 452·430·410px → 수정 뒤 7개 탭 모두 320px). 테스트는 `minmax(<n>em` 단독 사용을 막는다.
-    - `<body spellcheck="false">`와 받는 사람·계좌번호·금액·열 이름 지정·조력자 이름·관계·연락처·계좌번호 칸의 `spellcheck="false"`
-      (`autocapitalize`·`autocorrect` off): 브라우저의 온라인 맞춤법 검사가 켜져 있으면 입력한 글이 브라우저 회사 서버로 간다(S35).
-    - 결과 화면 '소리로 듣기'는 화면에 보이는 것을 모두 읽는다(상담하는 곳 목록, "(기록 N건)" 안내 포함). 동의가 꺼졌을 때의 결과에도 소리로
-      듣기가 있다. 카드 음성은 등급 배지('확인해요'/'꼭 확인해요')부터 읽고, 조력자 안내는 문장 사이를 띄운 글로 읽는다.
-    - 브라우저에 Web Speech API가 아예 없으면 "이 브라우저에서는 '소리로 듣기'를 쓸 수 없어요."를 보여 준다.
-    - '누구에게 물어볼까요?'의 자동 알림 대상 까닭은 등급에 맞춘다(고위험일 때만 '꼭 확인할 일이라', 그 밖 '확인할 일이라'). 미리 보기는
-      자동 대상이 있으면 "다음 화면에서 ○○ 말고는 바꿀 수 있어요" 또는 "다른 사람을 더할 수 있어요"(자동 대상은 뺄 수 없으므로).
-    - ① '거래 살펴보기'를 끄면 받는 사람 자동완성(#payee-list)·거래 목록·알림 카드·내 거래 확인 결과를 화면에서 바로 지운다. ③을 열 때
-      동의 오류(403)면 자동완성도 비운다(S37 즉시 철회).
-    - ① '거래 살펴보기' 설명도 한 줄에 한 내용(<p> 두 개).
+화면: v0.1의 정적 UI(server/static, 탭 ①~⑦)는 v0.3에서 앱 화면(`safepause/web`)으로 바뀌었다. 지금 화면 명세는 [docs/v03_spec.md](docs/v03_spec.md).
 
 ## 11. 패키징·실행
-- `pyproject.toml`(setuptools), 콘솔 스크립트 `safepause = safepause.cli:main`, 패키지 데이터 static 포함.
+- 안드로이드 APK 빌드는 [docs/mobile.md](docs/mobile.md) 4장.
+- `pyproject.toml`(setuptools), 콘솔 스크립트 `safepause = safepause.cli:main`, 패키지 데이터(앱 화면 파일) 포함.
 - `requirements.txt` (런타임 고정 범위).
-- `run_windows.bat`: venv 생성→설치→`python -m safepause serve`. `run_mac_linux.sh` 동일.
-- `packaging/safepause.spec` + `packaging/build_exe.bat`: PyInstaller onefile `SafePause.exe`, static 포함, sklearn hidden imports. 진입점 `packaging/launcher.py`(serve 호출).
-- `Dockerfile`(선택, 이 환경에서는 Docker가 없어 **미검증**이라고 README에 명시).
+- 개발 환경 시험: `python -m pytest -q`. 평가 수치 다시 계산은 §8의 `python -m safepause eval` 명령, 제출 수치와 같은지 확인은
+  `python tools/check_eval_unchanged.py`(seed 21~40 평가를 다시 돌려 docs/eval 원자료와 비교).
 - `.github/workflows/test.yml`(pytest).
   - [변경 r2] job의 `defaults.run.shell: bash`: Windows 러너 기본 셸(pwsh)은 여러 줄 run에서 마지막 명령의 종료 코드만 봐, demo·eval이 실패해도 단계가 통과했다.
-- [변경 r2] `run_windows.bat`·`packaging/build_exe.bat`는 가상환경을 만들기 전에 `requirements.txt`와 `safepause\__init__.py`가 있는지 보고, 없으면 "압축을 먼저 모두 푼 뒤…"를 보여 주고 멈춘다(zip 안에서 bat만 실행한 경우 쓸모없는 .venv와 엉뚱한 '인터넷 연결' 안내가 나왔다).
-- [추가 r1] `.gitattributes`: `*.bat`·`*.cmd` CRLF, `*.sh`·`*.spec` LF 고정(LF .bat는 cmd.exe가 줄을 잘못 읽어 실행되지 않음).
-- [추가 r1] `packaging/make_release_zip.py`: 제출용 zip(.venv·build·dist·egg-info·캐시 제외, .bat CRLF·.sh LF로 맞추고 zip 안에서 다시 확인).
-  - [변경 r3] 넣을 파일은 허용 목록(safepause/, tests/, docs/, sample_data/, packaging/, .github/와 README·SPEC·requirements·pyproject·실행
-    스크립트·Dockerfile·.gitattributes·.gitignore)으로 고른다. 그 안에서도 저장 파일(consent·helpers·transactions·decisions·notices.json),
-    `serve.lock`, `file_eval_*`, `.sp-*`, `*.lock`, sample_data 밖의 `*.csv`는 뺀다. `verify()`는 zip에 이런 이름이 있으면 실패
-    (`private_entries`). 같은 이름을 `.gitignore`에 더한다. 이유: 빼는 목록 방식이라 `serve --home 폴더`·`analyze --out 폴더`로 프로젝트 안에
-    생긴 개인 데이터와 사용자가 둔 실제 은행 CSV가 zip에 들어갈 수 있었다. 확인: 수정 전후 zip의 파일 목록이 같다(80개).
-- [변경 r3] README ② 명령행은 OS별로 나눈다(Windows `py -3 -m venv .venv`(없으면 `python`), macOS·Linux `python3 -m venv .venv`).
-  `run_mac_linux.sh`의 Python 버전·없음 오류는 `rm -rf .venv && PYTHON=python3.12 sh run_mac_linux.sh` 예시를 함께 보여 준다(README ①·문제 해결에도).
 
 ## 12. 문서
-- `README.md`: 심사위원용 실행 가이드(①exe 더블클릭 ②소스 실행 ③명령행), 5분 체험 시나리오, 기능↔제안서 대응표, 개인정보·오프라인 원칙, 한계.
-- `docs/architecture.md`, `docs/model_card.md`(IsolationForest 설명·한계), `docs/dataset_card.md`(합성 데이터 가정 전부), `docs/demo_script.md`(2~5분 데모 영상 대본), `docs/eval/eval_report.md`(실측).
+- `README.md`: 심사위원용 안내(APK 설치·체험), 기능↔제안서 대응표, 개인정보·오프라인 원칙, 한계.
+- `docs/architecture.md`, `docs/mobile.md`(안드로이드 앱·APK 빌드), `docs/model_card.md`(IsolationForest 설명·한계), `docs/dataset_card.md`(합성 데이터 가정 전부), `docs/eval/eval_report.md`(실측).
 - **문서의 모든 성능 수치는 실제 `python -m safepause eval` 결과 파일에서 가져온다. 추정·예상 수치 금지.**
-- [변경 r3] model_card·eval_report의 'AI 단독으로 조력자 알림을 만들지 않음'은 기본 설정(꼭 확인할 때만) 기준임을 적는다. 당사자가 ⑤에서
+- [변경 r3] model_card·eval_report의 'AI 단독으로 조력자 알림을 만들지 않음'은 기본 설정(꼭 확인할 때만) 기준임을 적는다. 당사자가 조력자 설정에서
   '확인할 때도'·'모든 것'을 고르면 AI만 걱정한 '확인해요' 거래도 알린다(리뷰 재현: worker seed2, 김*호 30만 원 새벽 2시, rule_hits 없음·
-  anomaly 0.98 → caution → 알림 1건). 데모 대본의 화면 문구 인용은 실제 문구('꼭 확인할 때만 (처음 설정)')로 맞춘다.
+  anomaly 0.98 → caution → 알림 1건).

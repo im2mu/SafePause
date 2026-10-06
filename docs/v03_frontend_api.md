@@ -9,7 +9,7 @@
 - **2026-10-03 수정(적대적 검증 145건 반영)**: 결정·계약은 `docs/v03_fixplan.md`가 이 문서보다 우선한다. 이 문서의 15절에 화면 공용 계약(새 함수·상수·CSS)을 예시와 함께 모았다.
 - **2026-10-03 화면 글 정리(`docs/v03_typography.md`)**: 간격 토큰·문장 < 문단 < 구역 리듬·줄 높이 다섯 가지·글 폭 34em·숫자 묶음(`ui.keepNodes`)·문단 묶기(`ui.paragraphs`). 16절에 화면 담당이 지킬 것을 모았다.
 - **2026-10-03 화면 글 정리 2차(`docs/v03_typography.md` 5절)**: 모든 요소의 글이 묶음을 지킨다(`setText` → `keepNodes`, dd·li·span·버튼 이름 포함), 낱말 묶기(`span.bind`)·금액 + 붙은 말(`span.keep-word`), 줄바꿈은 낱말 사이에서만(`overflow-wrap: break-word`), 버튼 이름 묶기(`span.btn-label`), 거래 자세히 머리 공용(`components.txnDetailHead`), 거래 고르기 낮은 고르기 띠, 확인 거래는 주소 대신 sessionStorage.
-- 공용 파일(화면 기반 담당): `index.html`, `js/main.js`, `js/api.js`, `js/ui.js`, `js/components.js`, `js/format.js`, `js/labels.js`, `js/icons.js`, `js/speech.js`, `js/native.js`, `js/engine-client.js`, `js/views/connect.js`, `engine/worker.mjs`, `css/app.css`, `icons/`(파비콘 `logo.svg`), `tests/test_static_ui.py`.
+- 공용 파일(화면 기반 담당): `index.html`, `js/main.js`, `js/api.js`, `js/ui.js`, `js/components.js`, `js/format.js`, `js/labels.js`, `js/icons.js`, `js/speech.js`, `js/native.js`, `js/engine-client.js`, `js/views/connect.js`, `engine/worker.mjs`, `css/app.css`, `icons/`(`logo.svg`), `tests/test_static_ui.py`.
 - 화면 파일(화면 담당): `js/views/*.js`(connect.js 빼고), `css/views/{home,txns,notify,money,more}.css`, `js/charts.js`(홈 담당이 새로 만듦).
 - 공용 모듈에 필요한 것이 생기면 직접 고치지 말고 화면 기반 담당(총괄)에게 요청한다.
 
@@ -39,7 +39,7 @@
 `views/send.js`는 v0.2의 송금 연습 화면이었고, v0.3에서는 보내기 탭의 틀(위 탭 두 개)로 다시 만들었다. 옛 송금 연습 화면은 `views/money.js`(돈 보내기)로 되살렸다.
 
 화면 파일은 처음 열 때 불러온다(`import()`). 한 화면 파일에 오류가 있어도 다른 화면은 열리고,
-그 화면에는 "화면을 불러오지 못했어요." 안내와 `console.error`가 남는다(webcheck의 errors에 잡힘).
+그 화면에는 "화면을 불러오지 못했어요." 안내와 `console.error`가 남는다.
 
 ### 1.2 주소 뒤 값(`?`)
 
@@ -225,7 +225,7 @@ import { levelBadge, flaggedBadge, flagBadge, reviewBadge, notifiedBadge, checke
 | `alertCard(item, {actions})` | 쉬운 말 카드(그림·등급·제목·줄·소리 토글). 머리 그림은 신호 선 아이콘(`SIGNAL_ICON`, 내 거래 표시와 같은 그림). 카드 줄이 이미 같은 금액을 말하면 머리 줄 금액을 빼고(C10), 줄은 `li > p`(한 문장 한 줄)·`keepUnits`(168만 원이 끊기지 않게). `actions`에 [알리기]·`flagButton`·[자세히]를 넣는다. 담음·내가 확인함·알렸어요 배지는 자동 |
 | `aiExplain(item, {heading})` | 왜 걱정되나요 두 갈래 `section.ai-explain`: 약속(규칙)으로 본 것(명사형 신호) + AI가 본 것(`item.ai`가 있을 때만: 평소 내 거래와 다른 정도 상위 N% · 평소와 가장 다른 점 한 줄 · AI만 찾은 거래 표시, 모델이 없으면 배우는 중 문장). `heading` 기본 3(시트 제목 h2 아래) |
 | `errorNotice(err, go)` | 오류 상자(동의 오류면 동의 켜러 가기) |
-| `saveFile(name, mime, text)` | 앱은 시스템 저장 창, PC는 내려받기 → `"saved"|"cancelled"|"error"` |
+| `saveFile(name, mime, text)` | 시스템 저장 창 → `"saved"|"cancelled"|"error"` |
 
 ```js
 // alerts.js: 카드마다 알리기·담기
@@ -271,7 +271,7 @@ alertCard(item, { actions: [알리기링크, flagButton(ctx, item, { cls: "btn s
 
 | 함수 | 예 |
 |---|---|
-| `deviceWord()` | 앱·휴대폰 브라우저 → `"이 휴대폰"`(화면의 짧은 쪽이 600 CSS px 이상인 태블릿은 `"이 태블릿"`, `native.isTablet()`), 그 밖 → `"이 컴퓨터"`. `${deviceWord()} 안에서만 살펴봐요.` (127.0.0.1·이 기기 직접 쓰지 않기) |
+| `deviceWord()` | 앱 → `"이 휴대폰"`(화면의 짧은 쪽이 600 CSS px 이상인 태블릿은 `"이 태블릿"`, `native.isTablet()`). `${deviceWord()} 안에서만 살펴봐요.` (127.0.0.1·이 기기 직접 쓰지 않기) |
 | `moneyText(n, sign?)` | `moneyText(50000)` → `"50,000원"`, `moneyText(50000, "-")` → `"-50,000원"`, `moneyText(-7900)` → `"-7,900원"` |
 | `formatWon(n)` | 쉬운 말 금액 `"5만 원"`(천 원·만 원 단위 반올림). 목록·표·입력 미리 보기에는 쓰지 않는다(차트 눈금·문장용) |
 | `amountPreview(n)` | 입력 금액 미리 보기: 정확한 원 단위 하나 `amountPreview(3500)` → `"3,500원"`. 0 이하·숫자 아님은 `""`. 반올림한 만 원 표기를 `=`로 붙이지 않는다(RF-4·C10) |
@@ -295,17 +295,17 @@ import { isApp, isMobile, capabilities, openExternal, smsUri, mailtoUri, telUri,
 | 함수 | 설명 |
 |---|---|
 | `isApp()` | 안드로이드 앱(엔진 모드)이면 true |
-| `isMobile()` | 앱이나 휴대폰 브라우저면 true |
-| `capabilities()` | `{app, mobile, sms, email, call, contacts, tts}`. PC는 `sms:false, call:false, email:true` |
-| `openExternal(uri)` | `sms: smsto: mailto: tel:`만. 앱은 브리지, 브라우저는 링크. 시작하면 true, 못 열면 false(PC 문자는 false) |
+| `isMobile()` | 휴대폰·태블릿이면 true(앱에서는 늘 true) |
+| `capabilities()` | `{app, mobile, sms, email, call, contacts, tts}` |
+| `openExternal(uri)` | `sms: smsto: mailto: tel:`만. 앱의 브리지로 연다. 시작하면 true, 못 열면 false |
 | `smsUri(numbers[], body)` | `"smsto:01012345678;0102222…?body=…"`(숫자·+만 남김, 글은 인코딩) |
 | `mailtoUri(emails[], subject, body)` | `"mailto:a@b.kr,c@d.kr?subject=…&body=…"` |
 | `telUri(number)` | `"tel:16448295"`(전화를 걸지 않고 다이얼 화면만) |
-| `canPickContact()` | 연락처에서 고르기를 쓸 수 있으면 true(PC면 false → 버튼 숨김) |
+| `canPickContact()` | 연락처에서 고르기를 쓸 수 있으면 true(false면 버튼 숨김) |
 | `pickContact("phone" \| "email")` | `Promise<{name, value} \| null>`. 권한 없이 한 건만. **창이 열려 있는 동안 다시 부르면 새 창을 열지 않고**(앞 창의 결과는 앞 호출이 받음) 토스트 "연락처 창이 이미 열려 있어요. 그 창에서 골라 주세요."와 함께 null(IA-5·AND-08). 못 열었거나 읽지 못했으면 토스트 "연락처를 불러오지 못했어요. 직접 적어 주세요."와 함께 null. 취소는 안내 없이 null |
 | `lastPickResult()` | 마지막 pickContact 결과 `"ok" \| "cancelled" \| "busy" \| "failed" \| "unsupported"`(null이 왜 왔는지 알아야 할 때) |
 | `copyText(text)` | `Promise<boolean>` |
-| `canListApps()` | 설치된 앱 목록을 읽고 열 수 있으면 true(안드로이드 앱만, 부를 때 `window.SafePauseNative`의 `listApps`·`openApp`을 확인). PC·휴대폰 브라우저·옛 앱은 false |
+| `canListApps()` | 설치된 앱 목록을 읽고 열 수 있으면 true(안드로이드 앱만, 부를 때 `window.SafePauseNative`의 `listApps`·`openApp`을 확인). 옛 앱은 false |
 | `listApps()` | `[{package, label}]`(앱이 정한 순서: 한글 가나다 → 영문 → 그 밖). 브리지의 JSON 글을 읽고, 패키지 이름 모양이 아닌 것·겹친 것은 뺀다. 이름은 한 줄 80글자까지(MainActivity와 같은 한도). 동기 호출이라 시트를 열 때 한 번만 부른다. 못 쓰면 빈 목록 |
 | `openApp(pkg)` | 그 앱을 연다. 열기를 시작했으면 true, 패키지 모양이 아니거나 못 열면 false |
 
@@ -314,7 +314,7 @@ import { isApp, isMobile, capabilities, openExternal, smsUri, mailtoUri, telUri,
 ```js
 // notify.js: 문자 앱 열기 → 성공하면 기록 → 알림 탭 보낸 알림
 const caps = capabilities();
-smsBtn.disabled = !caps.sms;            // PC: "문자는 휴대폰 앱에서 보낼 수 있어요."
+smsBtn.disabled = !caps.sms;
 const ok = openExternal(smsUri(numbers, message));
 if (ok) {
   await ctx.req("POST", "/api/notices/record", { channel: "sms", recipients, txn_ids, message });
@@ -324,7 +324,7 @@ if (ok) {
   // "이 휴대폰에서 문자 앱을 열지 못했어요." + [글 복사하기] → copyText(message)
 }
 
-// helpers.js / counselors.js: 연락처에서 불러오기(PC면 버튼 숨김)
+// helpers.js / counselors.js: 연락처에서 불러오기(쓸 수 없으면 버튼 숨김)
 canPickContact() ? h("button", { type: "button", class: "btn sm weak", onclick: async () => {
   const c = await pickContact("phone");
   if (c) { phone.value = c.value; if (!name.value) name.value = c.name; }
@@ -334,12 +334,12 @@ canPickContact() ? h("button", { type: "button", class: "btn sm weak", onclick: 
 ## 6. speech.js
 
 - `available()`: 기기 한국어 음성이 있으면 true. `onAvailability(fn)`(돌려준 함수로 구독 해제).
-- `voiceStatus()`: `"ready"`(쓸 수 있음) · `"pending"`(음성 목록·TTS 엔진 준비 중, 브라우저는 3초·앱은 10초까지 기다림) · `"none"`(없음으로 확정). 같은 값을 `html[data-voice]`에 적고, CSS가 준비 전에는 `.speak-btn`을 숨기고 `.voice-note`(·옛 `.mn-novoice`)는 none일 때만 보인다(D10: 음성이 늦게 와도 화면이 저절로 맞춰짐).
+- `voiceStatus()`: `"ready"`(쓸 수 있음) · `"pending"`(음성 목록·TTS 엔진 준비 중, 앱은 10초까지 기다림) · `"none"`(없음으로 확정). 같은 값을 `html[data-voice]`에 적고, CSS가 준비 전에는 `.speak-btn`을 숨기고 `.voice-note`(·옛 `.mn-novoice`)는 none일 때만 보인다(D10: 음성이 늦게 와도 화면이 저절로 맞춰짐).
 - `noVoiceNote()`: `${deviceWord()}에 한국어 음성이 없어서 소리로 듣기 버튼을 숨겼어요. …`(C7, 이 기기 하드코딩 없음). `NO_VOICE_NOTE`는 처음 불러올 때 이것으로 정한 옛 이름(문자열). 화면은 `components.noVoiceNote()`를 쓴다.
 - `speak(text, {onEnd})` → 시작하면 true. 읽던 것이 있으면 멈추고 그 onEnd를 부른다.
 - `stop()`: 멈추고 onEnd를 부른다(화면을 옮길 때 main.js가 부름).
 - `isSpeaking()`.
-- 앱은 `window.__safepauseSpeechDone()`(지금 발화의 끝남만, MainActivity)으로, PC는 Web Speech `onend`로 끝을 안다.
+- 앱은 `window.__safepauseSpeechDone()`(지금 발화의 끝남만, MainActivity)으로 끝을 안다.
 - 화면은 보통 `speakButton`만 쓰면 된다.
 
 ## 7. labels.js
@@ -389,7 +389,7 @@ openCardConnect(ctx, { onUpload: openUpload, onSample: openSample });
 - 사람·곳: `users` `user-check`(본인 확인) `logout`(로그아웃: 문 밖으로 나가는 화살표, 뒤로 가기 `back`과 다른 모양) `building`(상담하는 곳) `headset`(고객센터) `shield`
 - 설정·도움: `settings` `text-size` `moon-sun` `lock` `toggle` `help` `info` `link` `code` `refresh`
 - 편집: `plus` `minus` `edit` `copy` `trash` `check-line` `sparkle`
-- 로고: `logo`(팔각형 + 멈춤 막대). 막대는 `.brand-mark` 안에서만 보인다(`.logo-bars`). 브라우저 탭 아이콘은 같은 모양의 `icons/logo.svg`(파란 둥근 사각, 흰 팔각형, 파란 두 막대, D9).
+- 로고: `logo`(팔각형 + 멈춤 막대). 막대는 `.brand-mark` 안에서만 보인다(`.logo-bars`).
 - 픽토그램 이름의 선 버전(D4): `check`(원 체크) `warning`(삼각 느낌표) `stop`(팔각 느낌표) `person` `helper` `money` `moon`(채우지 않은 달) `phone` `question` `ear` `store`. `icon()`은 늘 이 선 버전을 쓴다.
 - 쉬운 말 카드 큰 그림(PICTO, 64, `picto(name)`): `check` `ear` `helper` `money` `moon` `person` `phone` `question` `stop` `store` `warning`. 돈 보내기 확인 카드 본문에만 쓴다.
 
@@ -500,7 +500,6 @@ h("ul", { class: "legend" }, rows.map((r) => h("li", { class: `c${CHANNEL_CHART[
 - 2026-10-03 더한 검사: 금지 문구(결정은 본인이 해요·심사·시연용·이 기기), 선 아이콘 체계(`test_line_icon_system`), 파비콘(`test_favicon_matches_logo`), 담기·내가 한 거예요 용어(`test_flag_and_review_terms`, 알림 카드 포함 `test_flag_terms_same_on_every_screen`), 공용 계약 이름(`test_shared_contract_exports`), 금액 미리 보기(`test_amount_preview_not_rounded`: money.js가 `= ${formatWon(` 대신 `amountPreview(`), 예시 칩 줄바꿈 없는 빈칸, 음성 늦게 준비, busy·시트 초점, 토스트·엔진 띠 한 문장 한 줄, 연락처 창 하나, 엔진 기본 요청·FIFO, 큰 글씨 공용 배치.
 - 2026-10-03 성능 확인 다시 계산 검사: `test_eval_recompute_contract_2026_10_03`(eval.js가 `{seeds: 20, seed_start: 21}`로 표준·경계 변형을 요청하고, `report_set`·`intensity`가 맞을 때만 견주고, 두 번째 세트 전에 `ctx.alive()`를 보고, 다른 계산 버튼을 `aria-disabled`로 잠그는지. 화면 `REF_PATHS`가 `tests/test_eval_run_api.py` `REFERENCE_PATHS`와 같은지). 백엔드 쪽 재현은 `tests/test_eval_run_api.py::test_eval_run_reproduces_report_set`.
 - 2026-10-03 글 정리 검사: 간격 토큰·문장 < 목록 < 문단 < 구역(`test_spacing_tokens_and_rhythm`), 줄 높이 토큰만·글 폭 34em(`test_line_height_system_and_measure`), 숫자 묶음·subParts(`test_keep_bundles_and_short_text`), 한 문장짜리 p 줄줄이 금지(`test_paragraphs_group_related_sentences`), 재검증 남은 문제 계약(`test_reverify_layout_contracts_2026_10_03`).
-- 화면 확인: `python scratchpad/tools/webcheck.py --routes … --setup sample --out <폴더>`(360x780, `--font 2`, `--desktop`, `--dark`), errors가 빈 목록이어야 한다.
 
 ## 13. 백엔드 API 빠른 참조(설계서 3절, 실제 구현 기준)
 
@@ -531,7 +530,7 @@ h("ul", { class: "legend" }, rows.map((r) => h("li", { class: `c${CHANNEL_CHART[
 
 계약의 자세한 내용은 `docs/v03_spec.md` 3.7절과 `docs/v03_fixplan.md` 3절을 본다.
 
-파일 올리기는 `api("POST", UPLOAD_PATH, undefined, {blob, name, mapping, mode})`로 부른다. api.js가 PC에서는 multipart 칸 `mode`, 앱 엔진에서는 본문 `mode`로 넘기고, `UPLOAD_MODES`(`["replace", "append"]`)를 내보낸다. txns.js는 이 값이 있을 때만 이어 붙이기·모두 바꾸기 고르기 창을 보인다.
+파일 올리기는 `api("POST", UPLOAD_PATH, undefined, {blob, name, mapping, mode})`로 부른다. api.js가 앱 엔진에 본문 `mode`로 넘기고, `UPLOAD_MODES`(`["replace", "append"]`)를 내보낸다. txns.js는 이 값이 있을 때만 이어 붙이기·모두 바꾸기 고르기 창을 보인다.
 
 앱(엔진 모드)에서는 동의·조력자·상담하는 곳·알림 기록(기록·지우기)·내가 한 거예요(표시·취소)·확인 기록 지우기·모두 지우기가 AI 준비 전에도 바로 처리된다(worker.mjs BASIC, 파이썬 쪽 시험 `test_new_light_routes_do_not_load_numpy`).
 AI 부분(numpy·scikit-learn)만 못 켜면 `engine.status`가 `{stage: "error", fatal: false}`이고 기본 요청은 계속 처리된다(AI가 필요한 요청만 503, FE-03). 파이썬을 켜지 못하면 `fatal: true`로 모든 요청이 503이다. 동의 바꾸기·모두 지우기(우선 요청)는 줄 앞쪽에 들어가되 우선 요청끼리는 온 순서대로 처리된다(FE-05). 담은 거래·돈 흐름 분석·거래 목록, 돈 보내기의 check·decide·payees, 받는 사람 추천(suggest)은 거래 판단(numpy)이 필요해 AI 준비가 끝난 뒤 온다(worker.mjs BASIC에 넣지 않는다, 테스트가 확인).
@@ -553,7 +552,7 @@ AI 부분(numpy·scikit-learn)만 못 켜면 `engine.status`가 `{stage: "error"
 - bankapp.js
   - `getBankApp()`·`saveBankApp(app)`·`clearBankApp()`: localStorage `safepause.bankApp = {package, label}`(try/catch)
   - `pickBankApp()` → `Promise<app | null>`: 검색 칸 + 은행·결제 앱(이름에 은행·뱅크·bank·페이·pay·증권·카드) 먼저 + 다른 앱. 회사 이름은 넣지 않는다
-  - `openBankApp(app)`, `bankAppUnavailable()`(PC면 `은행 앱은 휴대폰 앱에서 열 수 있어요.`, 휴대폰·태블릿 브라우저면 `은행 앱은 SafePause 앱을 설치하면 열 수 있어요.`)
+  - `openBankApp(app)`
   - `bankAppActions()`: [내 은행 앱 열기](고른 앱 이름) / [다른 은행 앱 고르기], 못 열면 `은행 앱을 열지 못했어요. 다시 골라 주세요.`
   - `bankAppSettings()`: 앱 설정의 내 은행 앱(고르기·바꾸기·지우기). 동의 화면의 모두 지우기는 `clearBankApp()`도 부른다
 - notify.js 받는 사람 추천: 거래를 고르거나 바꿀 때 `POST /api/notify/suggest {txn_ids}` → 추천 배지·미리 체크(본인이 바꾼 사람은 그대로), 돈을 받은 조력자는 체크를 풀고 `이 거래에서 돈을 받은 사람이에요. 다른 사람에게 알리는 게 좋아요.`, 그래도 체크하면 보내기 전에 확인 시트. 추천을 못 받으면 추천 없이
@@ -650,8 +649,7 @@ h("p", { text: keepUnits(line) });
 
 | 환경 | 표준 | 경계 변형 | 두 세트 |
 |---|---|---|---|
-| PC 서버(`Service.eval_run`, 백엔드 담당 측정) | 10.78초 | 10.14초 | 약 21초(화면 흐름 6조건 20.7~23.5초) |
 | 앱 엔진 묶음을 헤드리스 Chrome(휴대폰 흉내 360×780)에서, 엔진 full 뒤 누름(통합 점검 2026-10-03) | 23.9초 | 19.5초 | 43.4초(화면 표시), 168개 모두 같음, holdout 원자료 1,100개 차이 0 |
-| 디버그 APK를 에뮬레이터(Android 15 x86_64, 같은 PC)에서, 엔진 full 뒤 누름(통합 점검 2026-10-03) | 48.2초 | 40.6초 | 88.8초(화면 표시), 168개 모두 같음, holdout 원자료 1,100개 차이 0 |
+| 디버그 APK를 에뮬레이터(Android 15 x86_64, 같은 컴퓨터)에서, 엔진 full 뒤 누름(통합 점검 2026-10-03) | 48.2초 | 40.6초 | 88.8초(화면 표시), 168개 모두 같음, holdout 원자료 1,100개 차이 0 |
 
 휴대폰 실기 시간은 재지 않았다(자세한 조건은 `docs/mobile.md` 3장). 화면 안내 문장(`TIME_HINT`)은 잰 값만 쓴다.

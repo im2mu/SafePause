@@ -9,8 +9,8 @@
 | 버전 | versionCode 3 / versionName 0.3.0 |
 | 지원 | Android 8.0(API 26) 이상, targetSdk 35(Android 15). 화면 프로그램 Android System WebView(Android 8·9는 Chrome) **97 이상**, 권장 112 이상(Pyodide 권장). 97 미만이면 앱이 빈 화면 대신 업데이트 안내를 보인다(`js/legacy.js`·`js/compat.js`), 97~110이면 배치 일부가 어긋날 수 있어 한 번 권한다 |
 | 권한 | **없음** (INTERNET·READ_CONTACTS·CALL_PHONE 모두 요청하지 않음). 연락처는 시스템 선택 창이 고른 한 건만 받고, 전화는 다이얼 화면만 연다 |
-| 화면 | PC판과 같은 파일(`safepause/web`) — 토스 계열 모바일 우선 화면 |
-| AI 엔진 | 앱 안 파이썬(Pyodide 314.0.7, Python 3.14) + NumPy·SciPy·scikit-learn. **PC판과 같은 파이썬 코드**(`safepause` 패키지) |
+| 화면 | `safepause/web`(HTML·CSS·JS) — 토스 계열 모바일 우선 화면 |
+| AI 엔진 | 앱 안 파이썬(Pyodide 314.0.7, Python 3.14) + NumPy·SciPy·scikit-learn으로 `safepause` 패키지를 돌림 |
 | 저장 | 앱 전용 저장소(IndexedDB). 기기 백업·기기 이전에서 뺌(`allowBackup=false`, data_extraction_rules) |
 
 ## 2. 구조
@@ -18,7 +18,7 @@
 ```
 [WebView 화면: safepause/web]  ──메시지──▶  [웹 워커: engine/worker.mjs]
   홈·내 거래·보내기·알림·전체                  Pyodide(웹어셈블리 파이썬)
-  api.js(전달 방식만 다름)                      safepause.api.bridge → router → service(PC와 같은 코드)
+  api.js                                        safepause.api.bridge → router → service
         │                                        저장: /spdata(IDBFS, 앱 전용 IndexedDB)
         ▼
 [MainActivity.java]  https://app.safepause.local/* 요청만 APK assets에서 꺼내 줌. 그 밖의 주소는 403.
@@ -37,13 +37,13 @@
 
 - 2단계 준비: 앱을 켜면 파이썬과 가벼운 기능(동의·조력자·기록)을 먼저 준비하고, AI 분석 패키지는 뒤에서 싣습니다.
   에뮬레이터(Android 15, x86_64) 첫 실행: AI 분석까지 준비 약 11초, 거래 232건 첫 학습 약 4초, 이후 요청은 수십 ms.
-- 같은 요청에 PC판과 같은 응답을 주는지는 `tests/test_api_service.py::test_router_matches_fastapi`가 검사합니다.
+- 앱 엔진(`router`)이 자동 시험용 HTTP 틀(`server/app.py`)과 같은 요청에 같은 응답을 주는지는 `tests/test_api_service.py::test_router_matches_fastapi`가 검사합니다.
 - 앱 안 AI 엔진이 제출 보고서 수치를 그대로 재현하는지는 앱 화면에서 직접 확인할 수 있습니다: **전체 → AI 성능 확인 → 보고서 수치 다시 계산**.
   검증 세트와 같은 설정(인물 3명 × seed 21~40, 세 방식)으로 표준 시나리오와 경계 변형을 차례로 계산하고,
   화면에 넣은 보고서 기준값(`data/eval_reference.json`) 168개와 반올림 없이 견줍니다(`docs/v03_frontend_api.md` 17절).
   2026-10-03 통합 점검에서 이 화면을 앱 묶음으로 끝까지 돌려 168개가 모두 같았고, 화면이 받은 응답을
   `docs/eval/eval_results_holdout.json`·`eval_results_subtle_holdout.json`의 값 1,100개(세트마다 550개, 계산 환경 정보 제외)와 견줘도
-  **차이 0**이었습니다(앱 Pyodide: numpy 2.4.6·scikit-learn 1.8.0, PC: numpy 2.5.3·scikit-learn 1.9.1). 걸린 시간은 3장 첫 표.
+  **차이 0**이었습니다(앱 Pyodide: numpy 2.4.6·scikit-learn 1.8.0, 보고서 원자료를 계산한 개발 환경: numpy 2.5.3·scikit-learn 1.9.1). 걸린 시간은 3장 첫 표.
 
 ## 3. 확인한 것
 
@@ -63,13 +63,13 @@
 | 확인 | 결과 |
 |---|---|
 | aapt2 dump badging | label `SafePause`, versionCode 3 / 0.3.0, 요청 권한 0개 |
-| 앱 묶음(www)을 헤드리스 Chrome에서 엔진 모드로(휴대폰 흉내 360×780, PC: AMD Ryzen 5 7500F 6코어, Windows 11) | 엔진 full까지 6.7초. full 뒤 누름: 표준 23.9초, 경계 변형 19.5초, 화면 표시 모두 43.4초. 결론 줄 `다시 계산한 값이 보고서 수치와 모두 같아요.`, 같아요 표시 32개·달라요 0개. 응답 값: 기준값 168개 차이 0, holdout 원자료 1,100개 차이 0, JS 오류 0 |
-| 디버그 빌드 `polish-debug.apk`를 에뮬레이터에서(Android 15 google_apis x86_64, WebView 124, `-gpu guest`, 가상 4코어·4GB, 같은 PC) | 설치 성공, 요청 권한 없음(`dumpsys package`), versionName 0.3.0. 막 부팅한 에뮬레이터에서 앱을 켠 뒤 엔진 full 단계를 확인하기까지 21.9초. full 뒤 누름: 표준 48.2초, 경계 변형 40.6초, 화면 표시 모두 88.8초. 결론 줄 `다시 계산한 값이 보고서 수치와 모두 같아요.`, 같아요 32개·달라요 0개. 응답 값: 기준값 168개 차이 0, holdout 원자료 1,100개 차이 0. 계산 환경 python 3.14.2·numpy 2.4.6·scikit-learn 1.8.0. 계산 뒤에도 앱 프로세스 그대로 |
-휴대폰 실기(ARM)에서는 재지 않았습니다. 에뮬레이터는 PC 위에서 도는 x86_64 가상 기기라 휴대폰 시간을 대신하지 않습니다.
+| 앱 묶음(www)을 헤드리스 Chrome에서 엔진 모드로(휴대폰 흉내 360×780, 측정 컴퓨터: AMD Ryzen 5 7500F 6코어, Windows 11) | 엔진 full까지 6.7초. full 뒤 누름: 표준 23.9초, 경계 변형 19.5초, 화면 표시 모두 43.4초. 결론 줄 `다시 계산한 값이 보고서 수치와 모두 같아요.`, 같아요 표시 32개·달라요 0개. 응답 값: 기준값 168개 차이 0, holdout 원자료 1,100개 차이 0, JS 오류 0 |
+| 디버그 빌드 `polish-debug.apk`를 에뮬레이터에서(Android 15 google_apis x86_64, WebView 124, `-gpu guest`, 가상 4코어·4GB, 같은 컴퓨터) | 설치 성공, 요청 권한 없음(`dumpsys package`), versionName 0.3.0. 막 부팅한 에뮬레이터에서 앱을 켠 뒤 엔진 full 단계를 확인하기까지 21.9초. full 뒤 누름: 표준 48.2초, 경계 변형 40.6초, 화면 표시 모두 88.8초. 결론 줄 `다시 계산한 값이 보고서 수치와 모두 같아요.`, 같아요 32개·달라요 0개. 응답 값: 기준값 168개 차이 0, holdout 원자료 1,100개 차이 0. 계산 환경 python 3.14.2·numpy 2.4.6·scikit-learn 1.8.0. 계산 뒤에도 앱 프로세스 그대로 |
+휴대폰 실기(ARM)에서는 재지 않았습니다. 에뮬레이터는 컴퓨터 위에서 도는 x86_64 가상 기기라 휴대폰 시간을 대신하지 않습니다.
 화면 안내 문장은 잰 값만 쓰고, 휴대폰은 아직 재 보지 않았다고 적습니다.
 앱 엔진은 요청을 한 줄로 처리해서, 계산하는 동안 다른 화면으로 가도 이미 보낸 계산은 끝까지 돌고 그동안 다른 요청이 기다립니다(화면은 결과를 버리고 두 번째 세트를 보내지 않음).
 
-### v0.3 (2026-10-02, 빌드·데스크톱 Chrome)
+### v0.3 (2026-10-02, 빌드·앱 엔진)
 
 | 확인 | 결과 |
 |---|---|
@@ -144,7 +144,7 @@ python android/assemble_www.py --pyodide android/pyodide-dist --out android/www-
 python android/build_apk.py --sdk <SDK 폴더> --jdk <JDK 폴더> --www android/www-build --out dist/SafePause-0.3.0.apk
 ```
 
-- 서명 키(`android/signing/`)는 저장소·배포 zip에 넣지 않습니다(.gitignore). **같은 키로 서명해야 설치된 앱을 지우지 않고
+- 서명 키(`android/signing/`)는 저장소에 넣지 않습니다(.gitignore). **같은 키로 서명해야 설치된 앱을 지우지 않고
   업데이트**할 수 있으니 키 파일과 `keystore.properties`를 안전한 곳에 보관하세요.
 - `--debug`로 빌드하면 WebView 원격 디버깅과 화면 로그(logcat)가 켜집니다. 배포판은 끕니다(로그에 받는 사람·금액이 섞일 수 있어서).
 - 앱 묶음 경량화(기본): `assemble_www.py`가 원본 wheel의 sha256을 확인한 뒤, 실행 중에 읽지 않는 파일(패키지 안 tests·빌드 원본·
@@ -159,7 +159,7 @@ python android/build_apk.py --sdk <SDK 폴더> --jdk <JDK 폴더> --www android/
 
 ## 5. 설치 (심사위원·사용자)
 
-1. APK 파일을 휴대폰에 옮깁니다(구글 드라이브 링크, USB 등).
+1. APK 파일을 휴대폰에 옮깁니다(내려받기·USB 등). APK는 저장소에 넣지 않았습니다.
 2. 파일을 누르고, "출처를 알 수 없는 앱 설치" 허용을 물으면 그 앱(파일 관리자·브라우저)에만 허용합니다.
 3. Play 프로텍트가 "알 수 없는 개발자" 경고를 보여 주면 [세부정보] → [무시하고 설치]를 누릅니다(개인 서명 앱이라 뜨는 경고).
 4. 처음 켜면 AI 엔진 준비에 10초쯤 걸립니다(위쪽 파란 막대). 동의·조력자 화면은 그 전에 쓸 수 있습니다.

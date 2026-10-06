@@ -1,7 +1,6 @@
-"""cli.py · packaging/launcher.py 테스트(serve는 서버 모듈이 필요해 제외)."""
+"""cli.py 테스트(serve는 서버 모듈이 필요해 제외)."""
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import re
@@ -343,41 +342,6 @@ def test_server_host_is_loopback_only():
 
 
 # ---------------------------------------------------------------------------
-# packaging/launcher.py
-# ---------------------------------------------------------------------------
-
-def _load_launcher():
-    spec = importlib.util.spec_from_file_location("sp_launcher", ROOT / "packaging" / "launcher.py")
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_launcher_argv_defaults_to_serve():
-    launcher = _load_launcher()
-    assert launcher.launcher_argv([]) == ["serve"]
-    assert launcher.launcher_argv(["--port", "9000"]) == ["serve", "--port", "9000"]
-    assert launcher.launcher_argv(["--no-browser"]) == ["serve", "--no-browser"]
-    assert launcher.launcher_argv(["demo"]) == ["demo"]
-    assert launcher.launcher_argv(["--version"]) == ["--version"]
-
-
-def test_launcher_run_passes_command(capsys):
-    launcher = _load_launcher()
-    assert launcher.run(["--version"]) == 0
-    assert __version__ in capsys.readouterr().out
-
-
-def test_spec_file_mentions_required_parts():
-    spec = (ROOT / "packaging" / "safepause.spec").read_text(encoding="utf-8")
-    for needle in ('name="SafePause"', "safepause/web", 'collect_submodules("sklearn"',
-                   'collect_submodules("uvicorn")', "launcher.py"):
-        assert needle in spec
-    compile(spec, "safepause.spec", "exec")  # 문법 확인(실행하지 않음)
-
-
-# ---------------------------------------------------------------------------
 # python -m safepause (종료 코드 전달)
 # ---------------------------------------------------------------------------
 
@@ -515,15 +479,3 @@ def test_bind_first_free_holds_port_and_skips_busy():
         busy.close()
     with pytest.raises(cli.CliError):
         cli._bind_first_free(0)
-
-
-def test_launcher_handles_system_exit(monkeypatch):
-    launcher = _load_launcher()
-
-    def boom(argv):
-        raise SystemExit(3)
-
-    monkeypatch.setattr(launcher, "main", boom)
-    paused: list[int] = []
-    monkeypatch.setattr(launcher, "_pause_on_error", lambda code: paused.append(code))
-    assert launcher.run([]) == 3 and paused == [3]

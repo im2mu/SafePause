@@ -14,7 +14,7 @@ SafePause의 판단은 **룰(착취 시그널 5종) + 개인 기준 이상탐지
 | `safepause/explain/easy_card.py` | 판단 → 쉬운 말·그림 카드(제목 15자·줄 30자·4줄·금지어 검사 `readability_issues`) |
 | `safepause/guardian/policy.py` | 조력자 알림 정책: 기본 고위험만, 조력자별 등급·범위, 돈 받는 조력자 제외, 반복 고위험 시 상담 안내(동의 시) |
 | `safepause/eval/metrics.py` | 합성 데이터 평가(시나리오 탐지율, 거래별 재현율, 정상 거래 알림률, 대조군 월 알림) |
-| `safepause/api/service.py` | 화면이 쓰는 업무 로직(PC 서버·안드로이드 앱 공통) |
+| `safepause/api/service.py` | 앱 화면이 쓰는 업무 로직(안드로이드 앱 안 파이썬 엔진에서 돌아감) |
 
 ## 2. 결합 규칙 (engine.py `combine_level`)
 
@@ -31,6 +31,8 @@ else:                                        → 괜찮아요
 
 ## 3. 재현
 
+개발 환경의 파이썬(`requirements.txt`)에서 평가 수치를 다시 계산하는 명령입니다.
+
 ```bash
 python -m safepause eval --seeds 20 --seed-start 21                      # 표준, 별도 검증 세트
 python -m safepause eval --seeds 20 --seed-start 21 --intensity subtle   # 경계 변형
@@ -42,7 +44,8 @@ python tools/make_samples.py && python tools/make_dataset_summary.py      # 샘�
 - v0.2·v0.3의 모든 수정 뒤에도(마지막 확인: v0.3 최종 2026-10-06, 1,100개 값 차이 0) 위 두 명령의 결과가 제출 성과보고서의 원자료
   (`docs/eval/eval_results_holdout.json`, `eval_results_subtle_holdout.json`)와 같습니다.
   확인 명령: `python tools/check_eval_unchanged.py`(모든 지표를 한 값씩 비교, 같으면 종료 코드 0).
-- 안드로이드 앱 안 파이썬(Pyodide, numpy 2.4.6·scikit-learn 1.8.0)에서도 같은 값이 나옵니다([mobile.md](mobile.md) 2절).
+- 안드로이드 앱 안 파이썬(Pyodide, numpy 2.4.6·scikit-learn 1.8.0)에서도 같은 값이 나옵니다. 앱 화면 **전체 → AI 성능 확인 → 보고서 수치 다시 계산**으로
+  직접 확인할 수 있습니다([mobile.md](mobile.md) 2절).
 
 ## 4. 한계 (요약)
 

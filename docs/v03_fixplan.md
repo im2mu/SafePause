@@ -166,5 +166,5 @@
 | 연습용 거래 | 응답에 `ai_only`, 기본 조합 변경 (D) |
 
 - 서비스·router(Pyodide)·FastAPI 세 곳 같게 하고, 파리티 테스트를 붙인다.
-- 새 저장 파일은 store.STORE_FILES·packaging PRIVATE_FILE_NAMES·.gitignore·모두 지우기에 넣는다.
+- 새 저장 파일은 store.STORE_FILES·.gitignore·모두 지우기에 넣는다.
 - 탐지·평가 불변: `tools/check_eval_unchanged.py` 차이 0
