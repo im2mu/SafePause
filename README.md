@@ -9,6 +9,15 @@
 - 당사자가 고른 조력자·상담하는 곳에 **문자·메일 앱을 열어** 알릴 수 있습니다. SafePause는 글을 채워 앱을 열 뿐이고, 보내기는 사람이 직접 누릅니다.
 - 모든 판단은 이 기기 안에서만 합니다(PC: 127.0.0.1 전용 로컬 서버, 안드로이드: 앱 안 파이썬 엔진). SafePause가 거래 데이터를 밖으로 보내지 않습니다(알림 보내기에서 본인이 보내는 글만 문자·메일 앱으로 넘어갑니다).
 
+> **제출 결과물 바로 가기 (2026 AI 라이프 솔루션 챌린지)**
+> - 안드로이드 앱 `SafePause-0.3.0.apk`: 설치·사용은 아래 1장 ⓐ. APK는 저장소에 넣지 않고 공모전 제출 메일의 다운로드 링크로 냅니다(직접 빌드는 [docs/mobile.md](docs/mobile.md)).
+> - AI 모델 코드·설명: [docs/ai_model.md](docs/ai_model.md)(코드 지도·결합 규칙), [docs/model_card.md](docs/model_card.md), 탐지 코드 [safepause/detect/](safepause/detect/)
+> - 학습 데이터셋 요약: [docs/dataset_summary.md](docs/dataset_summary.md), [docs/dataset_card.md](docs/dataset_card.md)
+> - 샘플 결과물: [samples/](samples/README.md)(거래·판단 결과·알림 카드·돈 보내기 전 확인 카드·성능 확인), 다시 만들기 `python tools/make_samples.py`·`python tools/make_dataset_summary.py`
+> - 평가 원자료: [docs/eval/](docs/eval/eval_report.md), 수치가 그대로인지 확인 `python tools/check_eval_unchanged.py`(1,100개 값), 앱 안에서는 전체 → AI 성능 확인 → 보고서 수치 다시 계산(168개 값)
+>
+> **v0.3 최종 (2026-10-06, 제출본)** 바뀐 화면 구간 전수 검토 4차 반영, 서명 APK 0.3.0(요청 권한 0개). 탐지 로직·평가 수치는 그대로입니다(1,100개 값 차이 0). 확인 범위는 아래 8장.
+>
 > **v0.3 (2026-10-02)** 화면 개편([docs/v03_spec.md](docs/v03_spec.md))
 > - 정체성: 송금 연습 화면을 없애고, 거래 불러오기 → AI가 찾음 → 쉬운 말 카드 → 조력자·상담하는 곳에 알림 보내기 흐름으로 바꿨습니다.
 > - 홈: 이번 달(기준 달) 돈 흐름 분석(달마다 나간 돈, 결제 방법별 비율, 시간대, 많이 보낸 곳 TOP 3).
@@ -42,22 +51,22 @@
 
 ## 1. 실행하기 (심사위원용)
 
-아래 방법 중 하나를 고르세요. **휴대폰은 ⓐ 안드로이드 앱, Windows PC는 ⓪ SafePause.exe가 가장 간단합니다.** Python이 있거나 macOS·Linux라면 ① 소스 실행을 쓰세요. 확인 범위는 8장에 적었습니다.
+**제출물은 ⓐ 안드로이드 앱입니다.** PC에서 같은 화면을 보려면 ① 소스 실행을 쓰세요(Windows·macOS·Linux). ⓪ SafePause.exe는 v0.1 때 쓰던 배포 방식이라 이번 제출에는 없고, 필요하면 ③으로 직접 만들 수 있습니다. 확인 범위는 8장에 적었습니다.
 
 ### ⓐ 안드로이드 앱 (Android 8.0 이상)
 
-1. `SafePause-0.3.0.apk`를 휴대폰에 옮겨 누릅니다. "출처를 알 수 없는 앱" 설치 허용을 물으면 그 앱(파일 관리자·브라우저)에만 허용합니다.
+1. `SafePause-0.3.0.apk`(제출 메일의 다운로드 링크)를 휴대폰에 옮겨 누릅니다. "출처를 알 수 없는 앱" 설치 허용을 물으면 그 앱(파일 관리자·브라우저)에만 허용합니다.
 2. Play 프로텍트 경고가 뜨면 [세부정보] → [무시하고 설치](개인 서명 앱이라 뜨는 경고)를 누릅니다.
 3. 처음 켜면 AI 엔진 준비에 10초쯤 걸립니다(위쪽 파란 막대). 동의·조력자 화면은 그 전에도 쓸 수 있습니다.
 4. 인터넷 권한이 없는 앱입니다. 비행기 모드에서도 똑같이 동작합니다. 자세한 구조·확인 결과는 [docs/mobile.md](docs/mobile.md).
 
-### ⓪ SafePause.exe (Windows, 설치 불필요, 권장)
+### ⓪ SafePause.exe (Windows, ③으로 직접 빌드한 경우)
 
 1. `SafePause.exe`를 짧은 경로의 폴더(예: `C:\SafePause`)에 두고 **더블클릭**합니다. Python을 설치할 필요가 없습니다.
 2. 검은 창에 주소(`http://127.0.0.1:8765/#k=…`)가 나오고 기본 브라우저가 화면을 엽니다. 브라우저가 열리지 않으면 창에 나온 주소를 **끝까지(#k=… 포함)** 브라우저에 붙여 넣으세요. `#k=` 뒤는 이번 실행에만 쓰는 세션 토큰입니다(같은 PC의 다른 프로그램이 화면 없이 API를 쓰지 못하게, 6장).
 3. 끝내려면 검은 창에서 `Ctrl+C`를 누르거나 창을 닫습니다.
 
-- **"Windows의 PC 보호"(SmartScreen) 창이 뜨면:** 이 파일은 코드 서명을 하지 않았습니다. 인터넷에서 받은 서명 없는 실행파일에는 이 경고가 뜰 수 있습니다. **[추가 정보] → [실행]**을 누르면 됩니다. 걱정되면 ① 소스 실행으로 같은 프로그램을 확인할 수 있습니다(exe는 이 소스를 `packaging\safepause.spec`으로 묶은 것).
+- **"Windows의 PC 보호"(SmartScreen) 창이 뜨면:** 이 파일은 코드 서명을 하지 않았습니다. 다른 PC로 옮기거나 내려받은 서명 없는 실행파일에는 이 경고가 뜰 수 있습니다. **[추가 정보] → [실행]**을 누르면 됩니다. 걱정되면 ① 소스 실행으로 같은 프로그램을 확인할 수 있습니다(exe는 이 소스를 `packaging\safepause.spec`으로 묶은 것).
 - 콘솔 명령도 됩니다: `SafePause.exe demo`(샘플 판단 결과 보기), `SafePause.exe eval --seeds 5`(성능 평가), `SafePause.exe --port 9000`.
 - 처음 실행할 때 파일을 임시 폴더에 풀기 때문에 화면이 뜨기까지 몇 초 걸립니다(작성 PC에서 서버 응답까지 약 3초, 8장).
 - 저장 폴더는 `%LOCALAPPDATA%\SafePause`입니다. 화면의 '전체 → 동의 → 모두 지우기'(맨 아래)나 `SafePause.exe wipe`로 지울 수 있습니다.
@@ -223,17 +232,17 @@ httpx 0.28은 요구 범위의 하한인 fastapi 0.110(starlette 0.36)의 테스
 
 | 제안서 | 내용 | 구현 위치 |
 |---|---|---|
-| S6/S18 | 당사자(또는 법정대리인) 사전 동의 기반, 연동된 금융 마이데이터 거래 내역의 실시간·상시 분석 | ① 동의(거래 살펴보기·조력자 알림·상담 연결을 따로), 동의가 없으면 분석 API가 403 — `server/app.py`, `store.py`. **금융 마이데이터 연동은 구현하지 않음**: 합성 데이터와 당사자가 내려받은 CSV로 대신(질의 답변서) |
+| S6/S18 | 당사자(또는 법정대리인) 사전 동의 기반, 연동된 금융 마이데이터 거래 내역의 실시간·상시 분석 | 전체 → 동의(거래 살펴보기·조력자 알림·상담 연결을 따로), 동의가 없으면 분석 API가 403 — `server/app.py`, `store.py`. **금융 마이데이터 연동은 구현하지 않음**: 합성 데이터와 당사자가 내려받은 CSV로 대신(질의 답변서) |
 | S19 | 착취 시그널 5종(심야 반복 이체, 특정 계좌 송금 급증, 통신 소액결제 급증, 신규 가맹점 고액 결제, 단기간 다회선 통신요금) | 룰 필터 `detect/rules.py` |
 | S19/S35 | 룰 + 경량 AI 이상탐지(거래 시계열 패턴 분류) 결합 | 개인 기준 IsolationForest `detect/anomaly.py`, 결합 `detect/engine.py`. 시계열 분류 모델이 아니라 거래마다 최근 7일·평소 90일 창을 요약한 특징량의 비지도 이상탐지로 대신함([모델 카드](docs/model_card.md)) |
 | S20/S21 | 당사자 스마트폰 앱에서 쉬운 말·그림 카드로 송금 전 안전 정지, 강제 차단 없이 본인이 최종 결정 | `explain/easy_card.py`, 보내기 → 돈 보내기의 보내기 전 확인 카드("그래도 보낼래요"·"안 보낼래요"·"조력자에게 물어볼래요"). v0.3: SafePause는 돈을 보내지 않고, 확인 뒤 본인이 고른 은행 앱을 엶(안드로이드 앱). 실제로 보냈는지는 알 수 없음 |
-| S22 | 고위험에 한해 신뢰 조력자 2차 알림(기본값), 알림 대상·등급·범위는 당사자가 정함 | `guardian/policy.py`, ⑤ 조력자 |
+| S22 | 고위험에 한해 신뢰 조력자 2차 알림(기본값), 알림 대상·등급·범위는 당사자가 정함 | `guardian/policy.py`, 전체 → 조력자 |
 | S23 | 고위험 패턴 반복 시 본인 동의 전제 상담기관 연계 | `guardian/policy.py`. 반복 기준은 구현 설정값(`config.py` `high_repeat_for_counseling`: 30일 3건 이상, 보내지 않고 멈춘 시도 포함) |
 | S35 | 마이데이터 표준 API 연계, 판단·알림 온디바이스, 외부 전송 차단, 쉬운 언어 변환(sLLM) | "온디바이스" = 안드로이드 앱 안 파이썬 엔진(인터넷 권한 없음) 또는 이 PC의 127.0.0.1 전용 서버. 데이터 연결 어댑터 `data/sources.py`(마이데이터 연결 지점 `MyDataSource`는 본 사업 단계). 외부 CDN·글꼴 없음, 로컬 JSON 저장. **마이데이터 API 연계는 구현하지 않음**(S6/S18 행). sLLM 문장 다듬기는 파이썬 API로만 제공하고 화면·명령행에는 연결하지 않음(기본 꺼짐, loopback만 허용, `explain/llm_adapter.py`, 실제 sLLM으로는 미검증) |
-| S37 | 사전 동의·즉시 철회권, 알림 대상·범위 지정 권한은 당사자에게 | 동의 끄기 즉시 반영, ⑦ 모두 지우기, 조력자별 등급·시그널 범위·자동 알림 켜고 끄기 |
+| S37 | 사전 동의·즉시 철회권, 알림 대상·범위 지정 권한은 당사자에게 | 동의 끄기 즉시 반영, 전체 → 동의 → 모두 지우기, 조력자별 등급·시그널 범위·자동 알림 켜고 끄기 |
 | S38 | 오탐이 금융 주권을 위축시키지 않도록 강제 차단 없는 안내, 당사자가 기획 단계부터 참여하는 쉬운 언어(Easy-to-Read) 감수 | "그래도 보낼래요" 항상 가능, AI 단독으로는 고위험을 내지 않음, 카드 가독성 자동 검사 `readability_issues`(줄 길이·줄 수·제목 길이·금지어). **제안서의 당사자 참여 쉬운 언어 감수는 하지 않음** |
 | 질의 답변서 | 조력자가 거래 상대방이면 그 조력자 대신 다른 조력자에게, 또는 동의 시 상담 연계 | `guardian/policy.py` `is_conflict` |
-| 질의 답변서 | 내려받은 실제 거래내역으로 정상 거래 오탐 확인 | `data/loader.py`, ⑥ "내 거래로 확인", `analyze` 명령 |
+| 질의 답변서 | 내려받은 실제 거래내역으로 정상 거래 오탐 확인 | `data/loader.py`, 전체 → AI 성능 확인 → 내 거래로 확인, `analyze` 명령 |
 | 보완 | 카드의 세 번째 선택지 "조력자에게 물어볼래요": 당사자가 직접 묻고, 물어볼 사람을 고름(제안서 S20/S21에는 본인 최종 결정만 있음) | `guardian/policy.py` `ask_helper_candidates`·`ask_helper_plan`, 돈 보내기의 "누구에게 물어볼까요?" → [문자로 물어보기]·[메일로 물어보기](알림 보내기) |
 | 보완 | 음성 읽기는 기기 안 한국어 음성만 사용(온라인 음성은 글을 밖으로 보내므로 쓰지 않음) | `web/js/speech.js`, 안드로이드 `MainActivity.java`(네트워크가 필요한 음성 제외) |
 
@@ -368,8 +377,8 @@ httpx 0.28은 요구 범위의 하한인 fastapi 0.110(starlette 0.36)의 테스
 - **올린 파일**: 5MB까지. 크기는 본문을 받기 전(Content-Length)과 받는 동안(실제 바이트 수) 두 번 확인합니다.
   파일은 메모리에서만 읽고 시스템 임시 폴더에 쓰지 않습니다. 읽는 사이 지우기·동의 끄기가 먼저 끝나면 저장하지 않습니다.
 - **명령행 보고서**: `analyze --out`이 쓰는 보고서 파일에는 받는 곳·금액·시각이 들어 있습니다. 저장 폴더 밖의 파일이라
-  `wipe`·⑦ 지우기가 지우지 않으니, 필요 없으면 직접 지워 주세요.
-- **즉시 철회**: 동의를 끄면 메모리의 분석 결과도 바로 버립니다. ⑦ 모두 지우기는 거래 기록부터 지우고,
+  `wipe`·모두 지우기가 지우지 않으니, 필요 없으면 직접 지워 주세요.
+- **즉시 철회**: 동의를 끄면 메모리의 분석 결과도 바로 버립니다. 모두 지우기(전체 → 동의 → 모두 지우기)는 거래 기록부터 지우고,
   지우지 못한 파일이 있으면 그 목록을 한국어로 알려 줍니다.
 - **알림은 사람이 보냄**: SafePause는 문자·메일을 직접 보내지 않습니다. 알림 보내기는 글을 채운 문자·메일 앱(상담하는 곳은 전화 다이얼 화면)을 열고,
   보내기는 사람이 누릅니다. 조력자 설정대로 적어 두는 기록은 보낸 것이 아니며 화면에 '적어 둠 · 아직 안 보냄'으로 나옵니다.
@@ -404,6 +413,18 @@ httpx 0.28은 요구 범위의 하한인 fastapi 0.110(starlette 0.36)의 테스
 ---
 
 ## 8. 확인한 것과 확인하지 않은 것
+
+### v0.3 최종 (2026-10-06, 제출본)
+
+| 항목 | 상태 |
+|---|---|
+| 자동 테스트 `python -m pytest -q` | 확인(1,596개 통과, 1개 건너뜀, 커밋 `3304141`). 그 뒤 화면 코드만 고친 커밋 `568b288`(제출 APK를 빌드한 커밋)은 `tests/test_static_ui.py` 118개 통과 |
+| 제출 평가 수치 불변 | 확인(`tools/check_eval_unchanged.py`: 1,100개 값 차이 0) |
+| 화면 | 확인(경로 20개 + 시트 장면 × 폭 320·360·412·768·1280 × 글자 1·1.3·1.6·2배, 밝게·어둡게. 고치기 전·후 캡처를 줄 단위로 맞춰 바뀐 구간만 4차례 전수 검토) |
+| 가로 넘침 | 확인(위 20조건 + 넓은 글꼴 6조건, 문서·시트 넘침 0) |
+| 서명 APK `SafePause-0.3.0.apk` | 확인(요청 권한 0개, label SafePause, minSdk 26·targetSdk 35, 디버그 꺼짐, v2·v3 서명, 25,505,059바이트) |
+| 에뮬레이터(Android 15 x86_64, WebView 124) | 확인(새로 설치 → 첫 실행·동의 → 연습용 거래 222건 분석 → 보고서 수치 다시 계산 168개 같음, 약 66초) |
+| **미확인** | 실제 휴대폰(ARM)·구형 안드로이드 실기기, 실제 은행 앱 열기, 실제 은행·카드사 파일 양식, TalkBack 실사용 |
 
 ### v0.3 화면 글 정리·성능 확인 다시 계산 (2026-10-03, 통합 점검)
 
@@ -475,7 +496,7 @@ httpx 0.28은 요구 범위의 하한인 fastapi 0.110(starlette 0.36)의 테스
 
 ```
 safepause/            앱 패키지 (models.py = 공통 데이터 계약)
-  data/               synth.py 합성 데이터, loader.py CSV·TXT 가져오기, xlsx.py 엑셀(.xlsx) 첫 시트 읽기(표준 라이브러리만)
+  data/               synth.py 합성 데이터, loader.py CSV·TXT 가져오기, xlsx.py·xls.py 엑셀 첫 시트 읽기(표준 라이브러리만), htmltable.py 웹 표(.xls)
   detect/             features.py 특징량, rules.py 5개 시그널, anomaly.py IsolationForest, engine.py 결합
   explain/            easy_card.py 쉬운 말 카드, llm_adapter.py sLLM 문장 다듬기(파이썬 API만, 기본 꺼짐)
   guardian/           policy.py 조력자 알림·이해충돌·상담 연계, outbox.py 알림 기록
@@ -493,20 +514,20 @@ sample_data/          가상 거래 CSV와 설명
 docs/                 architecture.md, model_card.md, dataset_card.md, dataset_summary.md, ai_model.md, mobile.md, demo_script.md, eval/
 packaging/            PyInstaller 설정(safepause.spec, build_exe.bat, launcher.py), make_release_zip.py
 run_windows.bat, run_mac_linux.sh, requirements.txt, pyproject.toml, Dockerfile(미검증)
-(SafePause.exe는 소스 zip에 넣지 않고 따로 전달)
+(APK는 저장소에 넣지 않고 다운로드 링크로 따로 전달. exe는 이번 제출에 없고 1장 ③으로 직접 만들 수 있음)
 ```
 
 문서: [구조](docs/architecture.md) · [모델 카드](docs/model_card.md) · [데이터셋 카드](docs/dataset_card.md) · [데모 대본](docs/demo_script.md) · [평가 보고서](docs/eval/eval_report.md)
 
 ---
 
-## 10. 제출·배포용 압축 파일 만들기
+## 10. 소스 압축 파일 만들기 (이번 제출에는 쓰지 않음)
 
 폴더를 통째로 압축하면 `.venv`(수백 MB, 만든 컴퓨터의 Python 경로가 박혀 있음)가 따라가 다른 컴퓨터에서 실행이 실패합니다.
 아래 명령으로 만드세요.
 
 ```bash
-python packaging/make_release_zip.py      # → dist/SafePause-0.2.0-src.zip
+python packaging/make_release_zip.py      # → dist/SafePause-<버전>-src.zip (지금은 0.3.0)
 ```
 
 - 넣을 파일은 허용 목록으로 고릅니다: `safepause/`, `tests/`, `docs/`, `sample_data/`, `samples/`, `tools/`, `android/`(서명 키 제외), `packaging/`, `.github/`와
@@ -517,8 +538,8 @@ python packaging/make_release_zip.py      # → dist/SafePause-0.2.0-src.zip
 - `.bat`는 CRLF, `.sh`는 LF로 맞춰 넣고, 끝에 zip 안의 줄바꿈을 다시 세어 보여 줍니다.
   (`.bat`가 LF로 바뀌면 cmd.exe가 줄을 잘못 읽어 실행되지 않습니다. 저장소에는 `.gitattributes`로 줄바꿈을 고정했습니다.)
 
-### 제출할 때: 실행파일 전달 방법
+### 제출할 때: 실행 파일(APK) 전달 방법
 
-- Gmail 등 여러 메일 서비스는 보안 때문에 **.exe 파일 첨부를 막습니다(zip 안에 넣어도 막힐 수 있음).** `SafePause.exe`(약 65MB)는 첨부 용량 한도(Gmail 25MB)도 넘습니다.
-- 그래서 `SafePause.exe`와 소스 zip은 **구글 드라이브·GitHub Releases 같은 다운로드 링크**로 전달하고, 메일 본문에 링크를 적습니다. 링크는 '링크가 있는 모든 사용자 보기'처럼 로그인 없이 받을 수 있게 설정해야 합니다.
-- 받은 쪽이 파일이 같은지 확인할 수 있도록 SHA-256 값을 함께 적어 두면 좋습니다(Windows: `certutil -hashfile SafePause.exe SHA256`).
+- APK(약 25.5MB)는 메일 첨부 용량 한도(Gmail 25MB)를 넘고, 실행 파일 첨부는 메일 서비스가 막을 수 있습니다.
+- 그래서 APK는 **구글 드라이브·GitHub Releases 같은 다운로드 링크**로 전달하고, 메일 본문에 링크를 적습니다. 링크는 '링크가 있는 모든 사용자 보기'처럼 로그인 없이 받을 수 있게 설정해야 합니다.
+- 받은 쪽이 파일이 같은지 확인할 수 있도록 SHA-256 값을 함께 적어 두면 좋습니다(Windows: `certutil -hashfile SafePause-0.3.0.apk SHA256`).

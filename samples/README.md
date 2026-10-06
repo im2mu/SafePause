@@ -13,6 +13,6 @@
 | 06_eval_quick.json | 성능 확인(인물 3 × seed 3 = 9사례, 규칙+AI·규칙만·AI만) |
 | 07_dataset_stats.json | 학습·평가 데이터셋 통계(인물 3 × seed 1~40, `python tools/make_dataset_summary.py`) |
 
-- 제출 성과보고서의 성능 수치는 별도 검증 세트(seed 21~40)이며 원자료는 `docs/eval/eval_results_holdout.json`,
-  `docs/eval/eval_results_subtle_holdout.json`입니다(이 폴더의 06은 빠른 확인용이라 값이 다릅니다).
-- 데이터 설명: `docs/dataset_card.md`, 통계 요약: `docs/dataset_summary.md`
+- 제출 성과보고서의 성능 수치는 별도 검증 세트(seed 21~40)이며 원자료는 [docs/eval/eval_results_holdout.json](../docs/eval/eval_results_holdout.json),
+  [docs/eval/eval_results_subtle_holdout.json](../docs/eval/eval_results_subtle_holdout.json)입니다(이 폴더의 06은 빠른 확인용이라 값이 다릅니다).
+- 데이터 설명: [docs/dataset_card.md](../docs/dataset_card.md), 통계 요약: [docs/dataset_summary.md](../docs/dataset_summary.md), 평가 보고서: [docs/eval/eval_report.md](../docs/eval/eval_report.md)

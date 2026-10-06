@@ -93,7 +93,7 @@ def main() -> int:
         lines.append(f"| {name} | " + " | ".join(f"{won(am[c][0])} / {won(am[c][1])}" if c in am else "-" for c in chans) + " |")
 
     lines += ["", "## 4. 섞은 걱정 거래(시나리오) — 평가 구간", "",
-              "| 시나리오 | 강도 | 사례 수 | 사례당 거래(평균) | 한 건 금액 중앙값 | 새벽 0~4시 비율 |", "|---|---|---|---|---|---|"]
+              "| 시나리오 | 강도 | 사례 수 | 사례당 거래(평균) | 한 건 금액 중앙값 | 00:00~03:59 비율(시나리오는 00~04시대) |", "|---|---|---|---|---|---|"]
     for intensity in ("standard", "subtle"):
         per: dict[str, list] = defaultdict(list)
         amts: dict[str, list] = defaultdict(list)

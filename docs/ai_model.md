@@ -39,7 +39,7 @@ python tools/make_samples.py && python tools/make_dataset_summary.py      # 샘�
 ```
 
 - 같은 seed면 같은 합성 데이터·같은 모델(IsolationForest `random_state` 고정)이라 결과가 같습니다.
-- v0.2의 모든 수정(서비스 계층 분리·로더·탐지 코드 리뷰 반영) 뒤에도 위 두 명령의 결과가 제출 성과보고서의 원자료
+- v0.2·v0.3의 모든 수정 뒤에도(마지막 확인: v0.3 최종 2026-10-06, 1,100개 값 차이 0) 위 두 명령의 결과가 제출 성과보고서의 원자료
   (`docs/eval/eval_results_holdout.json`, `eval_results_subtle_holdout.json`)와 같습니다.
   확인 명령: `python tools/check_eval_unchanged.py`(모든 지표를 한 값씩 비교, 같으면 종료 코드 0).
 - 안드로이드 앱 안 파이썬(Pyodide, numpy 2.4.6·scikit-learn 1.8.0)에서도 같은 값이 나옵니다([mobile.md](mobile.md) 2절).

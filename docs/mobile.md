@@ -4,7 +4,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 파일 | `SafePause-0.3.0.apk` (약 30MB, 쓰는 동안 인터넷 연결 불필요) |
+| 파일 | `SafePause-0.3.0.apk` (25,505,059바이트 ≈ 25.5MB, 쓰는 동안 인터넷 연결 불필요) |
 | 홈 화면 이름 | `SafePause` (`res/values/strings.xml`의 app_name, 아이콘은 그림만) |
 | 버전 | versionCode 3 / versionName 0.3.0 |
 | 지원 | Android 8.0(API 26) 이상, targetSdk 35(Android 15). 화면 프로그램 Android System WebView(Android 8·9는 Chrome) **97 이상**, 권장 112 이상(Pyodide 권장). 97 미만이면 앱이 빈 화면 대신 업데이트 안내를 보인다(`js/legacy.js`·`js/compat.js`), 97~110이면 배치 일부가 어긋날 수 있어 한 번 권한다 |
@@ -46,6 +46,14 @@
   **차이 0**이었습니다(앱 Pyodide: numpy 2.4.6·scikit-learn 1.8.0, PC: numpy 2.5.3·scikit-learn 1.9.1). 걸린 시간은 3장 첫 표.
 
 ## 3. 확인한 것
+
+### v0.3 최종 서명 APK (2026-10-06, 제출본)
+
+| 항목 | 결과 |
+|---|---|
+| aapt2 | 요청 권한 0개, label SafePause, versionName 0.3.0(versionCode 3), minSdk 26·targetSdk 35, debuggable 아님, allowBackup false |
+| apksigner | v2·v3 서명 확인, 25,505,059바이트 |
+| 에뮬레이터(Android 15 x86_64, WebView 124) | 새로 설치 → 첫 실행 안내·동의 → 연습용 거래 222건 분석(홈 돈 흐름) → 보고서 수치 다시 계산 168개 같음(약 66초) |
 
 ### v0.3 성능 확인 다시 계산 (2026-10-03, 통합 점검)
 
